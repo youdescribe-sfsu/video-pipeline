@@ -12,6 +12,8 @@ from keyframes_revised_script_with_scenes import insert_key_frames
 from text_summarization import text_summarization, text_summarization_csv
 from subprocess import call
 import sys
+from nodejs import node
+
 if __name__ == "__main__":
 
     video_id = sys.argv[1]
@@ -51,9 +53,10 @@ if __name__ == "__main__":
     # TODO VILBERT SCORING
 
     # TODO Convert to python
-    call(["node", "../csv.js"], shell=True)
-    call(["node", "../sceneSegmentation.js"], shell=True)
-
+    # call(["node", "../csv.js"], shell=True)
+    # call(["node", "../sceneSegmentation.js"], shell=True)
+    node.call(['csv.js'])
+    node.call(['sceneSegmentation.js'])
     text_summarization_csv(file=None)
 
     # speech to text HERE

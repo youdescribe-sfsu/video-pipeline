@@ -1,0 +1,8 @@
+opencv-python
+requests
+google
+google-cloud
+google-cloud-vision
+yt-dlp
+pandas
+nltk

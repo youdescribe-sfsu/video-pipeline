@@ -1,0 +1,25 @@
+{
+  "name": "video-pipeline",
+  "version": "1.0.0",
+  "description": "",
+  "main": "csv.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/youdescribe-sfsu/video-pipeline.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/youdescribe-sfsu/video-pipeline/issues"
+  },
+  "homepage": "https://github.com/youdescribe-sfsu/video-pipeline#readme",
+  "dependencies": {
+    "compute-cosine-similarity": "1.0.0",
+    "csv-parser": "3.0.0",
+    "csv-stringify": "5.6.5",
+    "express": "4.17.1"
+  }
+}
