@@ -5,6 +5,8 @@ import os
 import time
 import csv
 
+from dotenv import load_dotenv
+
 YOLOv3_tiny = 8080
 YOLOv3_Openimages = 8083
 YOLOv3_9000 = 8084
@@ -14,9 +16,8 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny):
     """
     Use remote image object detection service provided by Andrew
     """
-    page = 'http://ec2-35-91-158-249.us-west-2.compute.amazonaws.com:{}/upload'.format(
-        service)
-    token = 'J6FLgLawuqzbEHsGzxm35GumUNGk4gbZAQ2WrcWdet4zLDFFesMERbgT4LqHwrGK'
+    page = os.getenv('ANDREW_YOLO_UPLOAD_URL') + '/upload'
+    token = os.getenv('ANDREW_YOLO_TOKEN')
 
     multipart_form_data = {
         'token': ('', str(token)),

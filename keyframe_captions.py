@@ -3,12 +3,13 @@
 import requests
 import os
 import csv
+from dotenv import load_dotenv
 
 def get_caption(filename):
 	"""
 	Gets a caption from the server given an image filename
 	"""
-	page = 'http://localhost:8080/upload'
+	page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '5000')
 	token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 	
 	multipart_form_data = {

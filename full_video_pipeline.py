@@ -13,6 +13,9 @@ from text_summarization import text_summarization, text_summarization_csv
 from subprocess import call
 import sys
 from nodejs import node
+from dotenv import load_dotenv
+load_dotenv()
+
 
 if __name__ == "__main__":
 

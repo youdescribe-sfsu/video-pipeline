@@ -7,3 +7,4 @@ yt-dlp
 pandas
 nltk
 nodejs-bin
+python-dotenv
