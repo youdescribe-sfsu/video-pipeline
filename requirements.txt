@@ -1,4 +1,4 @@
-opencv-python
+opencv-python==4.4.0.40
 requests
 google
 google-cloud
@@ -6,3 +6,4 @@ google-cloud-vision
 yt-dlp
 pandas
 nltk
+nodejs-bin
