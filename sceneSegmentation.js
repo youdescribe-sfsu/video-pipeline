@@ -10,7 +10,9 @@ let columns = {
 };
 data = [];
 var stringify = require("csv-stringify");
-fs.createReadStream("outputavg.csv")
+const scenesegmentedfile = process.argv[3];
+const outputavg_csv = process.argv[2]
+fs.createReadStream(outputavg_csv)
   .pipe(csv())
   .on("data", (data) => {
     results.push(data);
@@ -98,9 +100,9 @@ fs.createReadStream("outputavg.csv")
       { header: true, columns: columns },
       (err, output) => {
         if (err) throw err;
-        fs.writeFile("scenesegmentedfile.csv", output, (err) => {
+        fs.writeFile(scenesegmentedfile, output, (err) => {
           if (err) throw err;
-          console.log("scenesegmentedfile.csv saved.");
+          console.log(`${scenesegmentedfile} saved.`);
         });
       }
     );

@@ -19,7 +19,7 @@ import pandas as pd
 import requests
 import sys
 from nltk.translate.bleu_score import sentence_bleu
-
+from utils import returnVideoFolderName,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
 
 def calculateBleuScore(data):
     sentence = data['sentence']
@@ -165,13 +165,13 @@ def text_summarization(video_id):
 # In[ ]:
 
 
-def text_summarization_csv(file):
+def text_summarization_csv(video_id):
 
     scene_arr = []
-
+    file = returnVideoFolderName(video_id)+'/'+SCENE_SEGMENTED_FILE_CSV
     # Open the requested CSV file, read it, and append the lines
     # to scene_arr
-    with open("scenesegmentedfile.csv", "r") as f:
+    with open(file, "r") as f:
         reader = csv.reader(f)
 
         for i, line in enumerate(reader):
@@ -290,7 +290,7 @@ def text_summarization_csv(file):
             # print(scene[2][index[0]])
             # print('\n\n')
 
-    f = open("summarized_scenes.json", "a")
+    f = open(returnVideoFolderName(video_id)+'/'+SUMMARIZED_SCENES, "a")
 
     f.write(json.dumps(sentences))
     f.close()

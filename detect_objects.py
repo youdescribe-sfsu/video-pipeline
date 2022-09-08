@@ -4,7 +4,7 @@ import requests
 import os
 import time
 import csv
-
+from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV
 from dotenv import load_dotenv
 
 YOLOv3_tiny = 8080
@@ -43,20 +43,19 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny):
         return eval(response.text)
 
 
-def track_objects(video_name, threshold, service=YOLOv3_tiny, logging=False):
+def track_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False):
     """
     Detects objects in each frame and collates the results into a dictionary
     The key is the name of the object, and each entry contains the frame index, detection confidence, and count
     """
     objects = {}
-    video_name = video_name.split('/')[-1].split('.')[0]
-    with open('{}/data.txt'.format(video_name), 'r') as datafile:
+    with open('{}/data.txt'.format(video_files_path), 'r') as datafile:
         data = datafile.readline().split()
         step = int(data[0])
         num_frames = int(data[1])
 
     for frame_index in range(0, num_frames, step):
-        frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
+        frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
         obj_list = detect_objects(frame_filename, threshold, service)
         frame_objects = {}
         for entry in obj_list:
@@ -78,16 +77,18 @@ def track_objects(video_name, threshold, service=YOLOv3_tiny, logging=False):
     return objects
 
 
-def object_tracking_to_csv(video_name):
+def object_tracking_to_csv(video_id):
     """
     Collates all detected objects into columns and tracks them from frame to frame
     """
-    video_name = video_name.split('/')[-1].split('.')[0]
-    outcsvpath = "Objects.csv"
+    video_frames_path = returnVideoFramesFolder(video_id)
+    print("000000000000")
+    print("FILENAME "+video_frames_path)
+    outcsvpath = returnVideoFolderName(video_id)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
-        objects = track_objects(video_name, 0.1, logging=True)
-
-        with open('{}/data.txt'.format(video_name), 'r') as datafile:
+        objects = track_objects(video_frames_path, 0.1, logging=True)
+        print(video_frames_path)
+        with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
             step = int(data[0])
             num_frames = int(data[1])

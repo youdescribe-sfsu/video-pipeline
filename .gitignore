@@ -1,4 +1,5 @@
 node_modules/
 **_frames/
+**_files/
 .env
 tts_cloud_key.json

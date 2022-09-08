@@ -6,6 +6,8 @@ import sys
 import requests
 import json
 from requests.api import request
+from utils import returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR
+
 
 def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):
 	"""
@@ -29,13 +31,13 @@ def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):
 			d[i] = new_di
 	return d[m]
 
-def filter_ocr(video_name, window_width=10, threshold=0.5):
+def filter_ocr(video_id, window_width=10, threshold=0.5):
 	"""
 	Splits the detected text into blocks of frames with similar text then picks
 	a representative text from each block by choosing the one whose total
 	Levenshtein distance from other text in the block is minimal
 	"""
-	incsvpath = "OCR Text.csv"
+	incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
 	with open(incsvpath, 'r', newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
 		
@@ -85,7 +87,7 @@ def filter_ocr(video_name, window_width=10, threshold=0.5):
 				filtered_rows.append(best_ocr)
 				#print(best_ocr)
 		
-		outcsvpath = "OCR Filter.csv"
+		outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_FILE_NAME
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
 			writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
@@ -93,14 +95,14 @@ def filter_ocr(video_name, window_width=10, threshold=0.5):
 				writer.writerow(row)
 				outcsvfile.flush()
 
-def filter_ocr_agreement(video_name, window_width=10, threshold=0.5, low_threshold=0.05, min_stable_len=5):
+def filter_ocr_agreement(video_id, window_width=10, threshold=0.5, low_threshold=0.05, min_stable_len=5):
 	"""
 	Splits the detected text into blocks of frames with similar text then picks
 	a representative text from each block that has a sufficiently long run of
 	very similar texts by choosing the one whose total Levenshtein distance from
 	other text in the similar subset of the block is minimal
 	"""
-	incsvpath = "OCR Text.csv"
+	incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
 	with open(incsvpath, 'r', newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
 		header = next(reader) # Header is ["Frame Index", "Timestamp", "OCR Text"]
@@ -144,7 +146,7 @@ def filter_ocr_agreement(video_name, window_width=10, threshold=0.5, low_thresho
 					filtered_rows.append(best_ocr)
 					#print(best_ocr)
 		
-		outcsvpath = "OCR Filter 2.csv"
+		outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
 			writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
@@ -173,9 +175,9 @@ def filter_ocr_remove_similarity(video_id, threshold=0.15, use_agreement=True, m
 	use_agreement should be set to true if using the results from filter_ocr_agreement
 	"""
 	if use_agreement:
-		incsvpath = "OCR Filter 2.csv"
+		incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
 	else:
-		incsvpath = "OCR Filter.csv"
+		incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_FILE_NAME
 		
 	with open(incsvpath, 'r', newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
@@ -224,7 +226,7 @@ def filter_ocr_remove_similarity(video_id, threshold=0.15, use_agreement=True, m
 			remaining_lines = [lines[idx] for idx in range(len(lines)) if idx not in toRemove]
 			kept_rows[i][2] = remove_non_ascii('\n'.join(remaining_lines))
 		
-		outcsvpath = "OCR Filter Remove Sim.csv"
+		outcsvpath = returnVideoFolderName(video_id)+ "/"+ OCR_FILTER_REMOVE_SIMILAR
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
 			writer.writerow(["Frame Index", "Timestamp", "OCR Text"])

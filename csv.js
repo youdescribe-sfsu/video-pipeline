@@ -19,8 +19,10 @@ let columns = {
   iskeyFrame: "iskeyFrame",
   description: "description",
 };
+const captions_and_object_csv = process.argv[2];
+const outputavg_csv = process.argv[3]
 var similarity = require("compute-cosine-similarity");
-fs.createReadStream("Captions and Objects.csv")
+fs.createReadStream(captions_and_object_csv)
   .pipe(csv())
   .on("data", (data) => {
     results.push(data);
@@ -73,9 +75,9 @@ fs.createReadStream("Captions and Objects.csv")
     }
     stringify(data, { header: true, columns: columns }, (err, output) => {
       if (err) throw err;
-      fs.writeFile("outputavg.csv", output, (err) => {
+      fs.writeFile(outputavg_csv, output, (err) => {
         if (err) throw err;
-        console.log("outputavg.csv saved.");
+        console.log(`${outputavg_csv} saved.`);
       });
     });
   });

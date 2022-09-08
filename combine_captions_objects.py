@@ -1,24 +1,25 @@
 # Combine the captions with the object detections
 
 import csv
+from utils import returnVideoFolderName,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV
 
-def combine_captions_objects(video_name):
+def combine_captions_objects(video_id):
 	"""
 	Outputs a csv file combining the columns of the object and caption csv files
 	"""
-	objcsvpath = 'Objects.csv'
+	objcsvpath = returnVideoFolderName(video_id)+'/'+OBJECTS_CSV
 	with open(objcsvpath, newline='', encoding='utf-8') as objcsvfile:
 		reader = csv.reader(objcsvfile)
 		objheader = next(reader) # skip header
 		objrows = [row for row in reader]
 	
-	captcsvpath = 'Captions.csv'
+	captcsvpath = returnVideoFolderName(video_id)+'/'+CAPTIONS_CSV
 	with open(captcsvpath, newline='', encoding='utf-8') as captcsvfile:
 		reader = csv.reader(captcsvfile)
 		captheader = next(reader) # skip header
 		captrows = [row for row in reader]
 	
-	outcsvpath = 'Captions and Objects.csv'
+	outcsvpath = returnVideoFolderName(video_id)+'/'+CAPTIONS_AND_OBJECTS_CSV
 	with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
 		header = captheader + objheader[1:]

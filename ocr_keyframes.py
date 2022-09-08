@@ -7,6 +7,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
+from utils import returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME
 
 def detect_text(path):
 	"""
@@ -77,12 +78,17 @@ def get_ocr_confidences(video_name):
 				print()
 				writer.writerow(new_row)
 
-def print_all_ocr(video_name, start=0):
+def print_all_ocr(video_id, start=0):
 	"""
 	Writes out all detected text for each extracted frame into a csv file
 	TODO(Lothar): Keep track of bounding boxes
 	"""
-	video_name = video_name.split('/')[-1].split('.')[0]
+	video_name = returnVideoFramesFolder(video_id)
+	print("--------------------------")
+	print(video_name)
+	print("--------------------------")
+
+	# video_name = video_name.split('/')[-1].split('.')[0]
 	with open('{}/data.txt'.format(video_name), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
@@ -90,7 +96,7 @@ def print_all_ocr(video_name, start=0):
 		frames_per_second = float(data[2])
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
-	outcsvpath = "OCR Text" + ".csv"
+	outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
 	#check if file already contains progress from last attempt
 	if os.path.exists(outcsvpath) :
 		if os.stat(outcsvpath).st_size > 32:

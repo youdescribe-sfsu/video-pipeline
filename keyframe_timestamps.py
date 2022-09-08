@@ -1,21 +1,21 @@
 # Optimize keyframe selection based on object detection results
 
 import csv
-
-def keyframes_from_object_tracking(video_name, target_keyframes_per_second=1):
+from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV,KEYFRAMES_CSV
+def keyframes_from_object_tracking(video_id, target_keyframes_per_second=1):
 	"""
 	Iteratively selects the keyframe that has the highest sum of square
 	confidences and is reasonably close to 1/target_keyframes_per_second seconds
 	after the previous keyframe
 	"""
-	video_name = video_name.split('/')[-1].split('.')[0]
-	with open('{}/data.txt'.format(video_name), 'r') as datafile:
+	video_frames_path = returnVideoFramesFolder(video_id)
+	with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
 		num_frames = int(data[1])
 		frames_per_second = float(data[2])
 	
-	incsvpath = 'Objects.csv'
+	incsvpath = returnVideoFolderName(video_id)+ "/" + OBJECTS_CSV
 	with open(incsvpath, newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
 		header = next(reader) # skip header
@@ -51,7 +51,7 @@ def keyframes_from_object_tracking(video_name, target_keyframes_per_second=1):
 			last_keyframe = best
 	
 	seconds_per_frame = 1.0/video_fps
-	outcsvpath = 'Keyframes.csv'
+	outcsvpath = returnVideoFolderName(video_id)+ "/" + KEYFRAMES_CSV
 	with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
 		writer.writerow(["Frame Index", "Timestamp"])

@@ -2,10 +2,10 @@ import sys
 
 import yt_dlp as ydl
 import requests
-
+from utils import returnVideoDownloadLocation
 
 def import_video(videoId):
-    ydl_opts = {'outtmpl': './'+videoId, "format": "best", }
+    ydl_opts = {'outtmpl': returnVideoDownloadLocation(videoId), "format": "best", }
     vid = ydl.YoutubeDL(ydl_opts).extract_info(
         url='https://www.youtube.com/watch?v=' + videoId, download=True)
 

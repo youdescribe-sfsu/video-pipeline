@@ -3,6 +3,8 @@
 import requests
 import os
 import csv
+from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV
+
 from dotenv import load_dotenv
 
 def get_caption(filename):
@@ -48,13 +50,14 @@ def get_all_captions(video_name):
 	
 	return captions
 
-def captions_to_csv(video_name, start=0):
+def captions_to_csv(video_id, start=0):
 	"""
 	Gets a caption for each extracted frame and writes it to a csv file along with
 	the frame index and a boolean indicating whether the frame is a keyframe or not
 	"""
-	video_name = video_name.split('/')[-1].split('.')[0]
-	with open('{}/data.txt'.format(video_name), 'r') as datafile:
+	video_frames_path = returnVideoFramesFolder(video_id)
+	video_folder_path = returnVideoFolderName(video_id)
+	with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
 		num_frames = int(data[1])
@@ -62,13 +65,13 @@ def captions_to_csv(video_name, start=0):
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
 	
-	with open('Keyframes.csv'.format(video_name), newline='', encoding='utf-8') as incsvfile:
+	with open(video_folder_path + '/'+ KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
 		header = next(reader) # skip header
 		keyframes = [int(row[0]) for row in reader]
 	
 
-	outcsvpath = 'Captions.csv'
+	outcsvpath = video_folder_path + '/'+ CAPTIONS_CSV
 	if os.path.exists(outcsvpath) :
 		if os.stat(outcsvpath).st_size > 50:
 			with open(outcsvpath, 'r', newline='', encoding='utf-8') as file:
@@ -91,7 +94,7 @@ def captions_to_csv(video_name, start=0):
 		if start == 0:
 			writer.writerow(["Frame Index", "Timestamp", "Is Keyframe", "Caption"])
 		for frame_index in range(start, num_frames, step):
-			frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
+			frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
 			caption = get_caption(frame_filename)
 			print(frame_index, caption)
 			row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
