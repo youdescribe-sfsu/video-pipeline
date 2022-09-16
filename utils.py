@@ -10,6 +10,9 @@ CAPTIONS_AND_OBJECTS_CSV="captions_and_objects.csv"
 OUTPUT_AVG_CSV="outputavg.csv"
 SCENE_SEGMENTED_FILE_CSV="scenesegmentedfile.csv"
 SUMMARIZED_SCENES = "summarized_scenes.json"
+TRANSCRIPTS = "transcripts.json"
+DIALOGS = "dialogs.json"
+
 def returnVideoFolderName(video_id):
     return video_id + "_files"
 
@@ -18,3 +21,6 @@ def returnVideoDownloadLocation(video_id):
 
 def returnVideoFramesFolder(video_id):
     return returnVideoFolderName(video_id)+ '/frames'
+
+def returnAudioFileName(video_id):
+    return video_id+".flac"

@@ -14,8 +14,12 @@ from subprocess import call
 import sys
 from nodejs import node
 from dotenv import load_dotenv
-from utils import returnVideoFolderName,FRAMES,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
+from utils import returnVideoFolderName,returnVideoFramesFolder,FRAMES,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
 import os
+import shutil
+from speechToText import google_transcribe,getAudioFromVideo
+from data_upload import upload_data
+from generateYDXCaptions import generateYDXCaption
 load_dotenv()
 
 
@@ -27,9 +31,6 @@ if __name__ == "__main__":
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
     import_video(video_id)
-    # call("yt-dlp -vx --audio-format wav https://www.youtube.com/watch?v=" +
-    #      video_id+" --ffmpeg-location \"C:\ffmpeg\bin -o "+video_id+".wav", shell=True)
-
     # # Frame extraction
     print("=== EXTRACT FRAMES ===")
     extract_frames(video_id, 10, True)
@@ -60,12 +61,12 @@ if __name__ == "__main__":
     # TODO VILBERT SCORING
 
     # TODO Convert to python
-    # call(["node", "../csv.js"], shell=True)
-    # call(["node", "../sceneSegmentation.js"], shell=True)
     node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
     node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
     text_summarization_csv(video_id)
-
-    # speech to text HERE
-
+    getAudioFromVideo(video_id)
+    google_transcribe(video_id)
+    upload_data(video_id)
+    generateYDXCaption(video_id)
+    shutil.rmtree(returnVideoFramesFolder(video_id))
     print("=== DONE! ===")

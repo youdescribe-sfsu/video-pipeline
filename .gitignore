@@ -3,3 +3,4 @@ node_modules/
 **_files/
 .env
 tts_cloud_key.json
+.DS_Store

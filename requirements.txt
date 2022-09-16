@@ -8,3 +8,6 @@ pandas
 nltk
 nodejs-bin
 python-dotenv
+google-cloud-speech
+google-cloud-storage
+audio_metadata
