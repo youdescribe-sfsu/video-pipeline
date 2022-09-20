@@ -18,8 +18,6 @@ import audio_metadata
 from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import storage
 
-filepath = returnVideoFolderName("upSnt11tngE")+ "/"
-
 def getAudioFromVideo(videoId):
     print("--Downloading Audio from youtube--")
     ydl_opts = {

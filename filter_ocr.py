@@ -1,12 +1,7 @@
 # Process the raw OCR into more useful output
-import io
-import os
 import csv
-import sys
-import requests
-import json
 from requests.api import request
-from utils import returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR
+from utils import returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR
 
 
 def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):

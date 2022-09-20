@@ -10,7 +10,7 @@ def upload_data(videoId):
         url='https://www.youtube.com/watch?v=' + videoId, download=False)
     dialogue_timestamps = []
     sequence_num = 0
-    print(returnVideoFolderName(videoId)+'/'+TRANSCRIPTS)
+
     f = open(returnVideoFolderName(videoId)+'/'+TRANSCRIPTS)
     print(f)
     dialogue = json.load(f)
@@ -26,7 +26,6 @@ def upload_data(videoId):
             dialogue_timestamps.append(clip)
             sequence_num += 1
     print(dialogue_timestamps)
-    print(returnVideoFolderName(videoId)+'/'+SUMMARIZED_SCENES)
     f = open(returnVideoFolderName(videoId)+'/'+SUMMARIZED_SCENES)
     scene_data = json.load(f)
     f.close()
@@ -76,10 +75,7 @@ def upload_data(videoId):
     # send data to wherever db is
     url = 'http://3.101.130.10:4000/api/audio-descriptions/newaidescription/'
     headers = {"Content-Type": "application/json; charset=utf-8"}
-    x = requests.post(url, data=json.dumps(data), headers=headers)
-
-    print(data)
-
+    requests.post(url, data=json.dumps(data), headers=headers)
 
 if __name__ == '__main__':
     print(sys.argv[1])

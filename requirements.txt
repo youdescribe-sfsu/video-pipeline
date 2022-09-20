@@ -4,6 +4,7 @@ google
 google-cloud
 google-cloud-vision
 yt-dlp
+youtube_dl
 pandas
 nltk
 nodejs-bin

@@ -8,13 +8,12 @@ from keyframe_timestamps import keyframes_from_object_tracking
 from keyframe_captions import captions_to_csv
 from combine_captions_objects import combine_captions_objects
 from import_youtube import import_video
-from keyframes_revised_script_with_scenes import insert_key_frames
-from text_summarization import text_summarization, text_summarization_csv
+from text_summarization import text_summarization_csv
 from subprocess import call
 import sys
 from nodejs import node
 from dotenv import load_dotenv
-from utils import returnVideoFolderName,returnVideoFramesFolder,FRAMES,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
+from utils import returnVideoFolderName,returnVideoFramesFolder,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
 import os
 import shutil
 from speechToText import google_transcribe,getAudioFromVideo
@@ -26,7 +25,6 @@ load_dotenv()
 if __name__ == "__main__":
 
     video_id = sys.argv[1]
-    video_name = sys.argv[1] + FRAMES
     pagePort = sys.argv[2] or '8082'
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)

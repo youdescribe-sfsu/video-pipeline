@@ -2,7 +2,6 @@
 
 import requests
 import os
-import time
 import csv
 from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV
 from dotenv import load_dotenv
