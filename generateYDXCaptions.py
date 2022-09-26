@@ -7,15 +7,17 @@ from utils import returnVideoFolderName,SUMMARIZED_SCENES,OCR_FILTER_REMOVE_SIMI
 
 def generateYDXCaption(videoId):
     data = {
-      "userId" : "a00206bf-e550-4429-97a5-011a2b63db0b",
+      "userId" : "65c433f7-ceb2-495d-ae01-994388ce56f5",
       "youtubeVideoId" : videoId
     }
-    url = 'https://ydx.youdescribe.org/api/create-user-links/create-new-user-ad'
+    url = 'http://3.101.130.10:4000/api/create-user-links/create-new-user-ad'
     headers = {"Content-Type": "application/json; charset=utf-8"}
     response = requests.post(url, data=json.dumps(data), headers=headers)
     data = response.json()
+    print(data)
     finalUrl = data["message"].split()[3]
-    finalResponse = requests.get(finalUrl)
+    print(finalUrl)
+    finalResponse = requests.get(data["url"])
 
 if __name__ == '__main__':
     print(sys.argv[1])

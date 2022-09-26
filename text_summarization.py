@@ -290,7 +290,7 @@ def text_summarization_csv(video_id):
             # print(scene[2][index[0]])
             # print('\n\n')
 
-    f = open(returnVideoFolderName(video_id)+'/'+SUMMARIZED_SCENES, "a")
+    f = open(returnVideoFolderName(video_id)+'/'+SUMMARIZED_SCENES, "w+")
 
     f.write(json.dumps(sentences))
     f.close()

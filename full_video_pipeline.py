@@ -27,6 +27,7 @@ if __name__ == "__main__":
 
     video_id = sys.argv[1]
     video_name = sys.argv[1] + FRAMES
+    pagePort = sys.argv[2] or '8082'
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
@@ -48,7 +49,7 @@ if __name__ == "__main__":
 
     # # Keyframe selection
     print("=== TRACK OBJECTS ===")
-    object_tracking_to_csv(video_id)
+    object_tracking_to_csv(video_id,'http://localhost:{}/upload'.format(pagePort))
     print("=== FIND KEYFRAMES ===")
     keyframes_from_object_tracking(video_id)
 

@@ -10,8 +10,9 @@ def upload_data(videoId):
         url='https://www.youtube.com/watch?v=' + videoId, download=False)
     dialogue_timestamps = []
     sequence_num = 0
-
+    print(returnVideoFolderName(videoId)+'/'+TRANSCRIPTS)
     f = open(returnVideoFolderName(videoId)+'/'+TRANSCRIPTS)
+    print(f)
     dialogue = json.load(f)
     f.close()
     for i in dialogue["results"]:
@@ -25,6 +26,7 @@ def upload_data(videoId):
             dialogue_timestamps.append(clip)
             sequence_num += 1
     print(dialogue_timestamps)
+    print(returnVideoFolderName(videoId)+'/'+SUMMARIZED_SCENES)
     f = open(returnVideoFolderName(videoId)+'/'+SUMMARIZED_SCENES)
     scene_data = json.load(f)
     f.close()
@@ -72,7 +74,7 @@ def upload_data(videoId):
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     # send data to wherever db is
-    url = 'https://ydx.youdescribe.org/api/audio-descriptions/newaidescription/'
+    url = 'http://3.101.130.10:4000/api/audio-descriptions/newaidescription/'
     headers = {"Content-Type": "application/json; charset=utf-8"}
     x = requests.post(url, data=json.dumps(data), headers=headers)
 
