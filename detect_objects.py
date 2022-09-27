@@ -32,7 +32,11 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny,page='http://localho
             print("Server returned status {}.".format(response.status_code))
             return []
         print(response.text)
-        return eval(response.text)
+
+        # Changes made here
+        results = eval(response.text)
+        response.close()
+        return results
 
     except:
         response = requests.post(page, files=multipart_form_data)
@@ -41,7 +45,11 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny,page='http://localho
             return []
 
         print(response.text)
-        return eval(response.text)
+
+        # Changes made here
+        results = eval(response.text)
+        response.close()
+        return results
 
 
 def track_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False,page='http://localhost:8082/upload'):
@@ -86,7 +94,7 @@ def object_tracking_to_csv(video_id,page='http://localhost:8082/upload'):
     print("FILENAME "+video_frames_path)
     outcsvpath = returnVideoFolderName(video_id)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
-        objects = track_objects(video_frames_path, 0.1, logging=True,page=page)
+        objects = track_objects(video_frames_path, 0.01, logging=True,page=page)
         print(video_frames_path)
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()

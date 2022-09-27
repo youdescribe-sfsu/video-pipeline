@@ -94,6 +94,9 @@ fs.createReadStream(outputavg_csv)
       }
       return data;
     };
+    // ##TODO
+    // 2 scene/min
+    // Change threshold to get a better scene segmenteation
     const sceneSegmentedData = SceneSegmentation(10, 0.75);
     stringify(
       sceneSegmentedData,
