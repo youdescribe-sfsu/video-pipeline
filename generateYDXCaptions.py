@@ -18,6 +18,7 @@ def generateYDXCaption(videoId):
         requests.get(data['url'])
     else:
       print("Failure in generating YDX Caption")
+      print(data.get('message'))
 
 if __name__ == '__main__':
     print(sys.argv[1])

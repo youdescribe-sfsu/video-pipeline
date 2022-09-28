@@ -20,7 +20,7 @@ import requests
 import sys
 from nltk.translate.bleu_score import sentence_bleu
 from utils import returnVideoFolderName,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
-
+import os
 def calculateBleuScore(data):
     sentence = data['sentence']
     reference = data['reference']
@@ -289,8 +289,10 @@ def text_summarization_csv(video_id):
             sentences.append(sentence)
             # print(scene[2][index[0]])
             # print('\n\n')
-
-    f = open(returnVideoFolderName(video_id)+'/'+SUMMARIZED_SCENES, "w+")
+    fileName = returnVideoFolderName(video_id)+'/'+SUMMARIZED_SCENES
+    if os.path.exists(fileName):
+        os.remove(fileName)
+    f = open(fileName, "w+")
 
     f.write(json.dumps(sentences))
     f.close()

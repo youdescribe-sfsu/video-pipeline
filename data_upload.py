@@ -69,7 +69,8 @@ def upload_data(videoId):
         "video_name": vid["title"],
         "dialogue_timestamps": dialogue_timestamps
     }
-
+    print("===== UPLOADING DATA =====")
+    print(data)
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     # send data to wherever db is
