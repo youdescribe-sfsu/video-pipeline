@@ -21,9 +21,9 @@ def upload_data(videoId):
         if("alternatives" in key_array and "resultEndTime" in key_array):
             clip = {}
             clip["sequence_num"] = sequence_num
-            clip["start_time"] = i["alternatives"][0]['words'][0]["startTime"][:-1]
-            clip["end_time"] = i["resultEndTime"][:-1]
-            clip["duration"] = float(clip["end_time"]) - float(clip["start_time"])
+            clip["start_time"] = round(float(i["alternatives"][0]['words'][0]["startTime"][:-1]),2)
+            clip["end_time"] = round(float(i["resultEndTime"][:-1]),2)
+            clip["duration"] = round(float(clip["end_time"]) - float(clip["start_time"]),2)
             dialogue_timestamps.append(clip)
             sequence_num += 1
     print(dialogue_timestamps)
@@ -58,6 +58,7 @@ def upload_data(videoId):
                 entry["text"] += split[0]
 
     for clip in audio_clips:
+        clip['start_time'] = str(float(clip['start_time']) + 1)
         if(isinstance(clip["text"], list)):
             clip["text"] = ("\n").join(clip["text"])
         else:
