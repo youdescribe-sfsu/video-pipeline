@@ -1,15 +1,20 @@
 import json
 import sys
-import numpy as np
 import requests
-import yt_dlp as ydl
+import os
 
 def generateYDXCaption(videoId):
+    userId = os.getenv('YDX_USER_ID')
+    if(userId == None):
+      userId = "65c433f7-ceb2-495d-ae01-994388ce56f5"
     data = {
       "userId" : "65c433f7-ceb2-495d-ae01-994388ce56f5",
       "youtubeVideoId" : videoId
     }
-    url = 'http://3.101.130.10:4000/api/create-user-links/create-new-user-ad'
+    ydx_server = os.getenv('YDX_WEB_SERVER')
+    if(ydx_server == None):
+        ydx_server = 'http://3.101.130.10:4000'
+    url = '{}/api/create-user-links/create-new-user-ad'.format(ydx_server)
     headers = {"Content-Type": "application/json; charset=utf-8"}
     response = requests.post(url, data=json.dumps(data), headers=headers)
     data = response.json()

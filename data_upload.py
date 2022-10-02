@@ -4,6 +4,7 @@ import numpy as np
 import requests
 import yt_dlp as ydl
 from utils import returnVideoFolderName,SUMMARIZED_SCENES,OCR_FILTER_REMOVE_SIMILAR,TRANSCRIPTS,DIALOGS
+import os
 
 def upload_data(videoId):
     vid = ydl.YoutubeDL().extract_info(
@@ -59,6 +60,8 @@ def upload_data(videoId):
     for clip in audio_clips:
         if(isinstance(clip["text"], list)):
             clip["text"] = ("\n").join(clip["text"])
+        else:
+            clip["text"].replace('\n', ' ')
 
     print(audio_clips)
 
@@ -74,9 +77,20 @@ def upload_data(videoId):
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     # send data to wherever db is
-    url = 'http://3.101.130.10:4000/api/audio-descriptions/newaidescription/'
+    ydx_server = os.getenv('YDX_WEB_SERVER')
+    if(ydx_server == None):
+        ydx_server = 'http://3.101.130.10:4000'
+    url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
     headers = {"Content-Type": "application/json; charset=utf-8"}
-    requests.post(url, data=json.dumps(data), headers=headers)
+    try:
+        r = requests.post(url, data=json.dumps(data), headers=headers)
+        print("===== RESPONSE =====")
+        print(r)
+        r.close()
+    except:
+        r = requests.post(url, data=json.dumps(data), headers=headers)
+        print(r)
+        r.close()
 
 if __name__ == '__main__':
     print(sys.argv[1])
