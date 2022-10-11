@@ -14,7 +14,7 @@ TRANSCRIPTS = "transcripts.json"
 DIALOGS = "dialogs.json"
 
 def returnVideoFolderName(video_id):
-    return video_id + "_files"
+    return "/home/datasets/" + video_id + "_files"
 
 def returnVideoDownloadLocation(video_id):
     return returnVideoFolderName(video_id) + '/' + video_id

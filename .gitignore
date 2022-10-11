@@ -5,3 +5,4 @@ node_modules/
 tts_cloud_key.json
 .DS_Store
 __pycache__/
+package-lock.json
