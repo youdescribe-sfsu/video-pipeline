@@ -8,7 +8,7 @@ def generateYDXCaption(videoId):
     if(userId == None):
       userId = "65c433f7-ceb2-495d-ae01-994388ce56f5"
     data = {
-      "userId" : "65c433f7-ceb2-495d-ae01-994388ce56f5",
+      "userId" : userId,
       "youtubeVideoId" : videoId
     }
     ydx_server = os.getenv('YDX_WEB_SERVER')
