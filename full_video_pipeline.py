@@ -9,16 +9,16 @@ from keyframe_captions import captions_to_csv
 from combine_captions_objects import combine_captions_objects
 from import_youtube import import_video
 from text_summarization import text_summarization_csv
-from subprocess import call
 import sys
 from nodejs import node
 from dotenv import load_dotenv
-from utils import returnVideoFolderName,returnVideoFramesFolder,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
+from utils import returnVideoFolderName,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
 import os
 import shutil
 from speechToText import google_transcribe,getAudioFromVideo
 from data_upload import upload_data
 from generateYDXCaptions import generateYDXCaption
+from vicr_scoring import get_vicr_score_from_service
 load_dotenv()
 
 
@@ -61,11 +61,15 @@ if __name__ == "__main__":
 
     # TODO Convert to python
     node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
+    
+    ## VICR SCORING
+    get_vicr_score_from_service(video_id)
+    
     node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
     text_summarization_csv(video_id)
     getAudioFromVideo(video_id)
     google_transcribe(video_id)
     upload_data(video_id)
     generateYDXCaption(video_id)
-    shutil.rmtree(returnVideoFramesFolder(video_id))
+    #shutil.rmtree(returnVideoFramesFolder(video_id))
     print("=== DONE! ===")

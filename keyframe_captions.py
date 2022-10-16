@@ -3,9 +3,7 @@
 import requests
 import os
 import csv
-from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV
-
-from dotenv import load_dotenv
+from utils import returnVideoFramesFolder,returnVideoFolderName,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV
 
 def get_caption(filename):
 	"""
@@ -101,21 +99,21 @@ def captions_to_csv(video_id, start=0):
 			writer.writerow(row)
 			outcsvfile.flush()
 
-def update_caption_keyframes(video_name):
+def update_caption_keyframes(video_id):
 	"""
 	Updates the csv output by captions_to_csv in case the keyframes change
 	"""
 
-	with open('Keyframes.csv'.format(video_name), newline='', encoding='utf-8') as incsvkeyframes:
+	with open(returnVideoFolderName(video_id) + '/' + KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvkeyframes:
 		reader = csv.reader(incsvkeyframes)
 		header = next(reader) # skip header
 		keyframes = [int(row[0]) for row in reader]
-	with open('Captions.csv'.format(video_name), newline='', encoding='utf-8') as incsvcaptions:
+	with open(returnVideoFolderName(video_id) + '/' + CAPTIONS_CSV, newline='', encoding='utf-8') as incsvcaptions:
 		reader = csv.reader(incsvcaptions)
 		header = next(reader) # skip header
 		caption_rows = [row for row in reader]
 	
-	with open('Captions Updated.csv'.format(video_name), 'w', newline='', encoding='utf-8') as outcsvfile:
+	with open(returnVideoFolderName(video_id) + '/captions_updated.csv', 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
 		writer.writerow(["Frame Index", "Timestamp", "Is Keyframe", "Caption"])
 		for row in caption_rows:

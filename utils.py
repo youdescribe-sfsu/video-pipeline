@@ -12,6 +12,7 @@ SCENE_SEGMENTED_FILE_CSV="scenesegmentedfile.csv"
 SUMMARIZED_SCENES = "summarized_scenes.json"
 TRANSCRIPTS = "transcripts.json"
 DIALOGS = "dialogs.json"
+VICR_CSV = "vicr.csv"
 
 def returnVideoFolderName(video_id):
     return "/home/datasets/" + video_id + "_files"
