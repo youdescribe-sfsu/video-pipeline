@@ -39,11 +39,11 @@ def get_vicr_score_from_service(video_id):
     '''Get VICR score from service'''
     keyframe_csv_to_json(video_id)
     subprocess.run(['chmod', '-R', '777', returnVideoFolderName(video_id)],shell=True)
-    headers = {"Content-Type": "application/json; charset=utf-8"}
-    requests.post("http://localhost:7000", data=json.dumps({
-         'video_id': video_id,
-         'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV
-         }), headers=headers)
+    # headers = {"Content-Type": "application/json; charset=utf-8"}
+    # requests.post("http://localhost:7000", data=json.dumps({
+    #      'video_id': video_id,
+    #      'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV
+    #      }), headers=headers)
     
 
 
