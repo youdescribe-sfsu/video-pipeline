@@ -1,8 +1,12 @@
+import subprocess
 import csv
-import sys 
+import json
+import sys
 from utils import OUTPUT_AVG_CSV, VICR_CSV, returnVideoFolderName, returnVideoFramesFolder
+import requests
 
 def keyframe_csv_to_json(video_id):
+    '''Convert keyframe csv to json'''
     csv_path = returnVideoFolderName(video_id) + '/' + OUTPUT_AVG_CSV
     print(csv_path)
     with open(csv_path, encoding='utf-8') as csvf: 
@@ -19,6 +23,7 @@ def keyframe_csv_to_json(video_id):
         vicr_json_to_csv(video_id,vicr_json)
 
 def vicr_json_to_csv(video_id,vicr_json):
+    '''Convert json to csv for VICR service'''
     csv_path = returnVideoFolderName(video_id) + '/' + VICR_CSV
     with open(csv_path, 'w', encoding='us-ascii') as csvf:
         writer = csv.writer(csvf)
@@ -30,9 +35,17 @@ def vicr_json_to_csv(video_id,vicr_json):
     print('VICR CSV created')
     print(returnVideoFolderName(video_id) + '/' + VICR_CSV)
 
-#def get_vicr_score_from_service(video_id):
+def get_vicr_score_from_service(video_id):
+    '''Get VICR score from service'''
+    keyframe_csv_to_json(video_id)
+    subprocess.run(['chmod', '-R', '777', returnVideoFolderName(video_id)],shell=True)
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    requests.post("http://localhost:7000", data=json.dumps({
+         'video_id': video_id,
+         'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV
+         }), headers=headers)
     
 
 
 if __name__ == '__main__':
-    keyframe_csv_to_json(sys.argv[1])
+    get_vicr_score_from_service(sys.argv[1])

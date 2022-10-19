@@ -15,7 +15,8 @@ DIALOGS = "dialogs.json"
 VICR_CSV = "vicr.csv"
 
 def returnVideoFolderName(video_id):
-    return "/home/datasets/" + video_id + "_files"
+    '''Returns the folder name for a video'''
+    return "/home/datasets/pipeline/" + video_id + "_files"
 
 def returnVideoDownloadLocation(video_id):
     return returnVideoFolderName(video_id) + '/' + video_id
