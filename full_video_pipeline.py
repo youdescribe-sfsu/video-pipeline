@@ -33,7 +33,7 @@ if __name__ == "__main__":
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
-    import_video(video_id)
+    import_video(video_id,video_start_time,video_end_time)
     # # Frame extraction
     print("=== EXTRACT FRAMES ===")
     extract_frames(video_id, 10, True)
