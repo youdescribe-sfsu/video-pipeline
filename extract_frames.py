@@ -4,14 +4,14 @@ import cv2
 import os
 from utils import returnVideoDownloadLocation,returnVideoFramesFolder
 
-def extract_frames(video_file, frames_per_second, logging=False,start_time=None,end_time=None):
+def extract_frames(video_file, frames_per_second, logging=False):
 	"""
 	Extracts frames from a given video_file and puts them in a folder with the
 	same name as the video file minus the extension.
 	frames_per_second is the target number of frames per second to extract.
 	This value is rounded to be an exact divisor of the video frame rate.
 	"""
-	vid_name = returnVideoFramesFolder(video_file,start_time=start_time,end_time=end_time)
+	vid_name = returnVideoFramesFolder(video_file)
 	
 	if not os.path.exists(vid_name):
 		try:
@@ -20,7 +20,7 @@ def extract_frames(video_file, frames_per_second, logging=False,start_time=None,
 			print('Cannot create directory for frames')
 			return
 	# Open the video handler and get fps
-	vid = cv2.VideoCapture(returnVideoDownloadLocation(video_file,start_time=start_time,end_time=end_time))
+	vid = cv2.VideoCapture(returnVideoDownloadLocation(video_file))
 	
 	fps = round(vid.get(cv2.CAP_PROP_FPS))
 	frames_per_extraction = round(fps / frames_per_second)
