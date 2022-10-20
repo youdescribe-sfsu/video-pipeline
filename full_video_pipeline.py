@@ -25,11 +25,15 @@ load_dotenv()
 if __name__ == "__main__":
 
     video_id = sys.argv[1]
-    pagePort = sys.argv[2] or '8082'
+    pagePort = sys.argv[2] or '8081'
+    video_start_time = sys.argv[3] or None
+    video_end_time = sys.argv[4] or None
+    os.environ['START_TIME'] = video_start_time
+    os.environ['END_TIME'] = video_end_time
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
-    import_video(video_id)
+    import_video(video_id,video_start_time,video_end_time)
     # # Frame extraction
     print("=== EXTRACT FRAMES ===")
     extract_frames(video_id, 10, True)
