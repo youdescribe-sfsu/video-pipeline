@@ -24,7 +24,7 @@ def returnVideoFolderName(video_id):
     return "/home/datasets/pipeline/" + video_id + "_files"
 
 def returnVideoDownloadLocation(video_id):
-    return returnVideoFolderName(video_id) + '/' + video_id
+    return returnVideoFolderName(video_id) + '/' + video_id + '.mp4'
 
 def returnVideoFramesFolder(video_id):
     return returnVideoFolderName(video_id)+ '/frames'

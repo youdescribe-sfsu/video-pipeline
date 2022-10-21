@@ -9,7 +9,6 @@ from keyframe_captions import captions_to_csv
 from combine_captions_objects import combine_captions_objects
 from import_youtube import import_video
 from text_summarization import text_summarization_csv
-import sys
 from nodejs import node
 from dotenv import load_dotenv
 from utils import returnVideoFolderName,CAPTIONS_AND_OBJECTS_CSV,OUTPUT_AVG_CSV,SCENE_SEGMENTED_FILE_CSV
@@ -19,22 +18,30 @@ from speechToText import google_transcribe,getAudioFromVideo
 from data_upload import upload_data
 from generateYDXCaptions import generateYDXCaption
 from vicr_scoring import get_vicr_score_from_service
+import argparse
 load_dotenv()
 
 
 if __name__ == "__main__":
-
-    video_id = sys.argv[1]
-    pagePort = sys.argv[2] or '8081'
-    video_start_time = sys.argv[3] or None
-    video_end_time = sys.argv[4] or None
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--yolo",default=8081, help="Yolo Port", type=int)
+    parser.add_argument("--videoid", help="Video Id", type=str)
+    parser.add_argument("--start_time",default=None, help="Start Time", type=str)
+    parser.add_argument("--end_time",default=None, help="End Time", type=str)
+    args = parser.parse_args()
+    video_id = args.videoid
+    pagePort = args.yolo
+    video_start_time =  args.start_time
+    video_end_time = args.end_time
     os.environ['START_TIME'] = video_start_time
     os.environ['END_TIME'] = video_end_time
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
+    print("start time: ",video_start_time)
+    print("end time: ",video_end_time)
     import_video(video_id,video_start_time,video_end_time)
-    # # Frame extraction
+    # Frame extraction
     print("=== EXTRACT FRAMES ===")
     extract_frames(video_id, 10, True)
 
