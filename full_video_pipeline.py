@@ -78,9 +78,9 @@ if __name__ == "__main__":
     
     node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
     text_summarization_csv(video_id)
-    getAudioFromVideo(video_id)
-    google_transcribe(video_id)
-    upload_data(video_id)
-    generateYDXCaption(video_id)
+    #getAudioFromVideo(video_id)
+    #google_transcribe(video_id)
+    #upload_data(video_id)
+    #generateYDXCaption(video_id)
     #shutil.rmtree(returnVideoFramesFolder(video_id))
     print("=== DONE! ===")

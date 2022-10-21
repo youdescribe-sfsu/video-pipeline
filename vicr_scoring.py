@@ -38,7 +38,9 @@ def vicr_json_to_csv(video_id,vicr_json):
 def get_vicr_score_from_service(video_id):
     '''Get VICR score from service'''
     keyframe_csv_to_json(video_id)
-    subprocess.run(['chmod', '-R', '777', returnVideoFolderName(video_id)],shell=True)
+    script = 'chmod -R 777 {}'.format(returnVideoFolderName(video_id))
+    print(script)
+    subprocess.run(script, shell=True, check=True)
     # headers = {"Content-Type": "application/json; charset=utf-8"}
     # requests.post("http://localhost:7000", data=json.dumps({
     #      'video_id': video_id,

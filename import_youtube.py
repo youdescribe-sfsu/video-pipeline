@@ -13,12 +13,14 @@ def import_video(videoId,video_start_time,video_end_time):
             url='https://www.youtube.com/watch?v=' + videoId, download=False)
         start_time = timedelta(seconds=int(video_start_time))
         end_time = timedelta(seconds=int(video_end_time))
+        print("start time: ",start_time)
+        print("end time: ",end_time)
         command = ['ffmpeg', '-y', 
                     '-ss', str(start_time), 
                     '-i', vid['url'],
                     '-t', str(end_time - start_time),
                     '-c', 'copy', returnVideoDownloadLocation(videoId)]
-        output = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(subprocess.run(command))
     else:
         ydl_opts = {'outtmpl': returnVideoDownloadLocation(videoId), "format": "best" }
         vid = ydl.YoutubeDL(ydl_opts).extract_info(
