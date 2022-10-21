@@ -41,11 +41,11 @@ def get_vicr_score_from_service(video_id):
     script = 'chmod -R 777 {}'.format(returnVideoFolderName(video_id))
     print(script)
     subprocess.run(script, shell=True, check=True)
-    # headers = {"Content-Type": "application/json; charset=utf-8"}
-    # requests.post("http://localhost:7000", data=json.dumps({
-    #      'video_id': video_id,
-    #      'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV
-    #      }), headers=headers)
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    requests.post("http://localhost:7000", data=json.dumps({
+         'video_id': video_id,
+         'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV
+         }), headers=headers)
     
 
 
