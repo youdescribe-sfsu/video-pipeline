@@ -48,14 +48,27 @@ def get_vicr_score_from_service(video_id):
     print('==========')
     print(returnVideoFolderName(video_id) + '/' + VICR_CSV)
     print(video_id)
+    print(int(os.environ['START_TIME']))
+    print(int(os.environ['END_TIME']))
     print('==========')
-    response = requests.post("http://localhost:7000", data=json.dumps({
-         'video_id': video_id,
-         'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV,
-         'start':os.environ['START_TIME'],
-         'end':os.environ['END_TIME']
-         }), headers=headers)
+    url = "http://localhost:7000/getvicrscore"
+
+    payload = json.dumps({
+    "video_id": video_id,
+    "csv_file": returnVideoFolderName(video_id) + '/' + VICR_CSV,
+    "start": int(os.environ['START_TIME']),
+    "end": int(os.environ['END_TIME'])
+    })
+    headers = {
+    'Content-Type': 'application/json'
+    }
+
+    response = requests.request("GET", url, headers=headers, data=payload)
+
+    print(response.text)
+    # response = requests.request(method='get',url="http://localhost:7000/getvicrscore", , headers=headers)
     print(response)
+    print(response.text)
     
 
 
