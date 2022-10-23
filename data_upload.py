@@ -58,11 +58,15 @@ def upload_data(videoId):
                 entry["text"] += split[0]
 
     for clip in audio_clips:
-        clip['start_time'] = str(float(clip['start_time']) + 1)
-        if(isinstance(clip["text"], list)):
-            clip["text"] = ("\n").join(clip["text"])
-        else:
-            clip["text"].replace('\n', ' ')
+        try:
+            clip['start_time'] = str(float(clip['start_time']) + 1)
+            if(isinstance(clip["text"], list)):
+                clip["text"] = ("\n").join(clip["text"])
+            else:
+                clip["text"].replace('\n', ' ')
+        except:
+            print(clip)
+            continue
 
     print(audio_clips)
 

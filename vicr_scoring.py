@@ -1,9 +1,12 @@
+import os
 import subprocess
 import csv
 import json
 import sys
 from utils import OUTPUT_AVG_CSV, VICR_CSV, returnVideoFolderName, returnVideoFramesFolder
 import requests
+import argparse
+
 
 def keyframe_csv_to_json(video_id):
     '''Convert keyframe csv to json'''
@@ -42,12 +45,31 @@ def get_vicr_score_from_service(video_id):
     print(script)
     subprocess.run(script, shell=True, check=True)
     headers = {"Content-Type": "application/json; charset=utf-8"}
-    requests.post("http://localhost:7000", data=json.dumps({
+    print('==========')
+    print(returnVideoFolderName(video_id) + '/' + VICR_CSV)
+    print(video_id)
+    print('==========')
+    response = requests.post("http://localhost:7000", data=json.dumps({
          'video_id': video_id,
-         'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV
+         'csv_path': returnVideoFolderName(video_id) + '/' + VICR_CSV,
+         'start':os.environ['START_TIME'],
+         'end':os.environ['END_TIME']
          }), headers=headers)
+    print(response)
     
 
 
 if __name__ == '__main__':
-    get_vicr_score_from_service(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--yolo",default=8081, help="Yolo Port", type=int)
+    parser.add_argument("--videoid", help="Video Id", type=str)
+    parser.add_argument("--start_time",default=None, help="Start Time", type=str)
+    parser.add_argument("--end_time",default=None, help="End Time", type=str)
+    args = parser.parse_args()
+    video_id = args.videoid
+    pagePort = args.yolo
+    video_start_time =  args.start_time
+    video_end_time = args.end_time
+    os.environ['START_TIME'] = video_start_time
+    os.environ['END_TIME'] = video_end_time
+    get_vicr_score_from_service(video_id)
