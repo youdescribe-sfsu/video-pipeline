@@ -63,7 +63,7 @@ def upload_data(videoId):
             if(isinstance(clip["text"], list)):
                 clip["text"] = ("\n").join(clip["text"])
             else:
-                clip["text"].replace('\n', ' ')
+                clip["text"].replace('\n', '.')
         except:
             print(clip)
             continue

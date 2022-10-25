@@ -33,8 +33,9 @@ if __name__ == "__main__":
     pagePort = args.yolo
     video_start_time =  args.start_time
     video_end_time = args.end_time
-    os.environ['START_TIME'] = video_start_time
-    os.environ['END_TIME'] = video_end_time
+    if(video_start_time != None and video_end_time != None):
+        os.environ['START_TIME'] = video_start_time
+        os.environ['END_TIME'] = video_end_time
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
@@ -77,10 +78,11 @@ if __name__ == "__main__":
     get_vicr_score_from_service(video_id)
     
     node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
-    text_summarization_csv(video_id)
-    #getAudioFromVideo(video_id)
-    #google_transcribe(video_id)
-    #upload_data(video_id)
-    #generateYDXCaption(video_id)
-    #shutil.rmtree(returnVideoFramesFolder(video_id))
+    if(video_start_time == None and video_end_time == None):
+        text_summarization_csv(video_id)
+        getAudioFromVideo(video_id)
+        google_transcribe(video_id)
+        upload_data(video_id)
+        generateYDXCaption(video_id)
+        # shutil.rmtree(returnVideoFramesFolder(video_id))
     print("=== DONE! ===")

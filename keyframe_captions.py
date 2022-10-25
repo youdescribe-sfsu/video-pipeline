@@ -55,6 +55,7 @@ def captions_to_csv(video_id, start=0):
 	"""
 	video_frames_path = returnVideoFramesFolder(video_id)
 	video_folder_path = returnVideoFolderName(video_id)
+	dropped_key_frames = 0
 	with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
@@ -95,9 +96,17 @@ def captions_to_csv(video_id, start=0):
 			frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
 			caption = get_caption(frame_filename)
 			print(frame_index, caption)
-			row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
-			writer.writerow(row)
+			if(type(caption) == str and caption.find('<unk>') == -1):
+				row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
+				writer.writerow(row)
+			elif(frame_index in keyframes):
+				dropped_key_frames += 1
+				print("Dropped keyframe: {}".format(frame_index))
 			outcsvfile.flush()
+		print("============================================")
+		print('Dropped {} keyframes'.format(dropped_key_frames))
+		print('Total keyframes: {}'.format(len(keyframes)))
+		print('============================================')
 
 def update_caption_keyframes(video_id):
 	"""

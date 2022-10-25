@@ -2,7 +2,6 @@ import os
 import subprocess
 import csv
 import json
-import sys
 from utils import OUTPUT_AVG_CSV, VICR_CSV, returnVideoFolderName, returnVideoFramesFolder
 import requests
 import argparse
@@ -64,11 +63,9 @@ def get_vicr_score_from_service(video_id):
     }
 
     response = requests.request("GET", url, headers=headers, data=payload)
-
-    print(response.text)
-    # response = requests.request(method='get',url="http://localhost:7000/getvicrscore", , headers=headers)
     print(response)
     print(response.text)
+    # response = requests.request(method='get',url="http://localhost:7000/getvicrscore", , headers=headers)
     
 
 

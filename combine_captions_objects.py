@@ -25,9 +25,12 @@ def combine_captions_objects(video_id):
 		header = captheader + objheader[1:]
 		writer.writerow(header)
 		for index in range(len(objrows)):
-			new_row = captrows[index] + objrows[index][1:]
-			print(captrows[index])
-			writer.writerow(new_row)
+			try:
+				new_row = captrows[index] + objrows[index][1:]
+				print(captrows[index])
+				writer.writerow(new_row)
+			except:
+				continue
 
 if __name__ == "__main__":
 	# video_name = 'A dog collapses and faints right in front of us I have never seen anything like it'
