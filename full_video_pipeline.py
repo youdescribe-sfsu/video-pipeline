@@ -1,5 +1,6 @@
 # Runs all parts of the video processing pipeline except downloading the video
 #! /usr/bin/env python
+from csv_generate import generateOutputAvg
 from extract_frames import extract_frames
 from detect_objects import object_tracking_to_csv
 from ocr_keyframes import print_all_ocr
@@ -74,8 +75,8 @@ if __name__ == "__main__":
     # TODO VILBERT SCORING
 
     # TODO Convert to python
-    node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
-    
+    # node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
+    generateOutputAvg(video_id)
     ## VICR SCORING
     get_vicr_score_from_service(video_id)
     sceneSegmentation(video_id)
