@@ -19,6 +19,8 @@ from data_upload import upload_data
 from generateYDXCaptions import generateYDXCaption
 from vicr_scoring import get_vicr_score_from_service
 import argparse
+from sceneSegmentation import sceneSegmentation
+
 load_dotenv()
 
 
@@ -76,8 +78,7 @@ if __name__ == "__main__":
     
     ## VICR SCORING
     get_vicr_score_from_service(video_id)
-    
-    node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
+    sceneSegmentation(video_id)
     if(video_start_time == None and video_end_time == None):
         text_summarization_csv(video_id)
         getAudioFromVideo(video_id)
