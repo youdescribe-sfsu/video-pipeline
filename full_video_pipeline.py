@@ -79,6 +79,7 @@ if __name__ == "__main__":
     generateOutputAvg(video_id)
     ## VICR SCORING
     get_vicr_score_from_service(video_id)
+    # node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
     sceneSegmentation(video_id)
     if(video_start_time == None and video_end_time == None):
         text_summarization_csv(video_id)
