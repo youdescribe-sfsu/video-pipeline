@@ -8,6 +8,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 from google.cloud import vision
 from google.cloud.vision_v1 import types
 from utils import returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME
+from timeit_decorator import timeit
 
 def detect_text(path):
 	"""
@@ -78,6 +79,7 @@ def get_ocr_confidences(video_name):
 				print()
 				writer.writerow(new_row)
 
+@timeit
 def print_all_ocr(video_id, start=0):
 	"""
 	Writes out all detected text for each extracted frame into a csv file

@@ -3,7 +3,9 @@
 import cv2
 import os
 from utils import returnVideoDownloadLocation,returnVideoFramesFolder
+from timeit_decorator import timeit
 
+@timeit
 def extract_frames(video_file, frames_per_second, logging=False):
 	"""
 	Extracts frames from a given video_file and puts them in a folder with the

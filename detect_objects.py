@@ -5,6 +5,7 @@ import os
 import csv
 from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV
 from dotenv import load_dotenv
+from timeit_decorator import timeit
 
 YOLOv3_tiny = 8080
 YOLOv3_Openimages = 8083
@@ -85,7 +86,7 @@ def track_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fals
         print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
     return objects
 
-
+@timeit
 def object_tracking_to_csv(video_id,page='http://localhost:8082/upload'):
     """
     Collates all detected objects into columns and tracks them from frame to frame

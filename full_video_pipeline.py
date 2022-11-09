@@ -21,24 +21,19 @@ from generateYDXCaptions import generateYDXCaption
 from vicr_scoring import get_vicr_score_from_service
 import argparse
 from sceneSegmentation import sceneSegmentation
-
+from timeit_decorator import timeit
 load_dotenv()
 
+@timeit
+def scene_js_function(path):
+    node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--yolo",default=8081, help="Yolo Port", type=int)
-    parser.add_argument("--videoid", help="Video Id", type=str)
-    parser.add_argument("--start_time",default=None, help="Start Time", type=str)
-    parser.add_argument("--end_time",default=None, help="End Time", type=str)
-    args = parser.parse_args()
-    video_id = args.videoid
-    pagePort = args.yolo
-    video_start_time =  args.start_time
-    video_end_time = args.end_time
-    if(video_start_time != None and video_end_time != None):
-        os.environ['START_TIME'] = video_start_time
-        os.environ['END_TIME'] = video_end_time
+@timeit
+def csv_js_function(path):
+    node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
+
+@timeit
+def main_video_pipeline(video_id,pagePort,video_start_time,video_end_time):
     path = returnVideoFolderName(video_id)
     os.makedirs(path, exist_ok=True)
     print("=== DOWNLOAD VIDEO ===")
@@ -76,16 +71,35 @@ if __name__ == "__main__":
 
     # TODO Convert to python
     # node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
-    generateOutputAvg(video_id)
+    csv_js_function(path=path)
+    # generateOutputAvg(video_id)
     ## VICR SCORING
-    get_vicr_score_from_service(video_id)
+    # get_vicr_score_from_service(video_id)
+    scene_js_function(path=path)
     # node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
-    sceneSegmentation(video_id)
+    # sceneSegmentation(video_id)
     if(video_start_time == None and video_end_time == None):
         text_summarization_csv(video_id)
         getAudioFromVideo(video_id)
         google_transcribe(video_id)
-        upload_data(video_id)
-        generateYDXCaption(video_id)
+        #upload_data(video_id)
+        #generateYDXCaption(video_id)
         # shutil.rmtree(returnVideoFramesFolder(video_id))
     print("=== DONE! ===")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--yolo",default=8081, help="Yolo Port", type=int)
+    parser.add_argument("--videoid", help="Video Id", type=str)
+    parser.add_argument("--start_time",default=None, help="Start Time", type=str)
+    parser.add_argument("--end_time",default=None, help="End Time", type=str)
+    args = parser.parse_args()
+    video_id = args.videoid
+    pagePort = args.yolo
+    video_start_time =  args.start_time
+    video_end_time = args.end_time
+    if(video_start_time != None and video_end_time != None):
+        os.environ['START_TIME'] = video_start_time
+        os.environ['END_TIME'] = video_end_time
+    main_video_pipeline(video_id,pagePort,video_start_time,video_end_time)

@@ -2,7 +2,9 @@
 
 import csv
 from utils import returnVideoFolderName,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV
+from timeit_decorator import timeit
 
+@timeit
 def combine_captions_objects(video_id):
 	"""
 	Outputs a csv file combining the columns of the object and caption csv files

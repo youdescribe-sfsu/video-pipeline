@@ -4,6 +4,7 @@ import requests
 import os
 import csv
 from utils import returnVideoFramesFolder,returnVideoFolderName,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV
+from timeit_decorator import timeit
 
 def get_caption(filename):
 	"""
@@ -48,6 +49,7 @@ def get_all_captions(video_name):
 	
 	return captions
 
+@timeit
 def captions_to_csv(video_id, start=0):
 	"""
 	Gets a caption for each extracted frame and writes it to a csv file along with

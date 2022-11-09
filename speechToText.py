@@ -17,7 +17,9 @@ import audio_metadata
 
 from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import storage
+from timeit_decorator import timeit
 
+@timeit
 def getAudioFromVideo(videoId):
     print("--Downloading Audio from youtube--")
     ydl_opts = {
@@ -40,6 +42,7 @@ def frame_rate_channel(audio_file_name):
     print("--Audio frame_rate={} and channels={}--".format(frame_rate,channels))
     return frame_rate,channels
 
+@timeit
 def google_transcribe(videoId):
     audio_file_name = returnAudioFileName(videoId)
     filepath = returnVideoFolderName(videoId)+"/"

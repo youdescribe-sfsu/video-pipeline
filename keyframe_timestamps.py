@@ -2,6 +2,9 @@
 
 import csv
 from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV,KEYFRAMES_CSV
+from timeit_decorator import timeit
+
+@timeit
 def keyframes_from_object_tracking(video_id, target_keyframes_per_second=1):
 	"""
 	Iteratively selects the keyframe that has the highest sum of square

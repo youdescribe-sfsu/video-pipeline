@@ -2,6 +2,7 @@
 import csv
 from requests.api import request
 from utils import returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR
+from timeit_decorator import timeit
 
 
 def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):
@@ -26,6 +27,8 @@ def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):
 			d[i] = new_di
 	return d[m]
 
+
+@timeit
 def filter_ocr(video_id, window_width=10, threshold=0.5):
 	"""
 	Splits the detected text into blocks of frames with similar text then picks
@@ -90,6 +93,7 @@ def filter_ocr(video_id, window_width=10, threshold=0.5):
 				writer.writerow(row)
 				outcsvfile.flush()
 
+@timeit
 def filter_ocr_agreement(video_id, window_width=10, threshold=0.5, low_threshold=0.05, min_stable_len=5):
 	"""
 	Splits the detected text into blocks of frames with similar text then picks
@@ -163,6 +167,7 @@ def remove_non_ascii(source):
 	"""
 	return "".join(c for c in source if ord(c) < 128)
 
+@timeit
 def filter_ocr_remove_similarity(video_id, threshold=0.15, use_agreement=True, max_similar_lines=3):
 	"""
 	Removes non-ASCII characters from all chosen texts and also removes any line

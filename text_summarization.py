@@ -21,6 +21,10 @@ import sys
 from nltk.translate.bleu_score import sentence_bleu
 from utils import returnVideoFolderName,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
 import os
+from timeit_decorator import timeit
+
+
+
 def calculateBleuScore(data):
     sentence = data['sentence']
     reference = data['reference']
@@ -60,7 +64,7 @@ def calculateBleuScore(data):
 # Use BLEU score to drop similar keyframes within the scene
 # Challenge: which ones to drop?
 
-
+@timeit
 def text_summarization(video_id):
     URL = "http://127.0.0.1:5001/videoSceneData?videoid=" + video_id
     r = requests.get(url=URL)
