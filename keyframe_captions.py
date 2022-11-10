@@ -12,19 +12,21 @@ def get_caption(filename):
 	"""
 	page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '5000')
 	token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
-	
+	fileBuffer = open(filename, 'rb')
 	multipart_form_data = {
 		'token': ('', str(token)),
-		'img_file': (os.path.basename(filename), open(filename, 'rb')),
+		'img_file': (os.path.basename(filename), fileBuffer),
 	}
 	try:
 		response = requests.post(page, files=multipart_form_data)
+		fileBuffer.close()
 		if response.status_code != 200:
 			print("Server returned status {}.".format(response.status_code))
 			return []
 		return response.text
 	except:
 		response = requests.post(page, files=multipart_form_data)
+		fileBuffer.close()
 		if response.status_code != 200:
 			print("Server returned status {}.".format(response.status_code))
 			return []

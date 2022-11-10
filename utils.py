@@ -31,3 +31,13 @@ def returnVideoFramesFolder(video_id):
 
 def returnAudioFileName(video_id):
     return video_id+".flac"
+
+def returnIntIfPossible(value):
+    try:
+        decimal = value % 1
+        if decimal == 0:
+            return int(value)
+        else:
+            return value
+    except:
+        return value

@@ -2,20 +2,9 @@ import csv
 from utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, returnVideoFolderName
 from numpy import dot
 from numpy.linalg import norm
+from utils import returnIntIfPossible
 import warnings
 warnings.filterwarnings("error")
-
-columns = {
-  "frameindex": "frame",
-  "timestamp": "timestamp",
-  "Line1": "Line1",
-  "Line2": "Line2",
-  "Sim": "Similarity",
-  "Averageone": "avgone",
-  "Averagetwo": "avgtwo",
-  "iskeyFrame": "iskeyFrame",
-  "description": "description",
-}
 
 def cosine_similarity(v1,v2):
     "compute cosine similarity of v1 to v2: (v1 dot v2)/{||v1||*||v2||)"
@@ -46,8 +35,8 @@ def generateOutputAvg(video_id):
             temp = []
             isKeyFrame.append(row[keys[2]])
             description.append(row[keys[3]])
-            frame_index.append(float(row[keys[0]]))
-            timestamp.append(float(row[keys[1]]))
+            frame_index.append(returnIntIfPossible(float(row[keys[0]])))
+            timestamp.append(returnIntIfPossible(float(row[keys[1]])))
             for idx in range(4,len(keys)):
                 if(row[keys[idx]] != ''):
                     temp.append(float(row[keys[idx]]))
@@ -56,12 +45,12 @@ def generateOutputAvg(video_id):
             list.append(temp)
         data = []
         for idx in range(2,len(list) - 1):
-            s = cosine_similarity(list[idx],list[idx+1])
+            s = returnIntIfPossible(cosine_similarity(list[idx],list[idx+1]))
             a1 = None
             a2 = None
             if(idx < len(list) - 3):
-                a1 = cosine_similarity(list[idx-1],list[idx+2])
-                a2 = cosine_similarity(list[idx-2],list[idx+3])
+                a1 = returnIntIfPossible(cosine_similarity(list[idx-1],list[idx+2]))
+                a2 = returnIntIfPossible(cosine_similarity(list[idx-2],list[idx+3]))
             else:
                 a1 = 0.0
                 a2 = 0.0
