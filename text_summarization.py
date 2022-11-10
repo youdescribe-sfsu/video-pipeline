@@ -40,7 +40,7 @@ def calculateBleuScore(data):
         referenceList.append(arr)
 #     print('refernceList-> ', referenceList)
 
-    score = sentence_bleu(referenceList, sentence)
+    # score = sentence_bleu(referenceList, sentence)
 
     onegram = sentence_bleu(referenceList, candidate, weights=(1, 0, 0, 0), smoothing_function=method1)
     twogram = sentence_bleu(referenceList, candidate, weights=(0.5, 0.5, 0, 0), smoothing_function=method1)
