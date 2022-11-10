@@ -18,31 +18,34 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny,page='http://localho
     """
     # page = 
     token = os.getenv('ANDREW_YOLO_TOKEN')
-
+    
+    fileBuffer = open(filename, 'rb')
     multipart_form_data = {
         'token': ('', str(token)),
         'threshold': ('', str(threshold)),
-        'img_file': (os.path.basename(filename), open(filename, 'rb')),
+        'img_file': (os.path.basename(filename), fileBuffer)
     }
-    print(multipart_form_data)
     try:
         response = requests.post(page, files=multipart_form_data)
         print("=====in Object Detection=====")
         print(response)
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
+            fileBuffer.close()
             return []
         print(response.text)
 
         # Changes made here
         results = eval(response.text)
         response.close()
+        fileBuffer.close()
         return results
 
     except:
         response = requests.post(page, files=multipart_form_data)
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
+            fileBuffer.close()
             return []
 
         print(response.text)
@@ -50,6 +53,7 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny,page='http://localho
         # Changes made here
         results = eval(response.text)
         response.close()
+        fileBuffer.close()
         return results
 
 
