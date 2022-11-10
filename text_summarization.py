@@ -23,9 +23,11 @@ from utils import returnVideoFolderName,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCEN
 import os
 from timeit_decorator import timeit
 
+from nltk.translate.bleu_score import SmoothingFunction
 
 
 def calculateBleuScore(data):
+    method1 = SmoothingFunction().method1
     sentence = data['sentence']
     reference = data['reference']
 
@@ -40,12 +42,12 @@ def calculateBleuScore(data):
 
     score = sentence_bleu(referenceList, sentence)
 
-    onegram = sentence_bleu(referenceList, candidate, weights=(1, 0, 0, 0))
-    twogram = sentence_bleu(referenceList, candidate, weights=(0.5, 0.5, 0, 0))
+    onegram = sentence_bleu(referenceList, candidate, weights=(1, 0, 0, 0), smoothing_function=method1)
+    twogram = sentence_bleu(referenceList, candidate, weights=(0.5, 0.5, 0, 0), smoothing_function=method1)
     threegram = sentence_bleu(referenceList, candidate,
-                              weights=(0.33, 0.33, 0.33, 0))
+                              weights=(0.33, 0.33, 0.33, 0), smoothing_function=method1)
     fourgram = sentence_bleu(referenceList, candidate,
-                             weights=(0.25, 0.25, 0.25, 0.25))
+                             weights=(0.25, 0.25, 0.25, 0.25), smoothing_function=method1)
     avg = (onegram + twogram + threegram + fourgram)/4
 #     print(onegram, twogram, threegram, fourgram)
 #     print(avg*100)
