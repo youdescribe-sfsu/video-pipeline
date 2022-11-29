@@ -140,7 +140,6 @@ def print_all_ocr_annotations(video_id, start=0):
 					try:
 						new_row = [frame_index, float(frame_index)*seconds_per_frame, json.dumps(texts)]
 						print("Frame Index: ", frame_index)
-						#print(texts[0].description)
 						writer.writerow(new_row)
 						outcsvfile.flush()
 					except Exception as e:
@@ -153,9 +152,12 @@ def replace_all(text_description, description_to_remove):
             text_description = text_description.replace(description, "")
     return text_description
 
+@timeit
 def print_all_ocr(video_id):
-    annotation_file = json.load(open(returnVideoFolderName(video_id)+"/"+COUNT_VERTICE))
-    max_count_annotation = annotation_file[0]
+    annotation_file = open(returnVideoFolderName(video_id)+"/"+COUNT_VERTICE)
+    annotation_file_json = json.load(annotation_file)
+    max_count_annotation = annotation_file_json[0]
+    annotation_file.close()
     outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
     description_to_remove = None
     if(max_count_annotation["percentage"] > 60):
@@ -175,9 +177,9 @@ def print_all_ocr(video_id):
             if(len(ocr_text['textAnnotations']) > 0):
                 text_description = ocr_text['textAnnotations'][0]['description']
                 replaced_text_description = replace_all(text_description, description_to_remove)
-                new_row = [frame_index, timestamp, replaced_text_description]
-                ocr_text_csv_writer.writerow(new_row)
-                ocr_text_csv_file.flush()
+                if(len(replaced_text_description) > 0):
+                    ocr_text_csv_writer.writerow([frame_index, timestamp, replaced_text_description])
+                    ocr_text_csv_file.flush()
         ocr_text_csv_file.close()
         
 if __name__ == "__main__":
@@ -192,3 +194,5 @@ if __name__ == "__main__":
 	# print_all_ocr(video_name)
  	# response = detect_text("upSnt11tngE_files/frames/frame_1788.jpg")
 	print_all_ocr("upSnt11tngE")
+
+#python full_video_pipeline.py --videoid dgrKawK-Kjc 2>&1 | tee dgrKawK-Kjc.log
