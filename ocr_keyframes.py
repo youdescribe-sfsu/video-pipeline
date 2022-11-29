@@ -28,9 +28,6 @@ def detect_text(path):
 		response = client.text_detection(image=image)
 		response_json = AnnotateImageResponse.to_json(response)
 		response = json.loads(response_json)
-		with open('sample.json', 'w', encoding='utf-8') as jsonf: 
-			jsonString = json.dumps(response,indent=4)
-			jsonf.write(jsonString)
 		return response
 	except Exception as e:
 		print("ERROR======================",str(e))

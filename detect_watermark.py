@@ -58,7 +58,6 @@ def detect_watermark(video_id):
         print("Max count: ", max_count)
         print("Vertice with max count: ", vertice_with_max_count)
         
-    #Write to sample.json
     with open(returnVideoFolderName(video_id)+ "/" + COUNT_VERTICE, 'w', encoding='utf-8') as jsonf: 
         jsonString = json.dumps(count_obj)
         jsonf.write(jsonString)
