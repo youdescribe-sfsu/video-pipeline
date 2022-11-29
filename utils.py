@@ -1,4 +1,5 @@
 FRAMES = "_frames"
+OCR_TEXT_ANNOTATIONS_FILE_NAME = "ocr_text_annotations.csv"
 OCR_TEXT_CSV_FILE_NAME = "ocr_text.csv"
 OCR_FILTER_CSV_FILE_NAME = "ocr_filter.csv"
 OCR_FILTER_CSV_2_FILE_NAME = "ocr_filter_2.csv"
@@ -13,6 +14,7 @@ SUMMARIZED_SCENES = "summarized_scenes.json"
 TRANSCRIPTS = "transcripts.json"
 DIALOGS = "dialogs.json"
 VICR_CSV = "vicr.csv"
+COUNT_VERTICE = "count_vertice.json"
 import os
 
 def returnVideoFolderName(video_id):

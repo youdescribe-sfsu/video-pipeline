@@ -1,9 +1,10 @@
 # Runs all parts of the video processing pipeline except downloading the video
 #! /usr/bin/env python
 from csv_generate import generateOutputAvg
+from detect_watermark import detect_watermark
 from extract_frames import extract_frames
 from detect_objects import object_tracking_to_csv
-from ocr_keyframes import print_all_ocr
+from ocr_keyframes import print_all_ocr_annotations,print_all_ocr
 from filter_ocr import filter_ocr, filter_ocr_agreement, filter_ocr_remove_similarity
 from keyframe_timestamps import keyframes_from_object_tracking
 from keyframe_captions import captions_to_csv
@@ -46,7 +47,11 @@ def main_video_pipeline(video_id,pagePort,video_start_time,video_end_time):
 
     # TODO automate restart on code break
     # OCR
-    print("=== GET ALL OCR ===")
+    print("=== GET ALL OCR ANNOTATIONS ===")
+    print_all_ocr_annotations(video_id)
+    print("=== DETECT WATERMARK ===")
+    detect_watermark(video_id)
+    print("PRINT OCR")
     print_all_ocr(video_id)
     print("=== FILTER OCR V1 ===")
     filter_ocr(video_id)
@@ -71,19 +76,19 @@ def main_video_pipeline(video_id,pagePort,video_start_time,video_end_time):
 
     # TODO Convert to python
     # node.call(['csv.js',path+'/'+CAPTIONS_AND_OBJECTS_CSV,path+'/'+OUTPUT_AVG_CSV])
-    csv_js_function(path=path)
-    # generateOutputAvg(video_id)
+    # csv_js_function(path=path)
+    generateOutputAvg(video_id)
     ## VICR SCORING
     # get_vicr_score_from_service(video_id)
-    scene_js_function(path=path)
+    # scene_js_function(path=path)
     # node.call(['sceneSegmentation.js',path+'/'+OUTPUT_AVG_CSV,path+'/'+SCENE_SEGMENTED_FILE_CSV])
-    # sceneSegmentation(video_id)
+    sceneSegmentation(video_id)
     if(video_start_time == None and video_end_time == None):
         text_summarization_csv(video_id)
         getAudioFromVideo(video_id)
         google_transcribe(video_id)
-        #upload_data(video_id)
-        #generateYDXCaption(video_id)
+        # upload_data(video_id)
+        # generateYDXCaption(video_id)
         # shutil.rmtree(returnVideoFramesFolder(video_id))
     print("=== DONE! ===")
 
@@ -91,7 +96,7 @@ def main_video_pipeline(video_id,pagePort,video_start_time,video_end_time):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--yolo",default=8081, help="Yolo Port", type=int)
-    parser.add_argument("--videoid", help="Video Id", type=str)
+    parser.add_argument("--videoid", help="Video Id",default="dgrKawK-Kjc", type=str)
     parser.add_argument("--start_time",default=None, help="Start Time", type=str)
     parser.add_argument("--end_time",default=None, help="End Time", type=str)
     args = parser.parse_args()

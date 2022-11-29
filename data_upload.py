@@ -69,14 +69,24 @@ def upload_data(videoId):
             continue
 
     print(audio_clips)
+    aiUserId = os.getenv('YDX_AI_USER_ID')
 
     data = {
         "youtube_id": videoId,
         "audio_clips": audio_clips,
         "video_length": vid["duration"],
         "video_name": vid["title"],
-        "dialogue_timestamps": dialogue_timestamps
+        "dialogue_timestamps": dialogue_timestamps,
+        # AI USER ID
+        "aiUserId": aiUserId
     }
+    print("===== UPLOADING DATA =====")
+    print(data)
+    f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
+    f.writelines(str(dialogue_timestamps))
+    f.close()
+    with open(returnVideoFolderName(videoId)+'/'+"final_data.json", mode='w') as f:
+        f.write(json.dumps(data))
     print("===== UPLOADING DATA =====")
     print(data)
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')

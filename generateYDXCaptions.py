@@ -5,11 +5,14 @@ import os
 
 def generateYDXCaption(videoId):
     userId = os.getenv('YDX_USER_ID')
+    aiUserId = os.getenv('YDX_AI_USER_ID')
     if(userId == None):
       userId = "65c433f7-ceb2-495d-ae01-994388ce56f5"
     data = {
       "userId" : userId,
-      "youtubeVideoId" : videoId
+      "youtubeVideoId" : videoId,
+      # Change AI ID to the ID of the AI you want to use
+      "aiUserId": aiUserId
     }
     ydx_server = os.getenv('YDX_WEB_SERVER')
     if(ydx_server == None):
