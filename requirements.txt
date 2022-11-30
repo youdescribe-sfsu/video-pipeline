@@ -7,7 +7,6 @@ yt-dlp
 youtube_dl
 pandas
 nltk
-nodejs-bin
 python-dotenv
 google-cloud-speech
 google-cloud-storage
