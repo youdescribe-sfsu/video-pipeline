@@ -16,6 +16,18 @@ TRANSCRIPTS = 'transcripts.json'
 DIALOGS = 'dialogs.json'
 VICR_CSV = 'vicr.csv'
 COUNT_VERTICE = 'count_vertice.json'
+
+OCR_HEADERS = {
+    'frame_index': 'Frame Index',
+    'timestamp': 'Timestamp',
+    'ocr_text': 'OCR Text'
+}
+
+FRAME_INDEX_SELECTOR = 'frame_index'
+TIMESTAMP_SELECTOR = 'timestamp'
+OCR_TEXT_SELECTOR = 'ocr_text'
+
+
 import os
 
 

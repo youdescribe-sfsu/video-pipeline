@@ -3,9 +3,23 @@ import sys
 import numpy as np
 import requests
 import yt_dlp as ydl
-from utils import returnVideoFolderName,SUMMARIZED_SCENES,OCR_FILTER_REMOVE_SIMILAR,TRANSCRIPTS,DIALOGS
+from utils import returnVideoFolderName,SUMMARIZED_SCENES,OCR_FILTER_REMOVE_SIMILAR,TRANSCRIPTS,DIALOGS,OCR_HEADERS,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
 import os
+import csv
+import string
 
+def transformStringAndCheckIfEmpty(row_text):
+    text_len = len(row_text)
+    if(len(row_text) > 1 or len(row_text.split(" ")) > 1):
+        if(row_text[0] == "\n"):
+            row_text[0] == ""
+        if(row_text[text_len - 1] == "\n"):
+            row_text[text_len - 1] == ""
+        normal_string=row_text.translate(str.maketrans('', '', string.punctuation))
+        to_insert = len(normal_string.split(" ")) > 1
+        return (to_insert,row_text)
+    else:
+        return (False,'')
 
 def upload_data(videoId):
     vid = ydl.YoutubeDL().extract_info(
@@ -14,7 +28,7 @@ def upload_data(videoId):
     sequence_num = 0
 
     f = open(returnVideoFolderName(videoId)+'/'+TRANSCRIPTS)
-    print(f)
+    # print(f)
     dialogue = json.load(f)
     f.close()
     for i in dialogue["results"]:
@@ -27,7 +41,7 @@ def upload_data(videoId):
             clip["duration"] = round(float(clip["end_time"]) - float(clip["start_time"]),2)
             dialogue_timestamps.append(clip)
             sequence_num += 1
-    print(dialogue_timestamps)
+    # print(dialogue_timestamps)
     f = open(returnVideoFolderName(videoId)+'/'+SUMMARIZED_SCENES)
     scene_data = json.load(f)
     f.close()
@@ -39,24 +53,26 @@ def upload_data(videoId):
         if i["scene_number"] == scene:
             audio_clips.append(i)
             scene += 1
-
+            
     with open(returnVideoFolderName(videoId)+'/'+OCR_FILTER_REMOVE_SIMILAR) as file:
-        lines = file.readlines()[1:]
-
         entry = {}
-        for line in lines:
-            split = line.split(",")
-            if len(split) == 3:
-                if len(entry.keys()) != 0:
+        csvReader = csv.DictReader(file) 
+        for row in csvReader:
+            if(len(row)==3):
+                if(len(entry.keys()) != 0):
                     audio_clips.append(entry)
-                entry = {
-                    "start_time": split[1],
-                    "text": split[2],
-                    "type": "Text on Screen"
-                }
-
+                    entry = {}
+                row_text = row[OCR_HEADERS[OCR_TEXT_SELECTOR]]
+                # Remove Special Characters and check if empty
+                to_insert,text_to_insert = transformStringAndCheckIfEmpty(row_text)
+                if(to_insert):
+                    entry = {
+                        "start_time": row[OCR_HEADERS[TIMESTAMP_SELECTOR]],
+                        "text": text_to_insert,
+                        "type": "Text on Screen"
+                    }
             else:
-                entry["text"] += split[0]
+                entry["text"] += row[OCR_HEADERS[TIMESTAMP_SELECTOR]]
 
     for clip in audio_clips:
         try:
@@ -66,10 +82,7 @@ def upload_data(videoId):
             else:
                 clip["text"].replace('\n', '.')
         except:
-            print(clip)
             continue
-
-    print(audio_clips)
     aiUserId = os.getenv('YDX_AI_USER_ID')
 
     data = {
@@ -82,14 +95,14 @@ def upload_data(videoId):
         "aiUserId": aiUserId
     }
     print("===== UPLOADING DATA =====")
-    print(data)
+    # print(data)
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     f.close()
     with open(returnVideoFolderName(videoId)+'/'+"final_data.json", mode='w') as f:
-        f.write(json.dumps(data))
+        f.write(json.dumps(data, indent=4))
     print("===== UPLOADING DATA =====")
-    print(data)
+    # print(data)
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     # send data to wherever db is
@@ -101,11 +114,11 @@ def upload_data(videoId):
     try:
         r = requests.post(url, data=json.dumps(data), headers=headers)
         print("===== RESPONSE =====")
-        print(r)
+        print(r.text)
         r.close()
     except:
         r = requests.post(url, data=json.dumps(data), headers=headers)
-        print(r)
+        print(r.text)
         r.close()
 
 

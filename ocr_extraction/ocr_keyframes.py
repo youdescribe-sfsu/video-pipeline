@@ -7,7 +7,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
-from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE
+from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
 from timeit_decorator import timeit
 from google.cloud.vision_v1 import AnnotateImageResponse
 import json
@@ -129,7 +129,7 @@ def print_all_ocr_annotations(video_id, start=0):
 			
 			writer = csv.writer(outcsvfile)
 			if(start == 0):
-				writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
+				writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for frame_index in range(start, num_frames, step):				
 				frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
 				texts = detect_text(frame_filename)
@@ -162,15 +162,15 @@ def print_all_ocr(video_id):
     ocr_text_csv = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
     ocr_text_csv_file = open(ocr_text_csv, 'w', newline='', encoding='utf-8')
     ocr_text_csv_writer = csv.writer(ocr_text_csv_file)
-    ocr_text_csv_writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
+    ocr_text_csv_writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
     with open(outcsvpath, encoding='utf-8') as csvf: 
         csvReader = csv.DictReader(csvf) 
         #convert each csv row into python dict
         for row in csvReader: 
             #add this python dict to json array
-            ocr_text = json.loads(row["OCR Text"])
-            frame_index = row["Frame Index"]
-            timestamp = row["Timestamp"]
+            ocr_text = json.loads(row[OCR_HEADERS[OCR_TEXT_SELECTOR]])
+            frame_index = row[OCR_HEADERS[FRAME_INDEX_SELECTOR]]
+            timestamp = row[OCR_HEADERS[TIMESTAMP_SELECTOR]]
             if(len(ocr_text['textAnnotations']) > 0):
                 text_description = ocr_text['textAnnotations'][0]['description']
                 replaced_text_description = replace_all(text_description, description_to_remove)
