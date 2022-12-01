@@ -58,7 +58,7 @@ def keyframes_from_object_tracking(video_id, target_keyframes_per_second=1):
 	outcsvpath = returnVideoFolderName(video_id)+ "/" + KEYFRAMES_CSV
 	with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
-		writer.writerow(KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR])
+		writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR]])
 		for frame_index in keyframes:
 			new_row = [frame_index, float(frame_index)*seconds_per_frame]
 			print(frame_index, float(frame_index)*seconds_per_frame)
