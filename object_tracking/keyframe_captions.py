@@ -3,7 +3,8 @@
 import requests
 import os
 import csv
-from utils import returnVideoFramesFolder,returnVideoFolderName,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV
+from utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
+from utils import returnVideoFramesFolder,returnVideoFolderName
 from timeit_decorator import timeit
 
 def get_caption(filename):
@@ -95,7 +96,7 @@ def captions_to_csv(video_id, start=0):
 	with open(outcsvpath, mode, newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
 		if start == 0:
-			writer.writerow(["Frame Index", "Timestamp", "Is Keyframe", "Caption"])
+			writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR],KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR],KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
 		for frame_index in range(start, num_frames, step):
 			frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
 			caption = get_caption(frame_filename)
@@ -128,9 +129,9 @@ def update_caption_keyframes(video_id):
 	
 	with open(returnVideoFolderName(video_id) + '/captions_updated.csv', 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
-		writer.writerow(["Frame Index", "Timestamp", "Is Keyframe", "Caption"])
+		writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR],KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR],KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
 		for row in caption_rows:
-			if row[0] != 'Frame Index':
+			if row[0] != KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]:
 				row[2] = int(row[0]) in keyframes
 				writer.writerow(row)
 

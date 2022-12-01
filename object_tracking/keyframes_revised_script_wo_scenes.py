@@ -5,10 +5,11 @@ version: Python3.7
 # Inserting the extracted keyframes in db (replace csv file path and video id)
 import requests
 import pandas as pd
+from utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
 
 
 df = pd.read_csv("./qN8DRJ8OMcA_data.csv")
-df = df[['Frame Index', 'Timestamp', 'Is Keyframe', 'Caption']]
+df = df[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR],KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR],KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]
 
 video_id = "qN8DRJ8OMcA"
 kf_url = "https://dev.youdescribe.org/keyframes/"+video_id+"/"
@@ -19,7 +20,7 @@ for index, row in df.iterrows():
 #         print(row['Caption'])
         continue
     if row['Is Keyframe']:
-        kf_num = row["Frame Index"]
+        kf_num = row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]
         kf_id = video_id + "_" + str(kf_num)
         
         body = {
@@ -27,8 +28,8 @@ for index, row in df.iterrows():
             "videoId": video_id,
             "keyframeNum": int(kf_num),
             "keyframeURL": kf_url + "frame_" + str(kf_num) + ".jpg",
-            "timestamp": row["Timestamp"],
-            "caption": row["Caption"]
+            "timestamp": row[KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR]],
+            "caption": row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]
         }
 #         print(body)
         r = requests.post(url = URL, data=body)

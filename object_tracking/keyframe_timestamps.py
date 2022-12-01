@@ -1,8 +1,9 @@
 # Optimize keyframe selection based on object detection results
 
 import csv
-from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV,KEYFRAMES_CSV
+from utils import returnVideoFramesFolder,returnVideoFolderName
 from timeit_decorator import timeit
+from utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV,KEYFRAMES_CSV
 
 @timeit
 def keyframes_from_object_tracking(video_id, target_keyframes_per_second=1):
@@ -57,7 +58,7 @@ def keyframes_from_object_tracking(video_id, target_keyframes_per_second=1):
 	outcsvpath = returnVideoFolderName(video_id)+ "/" + KEYFRAMES_CSV
 	with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
-		writer.writerow(["Frame Index", "Timestamp"])
+		writer.writerow(KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR])
 		for frame_index in keyframes:
 			new_row = [frame_index, float(frame_index)*seconds_per_frame]
 			print(frame_index, float(frame_index)*seconds_per_frame)

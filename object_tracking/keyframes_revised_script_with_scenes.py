@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import json
 import sys
+from utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
 
 def fetchSceneData(video_id):
 
@@ -25,7 +26,7 @@ def fetchSceneId(timestamp, scene_arr):
 
 def insert_key_frames(video_id) :
     df = pd.read_csv("./Captions.csv")
-    df = df[['Frame Index', 'Timestamp', 'Is Keyframe', 'Caption']]
+    df = df[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR],KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR],KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]
 
     kf_url = "https://dev.youdescribe.org/keyframes/"+video_id+"/"
     URL = "http://localhost:5001/keyframe/addKeyframe" # API to store kf info in youdescribex db
@@ -38,10 +39,10 @@ def insert_key_frames(video_id) :
                 continue
         except:
             continue
-        if row['Is Keyframe']:
-            kf_num = row["Frame Index"]
+        if row[KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR]]:
+            kf_num = row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]
             kf_id = video_id + "_" + str(kf_num)
-            timestamp = row["Timestamp"]
+            timestamp = row[KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR]]
             #scene_id = fetchSceneId(timestamp, scene_arr)
             
             body = {
@@ -50,7 +51,7 @@ def insert_key_frames(video_id) :
                 "keyframeNum": int(kf_num),
                 "keyframeURL": kf_url + "frame_" + str(kf_num) + ".jpg",
                 "timestamp": timestamp,
-                "caption": row["Caption"],
+                "caption": row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]],
                 #"sceneId": scene_id
             }
     #         print(body)

@@ -18,7 +18,7 @@ def main_video_pipeline(video_id,pagePort,video_start_time,video_end_time):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--yolo",default=8081, help="Yolo Port", type=int)
-    parser.add_argument("--videoid", help="Video Id",default="YLslsZuEaNE", type=str)
+    parser.add_argument("--videoid", help="Video Id", type=str)
     parser.add_argument("--start_time",default=None, help="Start Time", type=str)
     parser.add_argument("--end_time",default=None, help="End Time", type=str)
     args = parser.parse_args()

@@ -7,3 +7,4 @@ tts_cloud_key.json
 __pycache__/
 package-lock.json
 **_env/
+**.log
