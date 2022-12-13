@@ -13,6 +13,7 @@ def main_video_pipeline(video_id,pagePort,video_start_time,video_end_time):
     full_pipeline = FullPipeline(video_id,pagePort,video_start_time,video_end_time)
     full_pipeline.downloadAndGetAudioTranscription()
     full_pipeline.runOCRandObjectDetection()
+    full_pipeline.generateYDXCaptions()
     print("=== DONE! ===")
 
 

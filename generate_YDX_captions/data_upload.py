@@ -1,6 +1,5 @@
 import json
 import sys
-import numpy as np
 import requests
 import yt_dlp as ydl
 from utils import returnVideoFolderName,SUMMARIZED_SCENES,OCR_FILTER_REMOVE_SIMILAR,TRANSCRIPTS,DIALOGS,OCR_HEADERS,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
@@ -96,30 +95,26 @@ def upload_data(videoId):
     }
     print("===== UPLOADING DATA =====")
     # print(data)
-    f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
-    f.writelines(str(dialogue_timestamps))
-    f.close()
+    with open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w') as f:
+        f.write(json.dumps(dialogue_timestamps))
     with open(returnVideoFolderName(videoId)+'/'+"final_data.json", mode='w') as f:
         f.write(json.dumps(data, indent=4))
     print("===== UPLOADING DATA =====")
-    # print(data)
-    f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
-    f.writelines(str(dialogue_timestamps))
     # send data to wherever db is
-    ydx_server = os.getenv('YDX_WEB_SERVER')
-    if(ydx_server == None):
-        ydx_server = 'http://3.101.130.10:4000'
-    url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
-    headers = {"Content-Type": "application/json; charset=utf-8"}
-    try:
-        r = requests.post(url, data=json.dumps(data), headers=headers)
-        print("===== RESPONSE =====")
-        print(r.text)
-        r.close()
-    except:
-        r = requests.post(url, data=json.dumps(data), headers=headers)
-        print(r.text)
-        r.close()
+    # ydx_server = os.getenv('YDX_WEB_SERVER')
+    # if(ydx_server == None):
+    #     ydx_server = 'http://3.101.130.10:4000'
+    # url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
+    # headers = {"Content-Type": "application/json; charset=utf-8"}
+    # try:
+    #     r = requests.post(url, data=json.dumps(data), headers=headers)
+    #     print("===== RESPONSE =====")
+    #     print(r.text)
+    #     r.close()
+    # except:
+    #     r = requests.post(url, data=json.dumps(data), headers=headers)
+    #     print(r.text)
+    #     r.close()
 
 
 def generateYDXCaption(videoId):

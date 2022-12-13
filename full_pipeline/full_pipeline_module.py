@@ -29,8 +29,8 @@ class FullPipeline:
         if(self.video_start_time == None and self.video_end_time == None):
             audio_trancription = AudioTranscription(self.video_id)
             audio_trancription.run_audio_transcription()
-            #generateYDXCaption = GenerateYDXCaptions(self.video_id)
-            #generateYDXCaption.uploadAndGenerateCaptions()
+            generateYDXCaption = GenerateYDXCaptions(self.video_id)
+            generateYDXCaption.uploadAndGenerateCaptions()
         print("=== DONE! ===")
     
     @timeit

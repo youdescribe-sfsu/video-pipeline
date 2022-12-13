@@ -2,6 +2,7 @@ from object_tracking.detect_objects import object_tracking_to_csv
 from object_tracking.keyframe_timestamps import keyframes_from_object_tracking
 from object_tracking.keyframe_captions import captions_to_csv
 from object_tracking.combine_captions_objects import combine_captions_objects
+from text_summary.text_summary_module import TextSummary
 
 class ObjectTracking:
     def __init__(self, video_id,pagePort):
@@ -19,6 +20,9 @@ class ObjectTracking:
             captions_to_csv(self.video_id)
             print("=== COMBINE CAPTIONS AND OBJECTS ===")
             combine_captions_objects(self.video_id)
+            print("==== GENERATE TEXT SUMMARY ====")
+            textSummary = TextSummary(self.video_id)
+            textSummary.generateTextSummary()
             return True
         except Exception as e:
             print("OBJECT TRACKING ERROR: ",e)

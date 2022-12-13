@@ -13,7 +13,7 @@ class GenerateYDXCaptions:
 
     def uploadAndGenerateCaptions(self):
         upload_data(self.video_id)
-        generateYDXCaption(self.video_id)
+        # generateYDXCaption(self.video_id)
 
     def cleanUpData(self):
         shutil.rmtree(returnVideoFramesFolder(self.video_id))
