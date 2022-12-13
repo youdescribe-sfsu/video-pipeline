@@ -1,6 +1,6 @@
-from csv_generate import generateOutputAvg
-from sceneSegmentation import sceneSegmentation
-from text_summarization import text_summarization_csv
+from text_summary.csv_generate import generateOutputAvg
+from text_summary.sceneSegmentation import sceneSegmentation
+from text_summary.text_summarization import text_summarization_csv
 
 class TextSummary:
     def __init__(self, video_id):
