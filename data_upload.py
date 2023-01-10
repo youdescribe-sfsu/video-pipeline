@@ -5,6 +5,24 @@ import requests
 import yt_dlp as ydl
 from utils import returnVideoFolderName,SUMMARIZED_SCENES,OCR_FILTER_REMOVE_SIMILAR,TRANSCRIPTS,DIALOGS
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
+def mergeIntervals(audio_clips):
+    # Sort the array on the basis of start values of intervals.
+    stack = []
+    # insert first interval into stack
+    stack.append(audio_clips[0])
+    for audio_clip in audio_clips[1:]:
+        # Check for overlapping interval,
+        # if interval overlap
+        if abs(float(audio_clip["start_time"]) - float(stack[-1]["start_time"])) < 5:
+            stack[-1]['text'] += ' \n ' + audio_clip['text']
+        else:
+            stack.append(audio_clip)
+    return stack
 
 def upload_data(videoId):
     vid = ydl.YoutubeDL().extract_info(
@@ -13,7 +31,6 @@ def upload_data(videoId):
     sequence_num = 0
 
     f = open(returnVideoFolderName(videoId)+'/'+TRANSCRIPTS)
-    print(f)
     dialogue = json.load(f)
     f.close()
     for i in dialogue["results"]:
@@ -26,7 +43,7 @@ def upload_data(videoId):
             clip["duration"] = round(float(clip["end_time"]) - float(clip["start_time"]),2)
             dialogue_timestamps.append(clip)
             sequence_num += 1
-    print(dialogue_timestamps)
+
     f = open(returnVideoFolderName(videoId)+'/'+SUMMARIZED_SCENES)
     scene_data = json.load(f)
     f.close()
@@ -65,11 +82,21 @@ def upload_data(videoId):
             else:
                 clip["text"].replace('\n', '.')
         except:
-            print(clip)
             continue
 
-    print(audio_clips)
     aiUserId = os.getenv('YDX_AI_USER_ID')
+    audio_clips.sort(key=lambda x: float(x['start_time']))
+    # for audio_clip in audio_clips:
+    #     audio_clip['text'] = audio_clip['text'].replace('\n', ' and ')
+    
+    visual_audio_clips = list(filter(lambda x: x['type'] == 'Visual', audio_clips))
+    
+    text_on_screen_audio_clips = list(filter(lambda x: x['type'] == 'Text on Screen', audio_clips))
+    text_on_screen_audio_clips = mergeIntervals(text_on_screen_audio_clips)
+    
+    visual_audio_clips.extend(text_on_screen_audio_clips)
+    audio_clips = visual_audio_clips
+    audio_clips.sort(key=lambda x: float(x['start_time']))
 
     data = {
         "youtube_id": videoId,
@@ -80,33 +107,30 @@ def upload_data(videoId):
         # AI USER ID
         "aiUserId": aiUserId
     }
-    print("===== UPLOADING DATA =====")
-    print(data)
+    # print(data)
+
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     f.close()
     with open(returnVideoFolderName(videoId)+'/'+"final_data.json", mode='w') as f:
         f.write(json.dumps(data))
-    print("===== UPLOADING DATA =====")
-    print(data)
     f = open(returnVideoFolderName(videoId)+'/'+DIALOGS, mode='w')
     f.writelines(str(dialogue_timestamps))
     # send data to wherever db is
-    ydx_server = os.getenv('YDX_WEB_SERVER')
-    if(ydx_server == None):
-        ydx_server = 'http://3.101.130.10:4000'
-    url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
-    headers = {"Content-Type": "application/json; charset=utf-8"}
-    try:
-        r = requests.post(url, data=json.dumps(data), headers=headers)
-        print("===== RESPONSE =====")
-        print(r)
-        r.close()
-    except:
-        r = requests.post(url, data=json.dumps(data), headers=headers)
-        print(r)
-        r.close()
+    # ydx_server = os.getenv('YDX_WEB_SERVER')
+    # if(ydx_server == None):
+    #     ydx_server = 'http://3.101.130.10:4000'
+    # url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
+    # headers = {"Content-Type": "application/json; charset=utf-8"}
+    # try:
+    #     r = requests.post(url, data=json.dumps(data), headers=headers)
+    #     print("===== RESPONSE =====")
+    #     print(r)
+    #     r.close()
+    # except:
+    #     r = requests.post(url, data=json.dumps(data), headers=headers)
+    #     print(r)
+    #     r.close()
 
 if __name__ == '__main__':
-    print(sys.argv[1])
-    upload_data(sys.argv[1])
+    upload_data('ll8cTIg2rwM')
