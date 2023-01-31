@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 FRAMES = '_frames'
 OCR_TEXT_ANNOTATIONS_FILE_NAME = 'ocr_text_annotations.csv'
 OCR_TEXT_CSV_FILE_NAME = 'ocr_text.csv'
@@ -16,6 +18,29 @@ TRANSCRIPTS = 'transcripts.json'
 DIALOGS = 'dialogs.json'
 VICR_CSV = 'vicr.csv'
 COUNT_VERTICE = 'count_vertice.json'
+
+## OCR CSV HEADERS
+
+FRAME_INDEX_SELECTOR = 'frame_index'
+TIMESTAMP_SELECTOR = 'timestamp'
+OCR_TEXT_SELECTOR = 'ocr_text'
+
+OCR_HEADERS = {FRAME_INDEX_SELECTOR: 'Frame Index',
+               TIMESTAMP_SELECTOR: 'Timestamp',
+               OCR_TEXT_SELECTOR: 'OCR Text'}
+
+## KEYFRAMES CSV HEADERS
+
+IS_KEYFRAME_SELECTOR = 'is_keyframe'
+KEYFRAME_CAPTION_SELECTOR = 'caption'
+
+KEY_FRAME_HEADERS = {
+    FRAME_INDEX_SELECTOR: 'Frame Index',
+    TIMESTAMP_SELECTOR: 'Timestamp',
+    IS_KEYFRAME_SELECTOR: 'Is Keyframe',
+    KEYFRAME_CAPTION_SELECTOR: 'Caption',
+    }
+
 import os
 
 

@@ -1,7 +1,7 @@
 # Process the raw OCR into more useful output
 import csv
 from requests.api import request
-from utils import returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR
+from utils import OCR_HEADERS, returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR,OCR_TEXT_SELECTOR,TIMESTAMP_SELECTOR,FRAME_INDEX_SELECTOR
 from timeit_decorator import timeit
 
 
@@ -88,7 +88,7 @@ def filter_ocr(video_id, window_width=10, threshold=0.5):
 		outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_FILE_NAME
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
-			writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
+			writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for row in filtered_rows:
 				writer.writerow(row)
 				outcsvfile.flush()
@@ -148,7 +148,7 @@ def filter_ocr_agreement(video_id, window_width=10, threshold=0.5, low_threshold
 		outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
-			writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
+			writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for row in filtered_rows:
 				writer.writerow(row)
 				outcsvfile.flush()
@@ -229,7 +229,7 @@ def filter_ocr_remove_similarity(video_id, threshold=0.15, use_agreement=True, m
 		outcsvpath = returnVideoFolderName(video_id)+ "/"+ OCR_FILTER_REMOVE_SIMILAR
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
-			writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
+			writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for row in kept_rows:
 				writer.writerow(row)
 				outcsvfile.flush()

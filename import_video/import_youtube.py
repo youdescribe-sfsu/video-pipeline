@@ -1,9 +1,7 @@
 import subprocess
 import sys
-
 import yt_dlp as ydl
 from utils import returnVideoDownloadLocation
-from yt_dlp.utils import download_range_func
 from datetime import timedelta
 from timeit_decorator import timeit
 

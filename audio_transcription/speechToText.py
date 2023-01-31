@@ -1,13 +1,6 @@
-import sys
-
-import yt_dlp as ydl
-import requests
-from utils import returnVideoDownloadLocation,returnVideoFolderName,returnAudioFileName,TRANSCRIPTS
+from utils import returnVideoFolderName,returnAudioFileName,TRANSCRIPTS
 import os
-# from __future__ import unicode_literals
 from youtube_dl import YoutubeDL
-import json
-
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 import audio_metadata
 
