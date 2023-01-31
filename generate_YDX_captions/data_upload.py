@@ -7,6 +7,20 @@ import os
 import csv
 import string
 
+def mergeIntervals(audio_clips):
+    # Sort the array on the basis of start values of intervals.
+    stack = []
+    # insert first interval into stack
+    stack.append(audio_clips[0])
+    for audio_clip in audio_clips[1:]:
+        # Check for overlapping interval,
+        # if interval overlap
+        if abs(float(audio_clip["start_time"]) - float(stack[-1]["start_time"])) < 5:
+            stack[-1]['text'] += ' \n ' + audio_clip['text']
+        else:
+            stack.append(audio_clip)
+    return stack
+
 def transformStringAndCheckIfEmpty(row_text):
     text_len = len(row_text)
     if(len(row_text) > 1 or len(row_text.split(" ")) > 1):
@@ -83,6 +97,18 @@ def upload_data(videoId):
         except:
             continue
     aiUserId = os.getenv('YDX_AI_USER_ID')
+    audio_clips.sort(key=lambda x: float(x['start_time']))
+    # for audio_clip in audio_clips:
+    #     audio_clip['text'] = audio_clip['text'].replace('\n', ' and ')
+    
+    visual_audio_clips = list(filter(lambda x: x['type'] == 'Visual', audio_clips))
+    
+    text_on_screen_audio_clips = list(filter(lambda x: x['type'] == 'Text on Screen', audio_clips))
+    text_on_screen_audio_clips = mergeIntervals(text_on_screen_audio_clips)
+    
+    visual_audio_clips.extend(text_on_screen_audio_clips)
+    audio_clips = visual_audio_clips
+    audio_clips.sort(key=lambda x: float(x['start_time']))
 
     data = {
         "youtube_id": videoId,
@@ -101,20 +127,20 @@ def upload_data(videoId):
         f.write(json.dumps(data, indent=4))
     print("===== UPLOADING DATA =====")
     # send data to wherever db is
-    # ydx_server = os.getenv('YDX_WEB_SERVER')
-    # if(ydx_server == None):
-    #     ydx_server = 'http://3.101.130.10:4000'
-    # url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
-    # headers = {"Content-Type": "application/json; charset=utf-8"}
-    # try:
-    #     r = requests.post(url, data=json.dumps(data), headers=headers)
-    #     print("===== RESPONSE =====")
-    #     print(r.text)
-    #     r.close()
-    # except:
-    #     r = requests.post(url, data=json.dumps(data), headers=headers)
-    #     print(r.text)
-    #     r.close()
+    ydx_server = os.getenv('YDX_WEB_SERVER')
+    if(ydx_server == None):
+        ydx_server = 'http://3.101.130.10:4000'
+    url = '{}/api/audio-descriptions/newaidescription/'.format(ydx_server)
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    try:
+        r = requests.post(url, data=json.dumps(data), headers=headers)
+        print("===== RESPONSE =====")
+        print(r.text)
+        r.close()
+    except:
+        r = requests.post(url, data=json.dumps(data), headers=headers)
+        print(r.text)
+        r.close()
 
 
 def generateYDXCaption(videoId):
