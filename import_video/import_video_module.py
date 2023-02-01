@@ -1,6 +1,8 @@
 from import_video.extract_frames import extract_frames
 from import_video.import_youtube import import_video
 from timeit_decorator import timeit
+from utils import returnVideoDownloadLocation
+import ffmpeg
 
 class ImportVideo:
     def __init__(self,video_id,video_start_time,video_end_time):
@@ -15,6 +17,8 @@ class ImportVideo:
             print("start time: ",self.video_start_time)
             print("end time: ",self.video_end_time)
             import_video(self.video_id,self.video_start_time,self.video_end_time)
+            # Extract audio from video
+            ffmpeg.input(returnVideoDownloadLocation(self.video_id)).output(returnVideoDownloadLocation(self.video_id).replace(".mp4",".flac")).run()
             print("=== EXTRACT FRAMES ===")
             extract_frames(self.video_id, 10, True)
             return True

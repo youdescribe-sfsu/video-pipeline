@@ -35,6 +35,7 @@ def transformStringAndCheckIfEmpty(row_text):
         return (False,'')
 
 def upload_data(videoId):
+    ## Replace with INFO in ffmpeg
     vid = ydl.YoutubeDL().extract_info(
         url='https://www.youtube.com/watch?v=' + videoId, download=False)
     dialogue_timestamps = []
@@ -63,6 +64,7 @@ def upload_data(videoId):
     for i in scene_data:
         i["type"] = "Visual"
 
+        ##TODO: Workaround for Multiple scenes remove once it's fixed
         if i["scene_number"] == scene:
             audio_clips.append(i)
             scene += 1
@@ -71,6 +73,8 @@ def upload_data(videoId):
         entry = {}
         csvReader = csv.DictReader(file) 
         for row in csvReader:
+            ##TODO: Check the CSV generated is correct len(row) == 3
+            ##TODO Remove if not reqd
             if(len(row)==3):
                 if(len(entry.keys()) != 0):
                     audio_clips.append(entry)
@@ -97,6 +101,7 @@ def upload_data(videoId):
         except:
             continue
     aiUserId = os.getenv('YDX_AI_USER_ID')
+    ##TODO Check and remove this if not required
     audio_clips.sort(key=lambda x: float(x['start_time']))
     # for audio_clip in audio_clips:
     #     audio_clip['text'] = audio_clip['text'].replace('\n', ' and ')

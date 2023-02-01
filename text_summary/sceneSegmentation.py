@@ -22,9 +22,20 @@ def segmentedData(sceneTimeLimit, threshold,list_new):
     description = ""
     data = []
     
+# frame,timestamp,Line1,Line2,Similarity,avgone,avgtwo,iskeyFrame,description
+# 6,0.2,2,3,SKIP,NaN,NaN,False,a dark dark dark dark dark dark sky
+# 9,0.3,3,4,0.8849123801434262,NaN,NaN,False,a close up picture of a purple mouse
+# 12,0.4,4,5,0.6998180926512969,0.28589822879945426,NaN,False,a close up of a blue and blue plate
+# 15,0.5,5,6,0.8511072730026329,0.7888871632771934,0.6271427476046002,True,a close up view of a blue and blue object
+# 18,0.6,6,7,0.8223277151843041,0.5891958064611101,0.6250482199849766,False,a close up of a blue and blue object
+    
+    
+    
     for i in range(len(list_new)):
+        ## If it is keyframe, add description to description
         if(list_new[i][7] == 'True'):
             description = description +  "\n" + list_new[i][8]
+        ## If similarity exists, and the average similarities is less than threshold, and the time difference is greater than sceneTimeLimit
         if(list_new[i][4] != 'SKIP' and list_new[i][4] < threshold):
             if(averageCheck(list_new[i][5], list_new[i][6], threshold) and
             list_new[i][1] - currentSceneTimeStamp > sceneTimeLimit):
@@ -32,6 +43,7 @@ def segmentedData(sceneTimeLimit, threshold,list_new):
                 data.append([currentSceneTimeStamp, list_new[i][1], description])
                 description = ""
                 currentSceneTimeStamp = list_new[i][1]
+
         if(list_new[i][4] != 'SKIP' and firstSkip == True):
             if (list_new[i][1] - skiptimestamp >= sceneTimeLimit):
                 scenesegments.append(list_new[i][1])

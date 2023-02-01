@@ -44,6 +44,8 @@ KEY_FRAME_HEADERS = {
 import os
 
 
+
+## Add a subdirectory if start and end time are specified
 def returnVideoFolderName(video_id):
     '''Returns the folder name for a video'''
 
@@ -52,9 +54,9 @@ def returnVideoFolderName(video_id):
     end_time = os.getenv('END_TIME') or None
     if start_time != None and end_time != None:
         if CURRENT_ENV == 'development':
-            return video_id + '_' + start_time + '_' + end_time
+            return video_id +'_files/' + 'part_start' '_' + start_time + '_' + end_time
         else:
-            return '/home/datasets/pipeline/' + video_id + '_start_' \
+            return '/home/datasets/pipeline/' + video_id + '_files/' + 'part_start_' \
                 + str(start_time) + '_end_' + str(end_time) + '_files'
     if CURRENT_ENV == 'development':
         return video_id + '_files'
