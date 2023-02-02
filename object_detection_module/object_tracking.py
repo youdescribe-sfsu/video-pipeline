@@ -1,4 +1,4 @@
-from object_detection_module.detect_objects import object_detection_to_csv
+from object_detection_module.object_detection_helper import object_detection_to_csv
 from object_detection_module.keyframe_selection import keyframe_selection
 from object_detection_module.keyframe_captions import captions_to_csv
 from object_detection_module.combine_captions_objects import combine_captions_objects

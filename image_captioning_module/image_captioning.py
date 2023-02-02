@@ -62,7 +62,7 @@ class ImageCaptioning:
     #     return captions
     
 
-    def image_caption_to_csv(self):
+    def run_image_captioning(self):
         """
         Gets a caption for each extracted frame and writes it to a csv file along with
         the frame index and a boolean indicating whether the frame is a keyframe or not

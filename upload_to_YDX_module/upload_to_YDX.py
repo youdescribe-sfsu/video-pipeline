@@ -177,3 +177,4 @@ class UploadToYDX:
             r = requests.post(url, data=json.dumps(data), headers=headers)
             print(r.text)
             r.close()
+        return

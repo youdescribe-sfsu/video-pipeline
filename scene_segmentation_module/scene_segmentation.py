@@ -1,6 +1,6 @@
 import csv
 from utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, returnVideoFolderName
-
+from scene_segmentation_module.generate_average_output import generate_average_output
 
 class SceneSegmentation:
     def __init__(self, video_id):
@@ -86,8 +86,9 @@ class SceneSegmentation:
 
         return data
 
-    def scene_segmentation(self):
+    def run_scene_segmentation(self):
         """Segment the video into scenes based on the average of the scene and the average of the shot."""
+        generate_average_output(self.video_id)
         outputavgFile = returnVideoFolderName(self.video_id) + "/" + OUTPUT_AVG_CSV
         sceneSegmentedFile = (
             returnVideoFolderName(self.video_id) + "/" + SCENE_SEGMENTED_FILE_CSV
