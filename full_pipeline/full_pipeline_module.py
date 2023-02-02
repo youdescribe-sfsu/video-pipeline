@@ -1,9 +1,9 @@
 import os
 from timeit_decorator import timeit
 from utils import returnVideoFolderName
-from ocr_extraction.ocr_extraction_module import OcrExtraction
+from ocr_extraction_module.ocr_extraction_module import OcrExtraction
 from import_video.import_video_module import ImportVideo
-from object_tracking.object_tracking_module import ObjectTracking
+from object_detection_module.object_tracking_module import ObjectTracking
 from audio_transcription.audio_transcription_module import AudioTranscription
 from generate_YDX_captions.generate_YDX_captions_module import GenerateYDXCaptions
 from multiprocessing import Process

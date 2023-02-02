@@ -1,8 +1,8 @@
-from object_tracking.detect_objects import object_tracking_to_csv
-from object_tracking.keyframe_timestamps import keyframes_from_object_tracking
-from object_tracking.keyframe_captions import captions_to_csv
-from object_tracking.combine_captions_objects import combine_captions_objects
-from text_summary.text_summary_module import TextSummary
+from object_detection_module.detect_objects import object_detection_to_csv
+from object_detection_module.keyframe_selection import keyframe_selection
+from object_detection_module.keyframe_captions import captions_to_csv
+from object_detection_module.combine_captions_objects import combine_captions_objects
+from text_summarization_module.text_summary import TextSummary
 
 class ObjectTracking:
     def __init__(self, video_id,pagePort):
@@ -13,9 +13,9 @@ class ObjectTracking:
         try:
             # # Keyframe selection
             print("=== TRACK OBJECTS ===")
-            object_tracking_to_csv(self.video_id,'http://localhost:{}/upload'.format(self.pagePort))
+            object_detection_to_csv(self.video_id,'http://localhost:{}/upload'.format(self.pagePort))
             print("=== FIND KEYFRAMES ===")
-            keyframes_from_object_tracking(self.video_id)
+            keyframe_selection(self.video_id)
             print("=== GET CAPTIONS ===")
             captions_to_csv(self.video_id)
             print("=== COMBINE CAPTIONS AND OBJECTS ===")

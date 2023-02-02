@@ -7,7 +7,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
-from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, returnVideoFramesFolder,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
+from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, returnVideoFramesFolder,returnVideoFolderName,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
 from timeit_decorator import timeit
 from google.cloud.vision_v1 import AnnotateImageResponse
 import json
@@ -18,8 +18,6 @@ def detect_text(path):
 	"""
 	try:
 		client = vision.ImageAnnotatorClient()
-		
-
 		with io.open(path, 'rb') as image_file:
 			content = image_file.read()
 
@@ -82,26 +80,44 @@ def get_ocr_confidences(video_name):
 				print()
 				writer.writerow(new_row)
 
+
+## TODO: Implement Batch OCR
 @timeit
-def print_all_ocr_annotations(video_id, start=0):
+def get_all_ocr_annotations(video_id, start=0):
 	"""
-	Writes out all detected text for each extracted frame into a csv file
-	TODO(Lothar): Keep track of bounding boxes
-	"""
+    Writes out all detected text from OCR for each extracted frame in a video to a csv file. 
+    The function resumes the progress if the csv file already exists and contains data.
+
+    Args:
+    video_id (str): The id of the video to extract OCR annotations from.
+    start (int, optional): The starting frame index to extract OCR annotations from. Defaults to 0.
+
+    Returns:
+    None
+
+    TODO:
+    Keep track of bounding boxes for each OCR annotation.
+    """
 	video_name = returnVideoFramesFolder(video_id)
 	print("--------------------------")
 	print(video_name)
 	print("--------------------------")
 
 	# video_name = video_name.split('/')[-1].split('.')[0]
+ 	# Read data for the video
 	with open('{}/data.txt'.format(video_name), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
 		num_frames = int(data[1])
 		frames_per_second = float(data[2])
+  
+	# Calculate video fps and seconds per frame
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
+ 
+ 	# Path to the csv file where OCR annotations will be written
 	outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
+ 
 	#check if file already contains progress from last attempt
 	if os.path.exists(outcsvpath) :
 		if os.stat(outcsvpath).st_size > 32:
@@ -109,13 +125,10 @@ def print_all_ocr_annotations(video_id, start=0):
 				lines = file.readlines()
 				lines.reverse()
 				i = 0
-				
 				last_line = lines[i].split(",")[0]
-				
 				while not last_line.isnumeric():
 					i+= 1
 					last_line = lines[i].split(",")[0]			
-				
 				start = int(last_line)+step
 				file.close()
 
@@ -142,42 +155,6 @@ def print_all_ocr_annotations(video_id, start=0):
 					except Exception as e:
 						print(e)
 						print("Error writing to file")
-
-def replace_all(text_description, description_to_remove):
-    if(description_to_remove is not None):
-        for description in description_to_remove:
-            text_description = text_description.replace(description, "")
-    return text_description
-
-@timeit
-def print_all_ocr(video_id):
-    annotation_file = open(returnVideoFolderName(video_id)+"/"+COUNT_VERTICE)
-    annotation_file_json = json.load(annotation_file)
-    max_count_annotation = annotation_file_json[0]
-    annotation_file.close()
-    outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
-    description_to_remove = None
-    if(max_count_annotation["percentage"] > 60):
-        description_to_remove = max_count_annotation["description"]
-    ocr_text_csv = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
-    ocr_text_csv_file = open(ocr_text_csv, 'w', newline='', encoding='utf-8')
-    ocr_text_csv_writer = csv.writer(ocr_text_csv_file)
-    ocr_text_csv_writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
-    with open(outcsvpath, encoding='utf-8') as csvf: 
-        csvReader = csv.DictReader(csvf) 
-        #convert each csv row into python dict
-        for row in csvReader: 
-            #add this python dict to json array
-            ocr_text = json.loads(row[OCR_HEADERS[OCR_TEXT_SELECTOR]])
-            frame_index = row[OCR_HEADERS[FRAME_INDEX_SELECTOR]]
-            timestamp = row[OCR_HEADERS[TIMESTAMP_SELECTOR]]
-            if(len(ocr_text['textAnnotations']) > 0):
-                text_description = ocr_text['textAnnotations'][0]['description']
-                replaced_text_description = replace_all(text_description, description_to_remove)
-                if(len(replaced_text_description) > 0):
-                    ocr_text_csv_writer.writerow([frame_index, timestamp, replaced_text_description])
-                    ocr_text_csv_file.flush()
-        ocr_text_csv_file.close()
         
 if __name__ == "__main__":
 	# video_name = 'A dog collapses and faints right in front of us I have never seen anything like it'
@@ -190,6 +167,6 @@ if __name__ == "__main__":
 
 	# print_all_ocr(video_name)
  	# response = detect_text("upSnt11tngE_files/frames/frame_1788.jpg")
-	print_all_ocr("upSnt11tngE")
+	get_all_ocr_annotations("upSnt11tngE")
 
-#python full_video_pipeline.py --videoid dgrKawK-Kjc 2>&1 | tee dgrKawK-Kjc.log
+	#python full_video_pipeline.py --videoid dgrKawK-Kjc 2>&1 | tee dgrKawK-Kjc.log

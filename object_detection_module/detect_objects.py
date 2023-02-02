@@ -12,7 +12,7 @@ YOLOv3_Openimages = 8083
 YOLOv3_9000 = 8084
 
 
-def detect_objects(filename, threshold, service=YOLOv3_tiny,page='http://localhost:8082/upload'):
+def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,page='http://localhost:8082/upload'):
     """
     Use remote image object detection service provided by Andrew
     """
@@ -57,7 +57,7 @@ def detect_objects(filename, threshold, service=YOLOv3_tiny,page='http://localho
         return results
 
 
-def track_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False,page='http://localhost:8082/upload'):
+def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False,page='http://localhost:8082/upload'):
     """
     Detects objects in each frame and collates the results into a dictionary
     The key is the name of the object, and each entry contains the frame index, detection confidence, and count
@@ -70,7 +70,7 @@ def track_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fals
 
     for frame_index in range(0, num_frames, step):
         frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
-        obj_list = detect_objects(frame_filename, threshold, service,page)
+        obj_list = get_object_from_YOLO(frame_filename, threshold, service,page)
         frame_objects = {}
         for entry in obj_list:
             name, prob, (x, y, w, h) = entry
@@ -91,7 +91,7 @@ def track_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fals
     return objects
 
 @timeit
-def object_tracking_to_csv(video_id,page='http://localhost:8082/upload'):
+def object_detection_to_csv(video_id,page='http://localhost:8082/upload'):
     """
     Collates all detected objects into columns and tracks them from frame to frame
     """
@@ -99,7 +99,7 @@ def object_tracking_to_csv(video_id,page='http://localhost:8082/upload'):
     print("FILENAME "+video_frames_path)
     outcsvpath = returnVideoFolderName(video_id)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
-        objects = track_objects(video_frames_path, 0.01, logging=True,page=page)
+        objects = detect_objects(video_frames_path, 0.01, logging=True,page=page)
         print(video_frames_path)
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
@@ -141,4 +141,4 @@ if __name__ == "__main__":
     # video_name = 'Hope For Paws_ A homeless dog living in a trash pile gets rescued, and then does something amazing!'
     video_name = 'Homeless German Shepherd cries like a human!  I have never heard anything like this!!!'
 
-    object_tracking_to_csv(video_name)
+    object_detection_to_csv(video_name)

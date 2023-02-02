@@ -1,6 +1,6 @@
 import sys
-from object_tracking.combine_captions_objects import combine_captions_objects
-from object_tracking.keyframe_captions import captions_to_csv
+from object_detection_module.combine_captions_objects import combine_captions_objects
+from object_detection_module.keyframe_captions import captions_to_csv
 from utils import CAPTIONS_AND_OBJECTS_CSV, returnVideoFolderName,OUTPUT_AVG_CSV
 from nodejs import node
 
