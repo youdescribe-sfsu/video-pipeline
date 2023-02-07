@@ -1,12 +1,20 @@
 import csv
-from utils import returnVideoFramesFolder,returnVideoFolderName
+from utils import return_video_frames_folder,return_video_folder_name
 from timeit_decorator import timeit
 from utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV,KEYFRAMES_CSV
 
 
 class KeyframeSelection:
-    def __init__(self, video_id, target_keyframes_per_second=1):
-        self.video_id = video_id
+    def __init__(self, video_runner_obj, target_keyframes_per_second=1):
+        """
+        Initialize ImportVideo object.
+        
+        Parameters:
+        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+        target_keyframes_per_second (int): The target number of keyframes per second.
+        """
+        self.video_runner_obj = video_runner_obj
         self.target_keyframes_per_second = target_keyframes_per_second
         pass
 
@@ -17,14 +25,14 @@ class KeyframeSelection:
         confidences and is reasonably close to 1/target_keyframes_per_second seconds
         after the previous keyframe
         """
-        video_frames_path = returnVideoFramesFolder(self.video_id)
+        video_frames_path = return_video_frames_folder(self.video_runner_obj)
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
             step = int(data[0])
             num_frames = int(data[1])
             frames_per_second = float(data[2])
         
-        incsvpath = returnVideoFolderName(self.video_id)+ "/" + OBJECTS_CSV
+        incsvpath = return_video_folder_name(self.video_runner_obj)+ "/" + OBJECTS_CSV
         with open(incsvpath, newline='', encoding='utf-8') as incsvfile:
             reader = csv.reader(incsvfile)
             header = next(reader) # skip header
@@ -60,7 +68,7 @@ class KeyframeSelection:
                 last_keyframe = best
         
         seconds_per_frame = 1.0/video_fps
-        outcsvpath = returnVideoFolderName(self.video_id)+ "/" + KEYFRAMES_CSV
+        outcsvpath = return_video_folder_name(self.video_runner_obj)+ "/" + KEYFRAMES_CSV
         with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
             writer = csv.writer(outcsvfile)
             writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR]])

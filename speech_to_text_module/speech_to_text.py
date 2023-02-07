@@ -3,15 +3,11 @@ import os
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tts_cloud_key.json"
 import audio_metadata
-
-# en-US
-
-# en-US
-
 from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import storage
 from timeit_decorator import timeit
-
+from typing import Dict
+from utils import return_audio_file_name,return_video_folder_name
 
 ## Make Speech to Text Module
 class SpeechToText:
@@ -20,20 +16,23 @@ class SpeechToText:
 
     Attributes:
         video_id (str): The identifier of the video to be transcribed
+        audio_file (str): The path to the audio file
     """
 
-    def __init__(self, video_id):
+    def __init__(self, video_runner_obj: Dict[str, int]):
         """
-        Initializes the SpeechToText class
-
+        Initialize SpeechToText object.
+        
         Parameters:
-            video_id (str): The identifier of the video to be transcribed
+        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
         """
-        self.video_id = video_id
-
+        self.video_runner_obj = video_runner_obj
+    
+    @timeit
     def get_speech_from_audio(self):
-        audio_file_name = returnAudioFileName(self.video_id)
-        filepath = returnVideoFolderName(self.video_id) + "/"
+        audio_file_name = return_audio_file_name(self.video_runner_obj)
+        filepath = return_video_folder_name(self.video_runner_obj) + "/"
         file_name = filepath + audio_file_name
 
         frame_rate, channels = self.frame_rate_channel(file_name)
@@ -63,7 +62,7 @@ class SpeechToText:
         print("Deleting Data from Bucket")
         self.delete_blob(bucket_name, destination_blob_name)
         with open(
-            returnVideoFolderName(self.video_id) + "/" + TRANSCRIPTS, "w"
+            return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
         ) as outfile:
             outfile.write(response)
         return response

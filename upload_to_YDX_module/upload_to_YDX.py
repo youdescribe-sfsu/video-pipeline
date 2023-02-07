@@ -1,7 +1,7 @@
 import json
 import requests
 from utils import (
-    returnVideoFolderName,
+    return_video_folder_name,
     SUMMARIZED_SCENES,
     OCR_FILTER_REMOVE_SIMILAR,
     TRANSCRIPTS,
@@ -16,9 +16,10 @@ import string
 
 
 class UploadToYDX:
-    def __init__(self, video_id, pagePort):
-        self.video_id = video_id
+    def __init__(self, video_runner_obj, pagePort, upload_to_server=True):
+        self.video_runner_obj = video_runner_obj
         self.pagePort = pagePort
+        self.upload_to_server = upload_to_server
 
     def mergeIntervals(audio_clips):
         # Sort the array on the basis of start values of intervals.
@@ -56,7 +57,7 @@ class UploadToYDX:
         dialogue_timestamps = []
         sequence_num = 0
 
-        f = open(returnVideoFolderName(self.video_id) + "/" + TRANSCRIPTS)
+        f = open(return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS)
         # print(f)
         dialogue = json.load(f)
         f.close()
@@ -75,7 +76,7 @@ class UploadToYDX:
                 dialogue_timestamps.append(clip)
                 sequence_num += 1
         # print(dialogue_timestamps)
-        f = open(returnVideoFolderName(self.video_id) + "/" + SUMMARIZED_SCENES)
+        f = open(return_video_folder_name(self.video_runner_obj) + "/" + SUMMARIZED_SCENES)
         scene_data = json.load(f)
         f.close()
         audio_clips = []
@@ -89,7 +90,7 @@ class UploadToYDX:
                 scene += 1
 
         with open(
-            returnVideoFolderName(self.video_id) + "/" + OCR_FILTER_REMOVE_SIMILAR
+            return_video_folder_name(self.video_runner_obj) + "/" + OCR_FILTER_REMOVE_SIMILAR
         ) as file:
             entry = {}
             csvReader = csv.DictReader(file)
@@ -142,7 +143,7 @@ class UploadToYDX:
 
         metadata = {}
 
-        with open(returnVideoFolderName(self.video_id) + "/metadata.json", "w") as f:
+        with open(return_video_folder_name(self.video_runner_obj) + "/metadata.json", "w") as f:
             metadata = json.loads(f)
         data = {
             "youtube_id": self.video_id,
@@ -155,26 +156,27 @@ class UploadToYDX:
         }
         print("===== UPLOADING DATA =====")
         # print(data)
-        with open(returnVideoFolderName(self.video_id) + "/" + DIALOGS, mode="w") as f:
+        with open(return_video_folder_name(self.video_runner_obj) + "/" + DIALOGS, mode="w") as f:
             f.write(json.dumps(dialogue_timestamps))
         with open(
-            returnVideoFolderName(self.video_id) + "/" + "final_data.json", mode="w"
+            return_video_folder_name(self.video_runner_obj) + "/" + "final_data.json", mode="w"
         ) as f:
             f.write(json.dumps(data, indent=4))
-        print("===== UPLOADING DATA =====")
-        # send data to wherever db is
-        ydx_server = os.getenv("YDX_WEB_SERVER")
-        if ydx_server == None:
-            ydx_server = "http://3.101.130.10:4000"
-        url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
-        headers = {"Content-Type": "application/json; charset=utf-8"}
-        try:
-            r = requests.post(url, data=json.dumps(data), headers=headers)
-            print("===== RESPONSE =====")
-            print(r.text)
-            r.close()
-        except:
-            r = requests.post(url, data=json.dumps(data), headers=headers)
-            print(r.text)
-            r.close()
+        if(self.upload_to_server):
+            print("===== UPLOADING DATA =====")
+            # send data to wherever db is
+            ydx_server = os.getenv("YDX_WEB_SERVER")
+            if ydx_server == None:
+                ydx_server = "http://3.101.130.10:4000"
+            url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
+            headers = {"Content-Type": "application/json; charset=utf-8"}
+            try:
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                print("===== RESPONSE =====")
+                print(r.text)
+                r.close()
+            except:
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                print(r.text)
+                r.close()
         return

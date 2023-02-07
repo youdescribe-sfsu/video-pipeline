@@ -19,7 +19,7 @@ import pandas as pd
 import requests
 import sys
 from nltk.translate.bleu_score import sentence_bleu
-from utils import returnVideoFolderName,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
+from utils import return_video_folder_name,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
 import os
 from timeit_decorator import timeit
 
@@ -171,10 +171,10 @@ def text_summarization(video_id):
 # In[ ]:
 
 
-def text_summarization_csv(video_id):
+def text_summarization_csv(video_runner_obj):
 
     scene_arr = []
-    file = returnVideoFolderName(video_id)+'/'+SCENE_SEGMENTED_FILE_CSV
+    file = return_video_folder_name(video_runner_obj)+'/'+SCENE_SEGMENTED_FILE_CSV
     # Open the requested CSV file, read it, and append the lines
     # to scene_arr
     with open(file, "r") as f:
@@ -295,7 +295,7 @@ def text_summarization_csv(video_id):
             sentences.append(sentence)
             # print(scene[2][index[0]])
             # print('\n\n')
-    fileName = returnVideoFolderName(video_id)+'/'+SUMMARIZED_SCENES
+    fileName = return_video_folder_name(video_runner_obj)+'/'+SUMMARIZED_SCENES
     if os.path.exists(fileName):
         os.remove(fileName)
     f = open(fileName, "w+")

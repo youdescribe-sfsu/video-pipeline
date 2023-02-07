@@ -19,49 +19,56 @@ from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 
 
 class PipelineRunner:
-    def __init__(self, video_id, pagePort, video_start_time, video_end_time):
+    def __init__(self, video_id, pagePort, video_start_time, video_end_time,upload_to_server):
         self.video_id = video_id
         self.pagePort = pagePort
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
+        self.upload_to_server = upload_to_server
+
 
     @timeit
     def run_full_pipeline(self):
         ## Download video from YouTube
-        import_video = ImportVideo(self.video_id,self.video_start_time,self.video_end_time)
+        video_runner_obj = {
+            "video_id": self.video_id,
+            "video_start_time": self.video_start_time,
+            "video_end_time": self.video_end_time
+        }
+        import_video = ImportVideo(video_runner_obj)
         import_video.download_video()
         ## Extract audio from video
-        extract_audio = ExtractAudio(self.video_id)
+        extract_audio = ExtractAudio(video_runner_obj)
         extract_audio.extract_audio()
         ## Speech to text
-        speech_to_text = SpeechToText(self.video_id)
+        speech_to_text = SpeechToText(video_runner_obj)
         speech_to_text.get_speech_from_audio()
         ## Frame extraction
-        frame_extraction = FrameExtraction(self.video_id)
+        frame_extraction = FrameExtraction(video_runner_obj,10)
         frame_extraction.extract_frames()
         ## OCR extraction
-        ocr_extraction = OcrExtraction(self.video_id)
+        ocr_extraction = OcrExtraction(video_runner_obj)
         ocr_extraction.run_ocr_detection()
         ## Object detection
-        object_detection = ObjectDetection(self.video_id,self.pagePort)
+        object_detection = ObjectDetection(video_runner_obj,self.pagePort)
         object_detection.run_object_detection()
         ## Keyframe selection
-        keyframe_selection = KeyframeSelection(self.video_id)
+        keyframe_selection = KeyframeSelection(video_runner_obj)
         keyframe_selection.run_keyframe_selection()
         ## Image captioning
-        image_captioning = ImageCaptioning(self.video_id)
+        image_captioning = ImageCaptioning(video_runner_obj)
         image_captioning.run_image_captioning()
         image_captioning.combine_captions_objects()
         ##TODO Caption rating
-        caption_rating = CaptionRating(self.video_id)
+        caption_rating = CaptionRating(video_runner_obj)
         ## Scene segmentation
-        scene_segmentation = SceneSegmentation(self.video_id)
+        scene_segmentation = SceneSegmentation(video_runner_obj)
         scene_segmentation.run_scene_segmentation()
         ## Text summarization
-        text_summarization = TextSummarization(self.video_id)
+        text_summarization = TextSummarization(video_runner_obj)
         text_summarization.generate_text_summary()
         ## Upload to YDX
-        upload_to_YDX = UploadToYDX(self.video_id)
+        upload_to_YDX = UploadToYDX(video_runner_obj,upload_to_server=self.upload_to_server)
         upload_to_YDX.upload_to_ydx()
 
 
@@ -72,15 +79,17 @@ if __name__ == "__main__":
     parser.add_argument("--video_id", help="Video Id", type=str)
     parser.add_argument("--start_time", default=None, help="Start Time", type=str)
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
+    parser.add_argument("--upload_to_server", default=True, help="Upload To YDX Server", type=bool)
     args = parser.parse_args()
     video_id = args.videoid
     pagePort = args.yolo
     video_start_time = args.start_time
     video_end_time = args.end_time
+    upload_to_server = args.upload_to_server
     if video_start_time is not None and video_end_time is not None:
         os.environ["START_TIME"] = video_start_time
         os.environ["END_TIME"] = video_end_time
     pipeline_runner = PipelineRunner(
-        video_id, pagePort, video_start_time, video_end_time
+        video_id, pagePort, video_start_time, video_end_time,upload_to_server
     )
     pipeline_runner.run_full_pipeline()

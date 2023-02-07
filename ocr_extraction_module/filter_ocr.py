@@ -1,7 +1,7 @@
 # Process the raw OCR into more useful output
 import csv
 from requests.api import request
-from utils import OCR_HEADERS, returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR,OCR_TEXT_SELECTOR,TIMESTAMP_SELECTOR,FRAME_INDEX_SELECTOR
+from utils import OCR_HEADERS, return_video_folder_name,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR,OCR_TEXT_SELECTOR,TIMESTAMP_SELECTOR,FRAME_INDEX_SELECTOR
 from timeit_decorator import timeit
 
 
@@ -29,13 +29,13 @@ def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):
 
 
 @timeit
-def filter_ocr(video_id, window_width=10, threshold=0.5):
+def filter_ocr(video_runner_obj, window_width=10, threshold=0.5):
 	"""
 	Splits the detected text into blocks of frames with similar text then picks
 	a representative text from each block by choosing the one whose total
 	Levenshtein distance from other text in the block is minimal
 	"""
-	incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
+	incsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_CSV_FILE_NAME
 	with open(incsvpath, 'r', newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
 		
@@ -85,7 +85,7 @@ def filter_ocr(video_id, window_width=10, threshold=0.5):
 				filtered_rows.append(best_ocr)
 				#print(best_ocr)
 		
-		outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_FILE_NAME
+		outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_FILTER_CSV_FILE_NAME
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
 			writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
@@ -94,14 +94,14 @@ def filter_ocr(video_id, window_width=10, threshold=0.5):
 				outcsvfile.flush()
 
 @timeit
-def filter_ocr_agreement(video_id, window_width=10, threshold=0.5, low_threshold=0.05, min_stable_len=5):
+def filter_ocr_agreement(video_runner_obj, window_width=10, threshold=0.5, low_threshold=0.05, min_stable_len=5):
 	"""
 	Splits the detected text into blocks of frames with similar text then picks
 	a representative text from each block that has a sufficiently long run of
 	very similar texts by choosing the one whose total Levenshtein distance from
 	other text in the similar subset of the block is minimal
 	"""
-	incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
+	incsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_CSV_FILE_NAME
 	with open(incsvpath, 'r', newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
 		header = next(reader) # Header is ["Frame Index", "Timestamp", "OCR Text"]
@@ -145,7 +145,7 @@ def filter_ocr_agreement(video_id, window_width=10, threshold=0.5, low_threshold
 					filtered_rows.append(best_ocr)
 					#print(best_ocr)
 		
-		outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
+		outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
 			writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
@@ -168,16 +168,16 @@ def remove_non_ascii(source):
 	return "".join(c for c in source if ord(c) < 128)
 
 @timeit
-def filter_ocr_remove_similarity(video_id, threshold=0.15, use_agreement=True, max_similar_lines=3):
+def filter_ocr_remove_similarity(video_runner_obj, threshold=0.15, use_agreement=True, max_similar_lines=3):
 	"""
 	Removes non-ASCII characters from all chosen texts and also removes any line
 	of text after it has occurred max_similar_lines times
 	use_agreement should be set to true if using the results from filter_ocr_agreement
 	"""
 	if use_agreement:
-		incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
+		incsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_FILTER_CSV_2_FILE_NAME
 	else:
-		incsvpath = returnVideoFolderName(video_id)+ "/" + OCR_FILTER_CSV_FILE_NAME
+		incsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_FILTER_CSV_FILE_NAME
 		
 	with open(incsvpath, 'r', newline='', encoding='utf-8') as incsvfile:
 		reader = csv.reader(incsvfile)
@@ -226,7 +226,7 @@ def filter_ocr_remove_similarity(video_id, threshold=0.15, use_agreement=True, m
 			remaining_lines = [lines[idx] for idx in range(len(lines)) if idx not in toRemove]
 			kept_rows[i][2] = remove_non_ascii('\n'.join(remaining_lines))
 		
-		outcsvpath = returnVideoFolderName(video_id)+ "/"+ OCR_FILTER_REMOVE_SIMILAR
+		outcsvpath = return_video_folder_name(video_runner_obj)+ "/"+ OCR_FILTER_REMOVE_SIMILAR
 		with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 			writer = csv.writer(outcsvfile)
 			writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])

@@ -1,24 +1,23 @@
 from timeit_decorator import timeit
 import json
 import yt_dlp as ydl
-from utils import returnVideoDownloadLocation, returnVideoFolderName
+from utils import return_video_download_location, return_video_frames_folder, return_video_folder_name
 from datetime import timedelta
 import ffmpeg
 import os
+from operator import itemgetter
+from typing import Dict
 
 class ImportVideo:
-    def __init__(self, video_id, video_start_time=None, video_end_time=None):
+    def __init__(self, video_runner_obj: Dict[str, int]):
         """
-        Initialize ImportVideo object
+        Initialize ImportVideo object.
         
         Parameters:
-        video_id (str): YouTube video ID
-        video_start_time (int, optional): Start time of the video (in seconds). Defaults to None.
-        video_end_time (int, optional): End time of the video (in seconds). Defaults to None.
+        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
         """
-        self.video_id = video_id
-        self.video_start_time = video_start_time
-        self.video_end_time = video_end_time
+        self.video_runner_obj = video_runner_obj
     
     @timeit
     def download_video(self):
@@ -30,10 +29,13 @@ class ImportVideo:
         """
         # Download video from YouTube
         print("Downloading video from YouTube")
+        video_id = self.video_runner_obj.get("video_id")
+        video_start_time = self.video_runner_obj.get("video_start_time",None)
+        video_end_time = self.video_runner_obj.get("video_end_time",None)
         
-        ydl_opts = {'outtmpl': returnVideoDownloadLocation(self.video_id), "format": "best" }
+        ydl_opts = {'outtmpl': return_video_download_location(self.video_runner_obj), "format": "best" }
         vid = ydl.YoutubeDL(ydl_opts).extract_info(
-            url='https://www.youtube.com/watch?v=' + self.video_id, download=True)
+            url='https://www.youtube.com/watch?v=' + video_id, download=True)
 
         # Get Video Duration
         duration = vid.get('duration')
@@ -43,26 +45,25 @@ class ImportVideo:
         print("Video Title: ", title)
 
         # Save metadata to json file
-        with open(returnVideoFolderName(self.video_id) + '/metadata.json', 'w') as f:
+        with open(return_video_folder_name(self.video_runner_obj) + '/metadata.json', 'w') as f:
             f.write(json.dumps({'duration': duration, 'title': title}))
-
-        if self.video_start_time and self.video_end_time:
+        if video_start_time and video_end_time:
             # Convert start and end time to timedelta
-            start_time = timedelta(seconds=int(self.video_start_time))
-            end_time = timedelta(seconds=int(self.video_end_time))
+            start_time = timedelta(seconds=int(video_start_time))
+            end_time = timedelta(seconds=int(video_end_time))
             print("start time: ", start_time)
             print("end time: ", end_time)
 
             # Trim video and audio based on start and end time
-            input_stream = ffmpeg.input(returnVideoDownloadLocation(self.video_id))
+            input_stream = ffmpeg.input(return_video_download_location(self.video_runner_obj))
             vid = (
                 input_stream.video
-                .trim(start=self.video_start_time, end=self.video_end_time)
+                .trim(start=video_start_time, end=video_end_time)
                 .setpts('PTS-STARTPTS')
             )
             aud = (
                 input_stream.audio
-                .filter_('atrim', start=self.video_start_time, end=self.video_end_time)
+                .filter_('atrim', start=video_start_time, end=video_end_time)
                 .filter_('asetpts', 'PTS-STARTPTS')
             )
 
@@ -70,14 +71,14 @@ class ImportVideo:
             joined = ffmpeg.concat(vid, aud, v=1, a=1).node
 
             # Output trimmed video
-            output = ffmpeg.output(joined[0], joined[1], returnVideoFolderName(self.video_id) + '/trimmed.mp4')
+            output = ffmpeg.output(joined[0], joined[1], return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4')
             output.run(overwrite_output=True)
 
             # Delete original video
-            if os.path.exists(returnVideoDownloadLocation(self.video_id)):
-                os.remove(returnVideoDownloadLocation(self.video_id))
+            if os.path.exists(return_video_download_location(self.video_runner_obj)):
+                os.remove(return_video_download_location(self.video_runner_obj))
 
             # Rename trimmed video to original name
-            os.rename(returnVideoFolderName(self.video_id) + '/trimmed.mp4', returnVideoDownloadLocation(self.video_id))
+            os.rename(return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4', return_video_download_location(self.video_runner_obj))
             
         return

@@ -7,38 +7,39 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
-from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, returnVideoFramesFolder,returnVideoFolderName,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
+from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
 from timeit_decorator import timeit
 from google.cloud.vision_v1 import AnnotateImageResponse
 import json
+from typing import Dict
 
-def detect_text(path):
-	"""
-	Detects text in the file
-	"""
-	try:
-		client = vision.ImageAnnotatorClient()
-		with io.open(path, 'rb') as image_file:
-			content = image_file.read()
+def detect_text(path: str) -> Dict:
+    """
+    Detects text in an image file and returns a dictionary of the response.
+    
+    Parameters:
+    path (str): The file path of the image.
+    
+    Returns:
+    Dict: The dictionary of the response from the Google Cloud Vision API.
+    
+    Raises:
+    Exception: If the text detection fails, the error message is printed.
+    """
+    try:
+        client = vision.ImageAnnotatorClient()
+        with open(path, 'rb') as image_file:
+            content = image_file.read()
 
-		image = types.Image(content=content)
+        image = types.Image(content=content)
 
-		response = client.text_detection(image=image)
-		response_json = AnnotateImageResponse.to_json(response)
-		response = json.loads(response_json)
-		return response
-	except Exception as e:
-		print("ERROR======================",str(e))
-		client = vision.ImageAnnotatorClient()
-		with io.open(path, 'rb') as image_file:
-			content = image_file.read()
-
-		image = types.Image(content=content)
-
-		response = client.text_detection(image=image)
-		response_json = AnnotateImageResponse.to_json(response)
-		response = json.loads(response_json)
-		return response
+        response = client.text_detection(image=image)
+        response_json = AnnotateImageResponse.to_json(response)
+        response = json.loads(response_json)
+        return response
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        return {}
 
 
 def detect_text_uri(uri):
@@ -53,24 +54,25 @@ def detect_text_uri(uri):
 	texts = response.text_annotations
 	return texts
 	
-def get_ocr_confidences(video_name):
+def get_ocr_confidences(video_runner_obj):
 	"""
 	Attempts to grab confidence data from the API
 	NOTE: Does not actually work - always returns 0.0
 	"""
-	with open('{}/data.txt'.format(video_name), 'r') as datafile:
+	video_frames_folder = return_video_frames_folder(video_runner_obj)
+	with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
 		num_frames = int(data[1])
 		frames_per_second = float(data[2])
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
-	outcsvpath = "OCR Confidences - " + video_name + ".csv"
+	outcsvpath = "OCR Confidences - " + video_runner_obj.video_id + ".csv"
 	with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
 		writer.writerow(["Frame Index", "Confidence", "OCR Text"])
 		for frame_index in range(0, num_frames, step):
-			frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
+			frame_filename = '{}/frame_{}.jpg'.format(video_frames_folder, frame_index)
 			texts = detect_text(frame_filename)
 			if len(texts) > 0:
 				new_row = [frame_index, texts[0].confidence, texts[0].description]
@@ -83,13 +85,14 @@ def get_ocr_confidences(video_name):
 
 ## TODO: Implement Batch OCR
 @timeit
-def get_all_ocr_annotations(video_id, start=0):
+def get_all_ocr_annotations(video_runner_obj, start=0):
 	"""
     Writes out all detected text from OCR for each extracted frame in a video to a csv file. 
     The function resumes the progress if the csv file already exists and contains data.
 
     Args:
-    video_id (str): The id of the video to extract OCR annotations from.
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
     start (int, optional): The starting frame index to extract OCR annotations from. Defaults to 0.
 
     Returns:
@@ -98,14 +101,14 @@ def get_all_ocr_annotations(video_id, start=0):
     TODO:
     Keep track of bounding boxes for each OCR annotation.
     """
-	video_name = returnVideoFramesFolder(video_id)
+	video_frames_folder = return_video_frames_folder(video_runner_obj)
 	print("--------------------------")
-	print(video_name)
+	print("video_frames_folder=",video_frames_folder)
 	print("--------------------------")
 
 	# video_name = video_name.split('/')[-1].split('.')[0]
  	# Read data for the video
-	with open('{}/data.txt'.format(video_name), 'r') as datafile:
+	with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
 		data = datafile.readline().split()
 		step = int(data[0])
 		num_frames = int(data[1])
@@ -116,7 +119,7 @@ def get_all_ocr_annotations(video_id, start=0):
 	seconds_per_frame = 1.0/video_fps
  
  	# Path to the csv file where OCR annotations will be written
-	outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
+	outcsvpath = return_video_folder_name(video_runner_obj=video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
  
 	#check if file already contains progress from last attempt
 	if os.path.exists(outcsvpath) :
@@ -144,7 +147,7 @@ def get_all_ocr_annotations(video_id, start=0):
 			if(start == 0):
 				writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for frame_index in range(start, num_frames, step):				
-				frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
+				frame_filename = '{}/frame_{}.jpg'.format(video_frames_folder, frame_index)
 				texts = detect_text(frame_filename)
 				if len(texts) > 0:
 					try:

@@ -1,20 +1,26 @@
 import csv
-from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME,returnVideoFolderName,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
+from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME,return_video_folder_name,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
 from timeit_decorator import timeit
 import json
 
 
 @timeit
-def get_all_ocr(video_id):
-    annotation_file = open(returnVideoFolderName(video_id)+"/"+COUNT_VERTICE)
+def get_all_ocr(video_runner_obj):
+    """
+    Extracts text from a video and stores it in a CSV file.
+    :param video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+    :return: None
+    """
+    annotation_file = open(return_video_folder_name(video_runner_obj)+"/"+COUNT_VERTICE)
     annotation_file_json = json.load(annotation_file)
     max_count_annotation = annotation_file_json[0]
     annotation_file.close()
-    outcsvpath = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
+    outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
     description_to_remove = None
     if(max_count_annotation["percentage"] > 60):
         description_to_remove = max_count_annotation["description"]
-    ocr_text_csv = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_CSV_FILE_NAME
+    ocr_text_csv = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_CSV_FILE_NAME
     ocr_text_csv_file = open(ocr_text_csv, 'w', newline='', encoding='utf-8')
     ocr_text_csv_writer = csv.writer(ocr_text_csv_file)
     ocr_text_csv_writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])

@@ -42,46 +42,99 @@ KEY_FRAME_HEADERS = {
     }
 
 import os
+from typing import Dict,Union
 
+def return_video_folder_name(video_runner_obj: Dict[str, int]) -> str:
+    """
+    Returns the folder name for a video.
 
+    Parameters:
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
 
-## Add a subdirectory if start and end time are specified
-def returnVideoFolderName(video_id):
-    '''Returns the folder name for a video'''
+    Returns:
+    str: The folder name for the video.
+    """
+    video_id = video_runner_obj.get("video_id")
+    video_start_time = video_runner_obj.get("video_start_time",None)
+    video_end_time = video_runner_obj.get("video_end_time",None)
+    CURRENT_ENV = os.environ.get("CURRENT_ENV", "production")
 
-    CURRENT_ENV = os.environ.get('CURRENT_ENV')
-    start_time = os.getenv('START_TIME') or None
-    end_time = os.getenv('END_TIME') or None
-    if start_time != None and end_time != None:
-        if CURRENT_ENV == 'development':
-            return video_id +'_files/' + 'part_start' '_' + start_time + '_' + end_time
+    if video_start_time is not None and video_end_time is not None:
+        if CURRENT_ENV == "development":
+            return f"{video_id}_files/part_start_{video_start_time}_{video_end_time}"
         else:
-            return '/home/datasets/pipeline/' + video_id + '_files/' + 'part_start_' \
-                + str(start_time) + '_end_' + str(end_time) + '_files'
-    if CURRENT_ENV == 'development':
-        return video_id + '_files'
+            return f"/home/datasets/pipeline/{video_id}_files/part_start_{video_start_time}_end_{video_end_time}_files"
+
+    if CURRENT_ENV == "development":
+        return f"{video_id}_files"
     else:
-        return '/home/datasets/pipeline/' + video_id + '_files'
+        return f"/home/datasets/pipeline/{video_id}_files"
 
 
-def returnVideoDownloadLocation(video_id):
-    return returnVideoFolderName(video_id) + '/' + video_id + '.mp4'
+
+def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:
+    """
+    Returns the download location for a video.
+
+    Parameters:
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+
+    Returns:
+    str: The download location for the video.
+    """
+    video_folder_name = return_video_folder_name(video_runner_obj)
+    video_id = video_runner_obj.get("video_id")
+    return f"{video_folder_name}/{video_id}.mp4"
 
 
-def returnVideoFramesFolder(video_id):
-    return returnVideoFolderName(video_id) + '/frames'
+def return_video_frames_folder(video_runner_obj: Dict[str, int]) -> str:
+    """
+    Returns the frames folder for a video.
+
+    Parameters:
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "start_time", and "end_time", and their values are integers.
+
+    Returns:
+    str: The frames folder for the video.
+    """
+    video_folder_name = return_video_folder_name(video_runner_obj)
+    return f"{video_folder_name}/frames"
 
 
-def returnAudioFileName(video_id):
-    return video_id + '.flac'
+def return_audio_file_name(video_runner_obj: Dict[str, int]) -> str:
+    """
+    Returns the audio file name for a video.
+
+    Parameters:
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "start_time", and "end_time", and their values are integers.
+
+    Returns:
+    str: The audio file name for the video.
+    """
+    video_id = video_runner_obj.get("video_id")
+    return f"{video_id}.flac"
 
 
-def returnIntIfPossible(value):
+def return_int_if_possible(value: Union[int, float, str]) -> Union[int, float, str]:
+    """
+    Returns an integer if the input is a whole number, otherwise the original input.
+
+    Parameters:
+    value (Union[int, float, str]): The value to check.
+
+    Returns:
+    Union[int, float, str]: The integer representation of the input if it is a whole number, otherwise the original input.
+    """
     try:
         decimal = value % 1
         if decimal == 0:
             return int(value)
         else:
             return value
-    except:
+    except (TypeError, ValueError):
         return value
+

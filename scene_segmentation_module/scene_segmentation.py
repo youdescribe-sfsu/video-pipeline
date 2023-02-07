@@ -1,10 +1,10 @@
 import csv
-from utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, returnVideoFolderName
+from utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, return_video_folder_name
 from scene_segmentation_module.generate_average_output import generate_average_output
 
 class SceneSegmentation:
-    def __init__(self, video_id):
-        self.video_id = video_id
+    def __init__(self, video_runner_obj):
+        self.video_runner_obj = video_runner_obj
 
     columns = {
         "start_time": "start_time",
@@ -88,10 +88,10 @@ class SceneSegmentation:
 
     def run_scene_segmentation(self):
         """Segment the video into scenes based on the average of the scene and the average of the shot."""
-        generate_average_output(self.video_id)
-        outputavgFile = returnVideoFolderName(self.video_id) + "/" + OUTPUT_AVG_CSV
+        generate_average_output(self.video_runner_obj)
+        outputavgFile = return_video_folder_name(self.video_runner_obj) + "/" + OUTPUT_AVG_CSV
         sceneSegmentedFile = (
-            returnVideoFolderName(self.video_id) + "/" + SCENE_SEGMENTED_FILE_CSV
+            return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
         )
         list_new = self.parse_CSV_file(outputavgFile)
         data = self.get_segmented_data(10, 0.75, list_new)

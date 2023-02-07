@@ -1,20 +1,21 @@
 from timeit_decorator import timeit
-from utils import returnVideoDownloadLocation,  returnVideoFramesFolder
+from utils import return_video_download_location,  return_video_frames_folder
 import cv2
 import os
-
+from typing import Dict
 
 class FrameExtraction:
-    def __init__(self, video_id, frames_per_second):
+    def __init__(self, video_runner_obj: Dict[str, int], frames_per_second:int):
         """
         Initialize ExtractAudio object
         
         Parameters:
-        video_id (str): YouTube video ID
-        frames_per_second (int): Number of frames to extract per second
+            video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+                The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+            frames_per_second (int): Number of frames to extract per second
         """
-        self.video_id = video_id
-        self.frame_per_second = frames_per_second
+        self.video_runner_obj = video_runner_obj
+        self.frames_per_second = frames_per_second
 
 
     def extract_frames(self, logging=False):
@@ -24,7 +25,7 @@ class FrameExtraction:
             :param logging: (optional) If True, outputs the extraction progress to the console.
             """
             # Get the name of the folder to save the extracted frames
-            vid_name = returnVideoFramesFolder(self.video_id)
+            vid_name = return_video_frames_folder(self.video_runner_obj)
             
             # If the folder doesn't exist, create it
             if not os.path.exists(vid_name):
@@ -35,7 +36,7 @@ class FrameExtraction:
                     return
 
             # Open the video handler and get fps
-            vid = cv2.VideoCapture(returnVideoDownloadLocation(self.video_id))
+            vid = cv2.VideoCapture(return_video_download_location(self.video_runner_obj))
             fps = round(vid.get(cv2.CAP_PROP_FPS))
             
             # Calculate the number of frames to extract per iteration
@@ -47,7 +48,7 @@ class FrameExtraction:
             # If yes, extract the frames and save them
             if len(list) < (num_frames/frames_per_extraction):
                 if logging:
-                    print("Extracting frames from {} ({} fps, {} frames)...".format(self.video_id, fps, num_frames))
+                    print("Extracting frames from {} ({} fps, {} frames)...".format(self.video_runner_obj.video_id, fps, num_frames))
 
                 frame_count = 0
                 while frame_count < num_frames:
@@ -68,7 +69,9 @@ class FrameExtraction:
                 # Create a data file to accompany the frames to keep track of the total
                 # number of frames and the number of video frames per extracted frame
                 actual_frames_per_second = fps / frames_per_extraction
-                with open('{}/data.txt'.format(vid_name), 'w') as datafile:
+                video_frames_folder = return_video_frames_folder(self.video_runner_obj)
+
+                with open('{}/data.txt'.format(video_frames_folder), 'w') as datafile:
                     datafile.write('{} {} {}\n'.format(frames_per_extraction, frame_count, actual_frames_per_second))
             else:
                 print("Frames already extracted, skipping step.")

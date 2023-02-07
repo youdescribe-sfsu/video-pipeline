@@ -7,13 +7,21 @@ from timeit_decorator import timeit
 from utils import (CAPTIONS_AND_OBJECTS_CSV, CAPTIONS_CSV,
                    FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
                    KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
-                   OBJECTS_CSV, TIMESTAMP_SELECTOR, returnVideoFolderName,
-                   returnVideoFramesFolder)
+                   OBJECTS_CSV, TIMESTAMP_SELECTOR, return_video_folder_name,
+                   return_video_frames_folder)
 
 
 class ImageCaptioning:
-    def __init__(self, video_id,pagePort):
-        self.video_id = video_id
+    def __init__(self, video_runner_obj,pagePort):
+        """
+        Initialize ImportVideo object.
+        
+        Parameters:
+        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+        pagePort (int): The port number of the server.
+        """
+        self.video_runner_obj = video_runner_obj
         self.pagePort = pagePort
     
     def get_caption(filename):
@@ -67,8 +75,8 @@ class ImageCaptioning:
         Gets a caption for each extracted frame and writes it to a csv file along with
         the frame index and a boolean indicating whether the frame is a keyframe or not
         """
-        video_frames_path = returnVideoFramesFolder(self.video_id)
-        video_folder_path = returnVideoFolderName(self.video_id)
+        video_frames_path = return_video_frames_folder(self.video_runner_obj)
+        video_folder_path = return_video_folder_name(self.video_runner_obj)
         dropped_key_frames = 0
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
@@ -127,19 +135,19 @@ class ImageCaptioning:
         """
         Outputs a csv file combining the columns of the object and caption csv files
         """
-        objcsvpath = returnVideoFolderName(self.video_id)+'/'+OBJECTS_CSV
+        objcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+OBJECTS_CSV
         with open(objcsvpath, newline='', encoding='utf-8') as objcsvfile:
             reader = csv.reader(objcsvfile)
             objheader = next(reader) # skip header
             objrows = [row for row in reader]
         
-        captcsvpath = returnVideoFolderName(self.video_id)+'/'+CAPTIONS_CSV
+        captcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_CSV
         with open(captcsvpath, newline='', encoding='utf-8') as captcsvfile:
             reader = csv.reader(captcsvfile)
             captheader = next(reader) # skip header
             captrows = [row for row in reader]
         
-        outcsvpath = returnVideoFolderName(self.video_id)+'/'+CAPTIONS_AND_OBJECTS_CSV
+        outcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
         with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
             writer = csv.writer(outcsvfile)
             header = captheader + objheader[1:]

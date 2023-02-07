@@ -3,5 +3,5 @@
 
 
 class CaptionRating:
-    def __init__(self, video_id):
-        self.video_id = video_id
+    def __init__(self, video_runner_obj):
+        self.video_runner_obj = video_runner_obj

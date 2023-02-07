@@ -1,4 +1,4 @@
-from utils import returnVideoFolderName,OCR_TEXT_ANNOTATIONS_FILE_NAME,COUNT_VERTICE
+from utils import return_video_folder_name,OCR_TEXT_ANNOTATIONS_FILE_NAME,COUNT_VERTICE
 import csv 
 import json
 
@@ -9,10 +9,15 @@ def isSamePolygon(polygon1, polygon2):
         if(abs(polygon1[i]["x"] - polygon2[i]["x"]) > 50 or abs(polygon1[i]["y"] - polygon2[i]["y"]) > 50):
             return False
     return True
+        
 
-
-def detect_watermark(video_id):
-    path = returnVideoFolderName(video_id)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
+def detect_watermark(video_runner_obj):
+    """
+    Parameters:
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+    """
+    path = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
     # Maintain count of text in bouding box
     count_obj = []
       
@@ -58,7 +63,7 @@ def detect_watermark(video_id):
         print("Max count: ", max_count)
         print("Vertice with max count: ", vertice_with_max_count)
         
-    with open(returnVideoFolderName(video_id)+ "/" + COUNT_VERTICE, 'w', encoding='utf-8') as jsonf: 
+    with open(return_video_folder_name(video_runner_obj)+ "/" + COUNT_VERTICE, 'w', encoding='utf-8') as jsonf: 
         jsonString = json.dumps(count_obj)
         jsonf.write(jsonString)
     return

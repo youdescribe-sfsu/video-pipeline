@@ -3,7 +3,7 @@
 import requests
 import os
 import csv
-from utils import returnVideoFramesFolder,returnVideoFolderName,OBJECTS_CSV
+from utils import return_video_frames_folder,return_video_folder_name,OBJECTS_CSV
 from dotenv import load_dotenv
 from timeit_decorator import timeit
 
@@ -91,13 +91,13 @@ def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fal
     return objects
 
 @timeit
-def object_detection_to_csv(video_id,page='http://localhost:8082/upload'):
+def object_detection_to_csv(video_runner_obj,page='http://localhost:8082/upload'):
     """
     Collates all detected objects into columns and tracks them from frame to frame
     """
-    video_frames_path = returnVideoFramesFolder(video_id)
+    video_frames_path = return_video_frames_folder(video_runner_obj)
     print("FILENAME "+video_frames_path)
-    outcsvpath = returnVideoFolderName(video_id)+ "/" + OBJECTS_CSV
+    outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
         objects = detect_objects(video_frames_path, 0.01, logging=True,page=page)
         print(video_frames_path)
