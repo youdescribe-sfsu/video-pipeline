@@ -1,4 +1,4 @@
-from utils import returnVideoFolderName, returnAudioFileName, TRANSCRIPTS
+from utils import TRANSCRIPTS
 import os
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tts_cloud_key.json"
