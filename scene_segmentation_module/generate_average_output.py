@@ -1,8 +1,7 @@
 import csv
-from utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, returnVideoFolderName
+from utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, return_video_folder_name,return_int_if_possible
 from numpy import dot
 from numpy.linalg import norm
-from utils import returnIntIfPossible
 import warnings
 warnings.filterwarnings("error")
 
@@ -14,10 +13,10 @@ def cosine_similarity(v1,v2):
     except RuntimeWarning:
         return "NaN"
 
-def generate_average_output(video_id):
+def generate_average_output(video_runner_obj):
     '''Generate output avg csv file for a video'''
-    captions_and_objects_csv = returnVideoFolderName(video_id)+'/'+CAPTIONS_AND_OBJECTS_CSV
-    output_avg_csv = returnVideoFolderName(video_id)+'/'+OUTPUT_AVG_CSV
+    captions_and_objects_csv = return_video_folder_name(video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
+    output_avg_csv = return_video_folder_name(video_runner_obj)+'/'+OUTPUT_AVG_CSV
     jsonArray = []
     with open(captions_and_objects_csv, 'r') as csvFile:
         csvReader = csv.DictReader(csvFile) 
@@ -36,8 +35,8 @@ def generate_average_output(video_id):
             temp = []
             isKeyFrame.append(row[keys[2]])
             description.append(row[keys[3]])
-            frame_index.append(returnIntIfPossible(float(row[keys[0]])))
-            timestamp.append(returnIntIfPossible(float(row[keys[1]])))
+            frame_index.append(return_int_if_possible(float(row[keys[0]])))
+            timestamp.append(return_int_if_possible(float(row[keys[1]])))
             for idx in range(4,len(keys)):
                 if(row[keys[idx]] != ''):
                     temp.append(float(row[keys[idx]]))
@@ -46,12 +45,12 @@ def generate_average_output(video_id):
             list.append(temp)
         data = []
         for idx in range(2,len(list) - 1):
-            s = returnIntIfPossible(cosine_similarity(list[idx],list[idx+1]))
+            s = return_int_if_possible(cosine_similarity(list[idx],list[idx+1]))
             a1 = None
             a2 = None
             if(idx < len(list) - 3):
-                a1 = returnIntIfPossible(cosine_similarity(list[idx-1],list[idx+2]))
-                a2 = returnIntIfPossible(cosine_similarity(list[idx-2],list[idx+3]))
+                a1 = return_int_if_possible(cosine_similarity(list[idx-1],list[idx+2]))
+                a2 = return_int_if_possible(cosine_similarity(list[idx-2],list[idx+3]))
             else:
                 a1 = 0.0
                 a2 = 0.0
@@ -62,7 +61,7 @@ def generate_average_output(video_id):
             writer = csv.writer(csvFile)
             writer.writerow(['frame','timestamp','Line1','Line2','Similarity','avgone','avgtwo','iskeyFrame','description'])
             writer.writerows(data)
-            print("Output avg csv file generated for video: ", video_id)
+            print("Output avg csv file generated for video: ", video_runner_obj.video_id)
                 
 if __name__ == "__main__":
     generate_average_output('upSnt11tngE')

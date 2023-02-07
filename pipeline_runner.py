@@ -77,11 +77,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--yolo", default=8081, help="Yolo Port", type=int)
     parser.add_argument("--video_id", help="Video Id", type=str)
+    parser.add_argument("--upload_to_server", help="Upload To YDX Server",action ='store_true')
     parser.add_argument("--start_time", default=None, help="Start Time", type=str)
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
-    parser.add_argument("--upload_to_server", default=True, help="Upload To YDX Server", type=bool)
     args = parser.parse_args()
-    video_id = args.videoid
+    video_id = args.video_id
     pagePort = args.yolo
     video_start_time = args.start_time
     video_end_time = args.end_time
