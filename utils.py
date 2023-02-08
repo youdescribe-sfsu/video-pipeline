@@ -41,6 +41,8 @@ KEY_FRAME_HEADERS = {
     KEYFRAME_CAPTION_SELECTOR: 'Caption',
     }
 
+CAPTION_IMAGE_PAIR = 'caption_image_pair.csv'
+
 import os
 from typing import Dict,Union
 

@@ -8,7 +8,7 @@ from utils import (CAPTIONS_AND_OBJECTS_CSV, CAPTIONS_CSV,
                    FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
                    KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
                    OBJECTS_CSV, TIMESTAMP_SELECTOR, return_video_folder_name,
-                   return_video_frames_folder)
+                   return_video_frames_folder,CAPTION_IMAGE_PAIR)
 
 
 class ImageCaptioning:
@@ -147,6 +147,19 @@ class ImageCaptioning:
             captheader = next(reader) # skip header
             captrows = [row for row in reader]
         
+        ## Write Image Caption Pair to CSV
+        with open(captcsvpath, 'w', newline='', encoding='utf-8') as captcsvfile:
+            data = csv.DictReader(captcsvfile)
+            video_frames_path = return_video_frames_folder(self.video_runner_obj)
+
+            image_caption_pairs = list(map(lambda row: {"frame_url":'{}/frame_{}.jpg'.format(video_frames_path, row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]),"caption":row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]}, data))
+            image_caption_csv_file = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_IMAGE_PAIR
+            with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
+                csvDictWriter = csv.DictWriter(output_file, fieldnames=image_caption_pairs[0].keys())
+                csvDictWriter.writeheader()
+                csvDictWriter.writerows(image_caption_pairs)
+                
+            
         outcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
         with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
             writer = csv.writer(outcsvfile)
