@@ -12,17 +12,15 @@ from utils import (CAPTIONS_AND_OBJECTS_CSV, CAPTIONS_CSV,
 
 
 class ImageCaptioning:
-    def __init__(self, video_runner_obj,pagePort):
+    def __init__(self, video_runner_obj):
         """
         Initialize ImportVideo object.
         
         Parameters:
         video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
             The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
-        pagePort (int): The port number of the server.
         """
         self.video_runner_obj = video_runner_obj
-        self.pagePort = pagePort
     
     def get_caption(filename):
         """
