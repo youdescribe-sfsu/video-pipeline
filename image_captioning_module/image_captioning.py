@@ -22,7 +22,7 @@ class ImageCaptioning:
         """
         self.video_runner_obj = video_runner_obj
     
-    def get_caption(filename):
+    def get_caption(self,filename):
         """
         Gets a caption from the server given an image filename
         """
@@ -114,6 +114,7 @@ class ImageCaptioning:
                 writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR],KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR],KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
             for frame_index in range(start, num_frames, step):
                 frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
+                print("frame_filename: {}".format(frame_filename))
                 caption = self.get_caption(frame_filename)
                 print(frame_index, caption)
                 if(type(caption) == str and caption.find('<unk>') == -1):
