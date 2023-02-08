@@ -89,7 +89,7 @@ class ImageCaptioning:
             header = next(reader) # skip header
             keyframes = [int(row[0]) for row in reader]
         
-
+        start = 0
         outcsvpath = video_folder_path + '/'+ CAPTIONS_CSV
         if os.path.exists(outcsvpath) :
             if os.stat(outcsvpath).st_size > 50:
