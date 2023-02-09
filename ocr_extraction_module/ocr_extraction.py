@@ -22,22 +22,18 @@ class OcrExtraction:
         Returns:
         bool: Returns True if the OCR detection is successful, False otherwise.
         """
-        try:
-            print("=== GET ALL OCR ANNOTATIONS ===")
-            get_all_ocr_annotations(self.video_runner_obj)
-            print("=== DETECT WATERMARK ===")
-            if(skip_detect_watermark == False):
-                detect_watermark(self.video_runner_obj)
-            print("PRINT OCR")
-            get_all_ocr(self.video_runner_obj)
-            print("=== FILTER OCR V1 ===")
-            filter_ocr(self.video_runner_obj)
-            print("=== FILTER OCR V2 ===")
-            filter_ocr_agreement(self.video_runner_obj)
-            print("=== REMOVE SIMILAR OCR ===")
-            filter_ocr_remove_similarity(self.video_runner_obj)
-            return True
-        except Exception as e:
-            print("OCR EXTRACTION ERROR: ",e)
-            return False
+        print("=== GET ALL OCR ANNOTATIONS ===")
+        get_all_ocr_annotations(self.video_runner_obj)
+        print("=== DETECT WATERMARK ===")
+        if(skip_detect_watermark == False):
+            detect_watermark(self.video_runner_obj)
+        print("PRINT OCR")
+        get_all_ocr(self.video_runner_obj)
+        print("=== FILTER OCR V1 ===")
+        filter_ocr(self.video_runner_obj)
+        print("=== FILTER OCR V2 ===")
+        filter_ocr_agreement(self.video_runner_obj)
+        print("=== REMOVE SIMILAR OCR ===")
+        filter_ocr_remove_similarity(self.video_runner_obj)
+        return True
             

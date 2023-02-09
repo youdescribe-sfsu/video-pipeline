@@ -12,13 +12,13 @@ class SceneSegmentation:
         "description": "description",
     }
 
-    def average_check(averageone, averagetwo, threshold):
+    def average_check(self,averageone, averagetwo, threshold):
         if averageone < threshold and averagetwo < threshold:
             return True
         else:
             return False
 
-    def parse_CSV_file(csvPath):
+    def parse_CSV_file(self,csvPath):
         headers = []
         list_new = []
         with open(csvPath, "r") as csvFile:

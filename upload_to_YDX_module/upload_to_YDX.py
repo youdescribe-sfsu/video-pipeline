@@ -16,15 +16,16 @@ import string
 
 
 class UploadToYDX:
-    def __init__(self, video_runner_obj, pagePort, upload_to_server=True):
+    def __init__(self, video_runner_obj, upload_to_server=True):
         self.video_runner_obj = video_runner_obj
-        self.pagePort = pagePort
         self.upload_to_server = upload_to_server
 
-    def mergeIntervals(audio_clips):
+    def mergeIntervals(self,audio_clips):
         # Sort the array on the basis of start values of intervals.
         stack = []
         # insert first interval into stack
+        if(len(audio_clips) == 0):
+            return []
         stack.append(audio_clips[0])
         for audio_clip in audio_clips[1:]:
             # Check for overlapping interval,
@@ -38,7 +39,7 @@ class UploadToYDX:
                 stack.append(audio_clip)
         return stack
 
-    def transformStringAndCheckIfEmpty(row_text):
+    def transformStringAndCheckIfEmpty(self,row_text):
         text_len = len(row_text)
         if len(row_text) > 1 or len(row_text.split(" ")) > 1:
             if row_text[0] == "\n":
@@ -143,10 +144,10 @@ class UploadToYDX:
 
         metadata = {}
 
-        with open(return_video_folder_name(self.video_runner_obj) + "/metadata.json", "w") as f:
-            metadata = json.loads(f)
+        with open(return_video_folder_name(self.video_runner_obj) + "/metadata.json", "r") as f:
+            metadata = json.load(f)
         data = {
-            "youtube_id": self.video_id,
+            "youtube_id": self.video_runner_obj['video_id'],
             "audio_clips": audio_clips,
             "video_length": metadata["duration"],
             "video_name": metadata["title"],
@@ -155,7 +156,7 @@ class UploadToYDX:
             "aiUserId": aiUserId,
         }
         print("===== UPLOADING DATA =====")
-        # print(data)
+        print(data)
         with open(return_video_folder_name(self.video_runner_obj) + "/" + DIALOGS, mode="w") as f:
             f.write(json.dumps(dialogue_timestamps))
         with open(

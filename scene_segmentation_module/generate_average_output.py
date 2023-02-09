@@ -61,7 +61,7 @@ def generate_average_output(video_runner_obj):
             writer = csv.writer(csvFile)
             writer.writerow(['frame','timestamp','Line1','Line2','Similarity','avgone','avgtwo','iskeyFrame','description'])
             writer.writerows(data)
-            print("Output avg csv file generated for video: ", video_runner_obj.video_id)
+            print("Output avg csv file generated for video: ", video_runner_obj['video_id'])
                 
 if __name__ == "__main__":
     generate_average_output('upSnt11tngE')

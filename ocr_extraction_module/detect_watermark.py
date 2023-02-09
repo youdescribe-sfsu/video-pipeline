@@ -56,12 +56,13 @@ def detect_watermark(video_runner_obj):
         print("Total rows: ", row_count)   
         # Get Max count from count_obj
         count_obj = sorted(count_obj, key = lambda i: i['count'],reverse=True)
-        max_count = count_obj[0]["count"]
-        vertice_with_max_count = count_obj[0]["vertice"]
-        count_obj[0]['percentage'] = max_count/row_count*100
-        print("Percentage of frames with watermark: ", max_count/row_count*100)
-        print("Max count: ", max_count)
-        print("Vertice with max count: ", vertice_with_max_count)
+        if(len(count_obj) > 0):
+            max_count = count_obj[0]["count"]
+            vertice_with_max_count = count_obj[0]["vertice"]
+            count_obj[0]['percentage'] = max_count/row_count*100
+            print("Percentage of frames with watermark: ", max_count/row_count*100)
+            print("Max count: ", max_count)
+            print("Vertice with max count: ", vertice_with_max_count)
         
     with open(return_video_folder_name(video_runner_obj)+ "/" + COUNT_VERTICE, 'w', encoding='utf-8') as jsonf: 
         jsonString = json.dumps(count_obj)

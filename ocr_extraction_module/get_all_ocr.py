@@ -14,12 +14,14 @@ def get_all_ocr(video_runner_obj):
     """
     annotation_file = open(return_video_folder_name(video_runner_obj)+"/"+COUNT_VERTICE)
     annotation_file_json = json.load(annotation_file)
-    max_count_annotation = annotation_file_json[0]
+    max_count_annotation = None
+    if(len(annotation_file_json)>0):
+        max_count_annotation = annotation_file_json[0]
     annotation_file.close()
-    outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
     description_to_remove = None
-    if(max_count_annotation["percentage"] > 60):
+    if(max_count_annotation != None and max_count_annotation["percentage"] > 60):
         description_to_remove = max_count_annotation["description"]
+    outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
     ocr_text_csv = return_video_folder_name(video_runner_obj)+ "/" + OCR_TEXT_CSV_FILE_NAME
     ocr_text_csv_file = open(ocr_text_csv, 'w', newline='', encoding='utf-8')
     ocr_text_csv_writer = csv.writer(ocr_text_csv_file)
