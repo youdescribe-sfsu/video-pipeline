@@ -71,6 +71,7 @@ class ImportVideo:
             joined = ffmpeg.concat(vid, aud, v=1, a=1).node
 
             # Output trimmed video
+            print("Trimming video",return_video_folder_name(self.video_runner_obj))
             output = ffmpeg.output(joined[0], joined[1], return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4')
             output.run(overwrite_output=True)
 
@@ -82,3 +83,7 @@ class ImportVideo:
             os.rename(return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4', return_video_download_location(self.video_runner_obj))
             
         return
+    
+    
+    
+    # rsync -aZP sfsu_me:/home/datasets/pipeline/wzh0EuLhRhE_files ./

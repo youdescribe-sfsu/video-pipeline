@@ -9,7 +9,7 @@ from utils import (CAPTIONS_AND_OBJECTS_CSV, CAPTIONS_CSV,
                    KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
                    OBJECTS_CSV, TIMESTAMP_SELECTOR, return_video_folder_name,
                    return_video_frames_folder,CAPTION_IMAGE_PAIR)
-
+import json
 
 class ImageCaptioning:
     def __init__(self, video_runner_obj):
@@ -31,7 +31,7 @@ class ImageCaptioning:
         fileBuffer = open(filename, 'rb')
         multipart_form_data = {
             'token': ('', str(token)),
-            'img_file': (os.path.basename(filename), fileBuffer),
+            'img_data': (os.path.basename(filename), fileBuffer),
         }
         try:
             response = requests.post(page, files=multipart_form_data)
@@ -39,14 +39,16 @@ class ImageCaptioning:
             if response.status_code != 200:
                 print("Server returned status {}.".format(response.status_code))
                 return []
-            return response.text
+            print(response.text)
+            return response.text.lstrip("['").rstrip("']")
         except:
             response = requests.post(page, files=multipart_form_data)
             fileBuffer.close()
             if response.status_code != 200:
                 print("Server returned status {}.".format(response.status_code))
                 return []
-            return response.text
+            print(response.text)
+            return response.text.lstrip("['").rstrip("']")
         
     # def get_all_captions(self,video_name):
     #     """
@@ -147,11 +149,11 @@ class ImageCaptioning:
             captrows = [row for row in reader]
         
         ## Write Image Caption Pair to CSV
-        with open(captcsvpath, 'w', newline='', encoding='utf-8') as captcsvfile:
+        with open(captcsvpath, 'r', newline='', encoding='utf-8') as captcsvfile:
             data = csv.DictReader(captcsvfile)
             video_frames_path = return_video_frames_folder(self.video_runner_obj)
-
-            image_caption_pairs = list(map(lambda row: {"frame_url":'{}/frame_{}.jpg'.format(video_frames_path, row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]),"caption":row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]}, data))
+            image_caption_pairs = list(map(lambda row: {"frame_index":row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]],"frame_url":'{}/frame_{}.jpg'.format(video_frames_path, row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]),"caption":row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]}, data))
+            print(image_caption_pairs[0])
             image_caption_csv_file = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_IMAGE_PAIR
             with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
                 csvDictWriter = csv.DictWriter(output_file, fieldnames=image_caption_pairs[0].keys())

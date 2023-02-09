@@ -42,6 +42,7 @@ KEY_FRAME_HEADERS = {
     }
 
 CAPTION_IMAGE_PAIR = 'caption_image_pair.csv'
+CAPTION_SCORE = 'caption_score.csv'
 
 import os
 from typing import Dict,Union

@@ -37,14 +37,14 @@ class PipelineRunner:
         }
         import_video = ImportVideo(video_runner_obj)
         import_video.download_video()
-        ## Extract audio from video
+        # Extract audio from video
         extract_audio = ExtractAudio(video_runner_obj)
         extract_audio.extract_audio()
-        ## Speech to text
+        # Speech to text
         speech_to_text = SpeechToText(video_runner_obj)
         speech_to_text.get_speech_from_audio()
         ## Frame extraction
-        frame_extraction = FrameExtraction(video_runner_obj,10)
+        frame_extraction = FrameExtraction(video_runner_obj,int(os.environ["FRAME_EXTRACTION_RATE"] or 3))
         frame_extraction.extract_frames()
         ## OCR extraction
         ocr_extraction = OcrExtraction(video_runner_obj)
@@ -87,10 +87,10 @@ if __name__ == "__main__":
     video_start_time = args.start_time
     video_end_time = args.end_time
     upload_to_server = args.upload_to_server
-    if video_start_time is not None and video_end_time is not None:
-        os.environ["START_TIME"] = video_start_time
-        os.environ["END_TIME"] = video_end_time
     pipeline_runner = PipelineRunner(
         video_id, pagePort, video_start_time, video_end_time,upload_to_server
     )
     pipeline_runner.run_full_pipeline()
+    
+    
+    #python pipeline_runner.py --video_id wzh0EuLhRhE --start_time 30 --end_time 35
