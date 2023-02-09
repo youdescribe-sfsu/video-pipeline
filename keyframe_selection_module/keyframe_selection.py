@@ -76,3 +76,5 @@ class KeyframeSelection:
                 new_row = [frame_index, float(frame_index)*seconds_per_frame]
                 print(frame_index, float(frame_index)*seconds_per_frame)
                 writer.writerow(new_row)
+
+        return True

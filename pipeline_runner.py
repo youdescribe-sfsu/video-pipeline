@@ -19,9 +19,8 @@ from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 
 
 class PipelineRunner:
-    def __init__(self, video_id, pagePort, video_start_time, video_end_time,upload_to_server):
+    def __init__(self, video_id, video_start_time, video_end_time,upload_to_server):
         self.video_id = video_id
-        self.pagePort = pagePort
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
         self.upload_to_server = upload_to_server
@@ -58,10 +57,10 @@ class PipelineRunner:
         ## Image captioning
         image_captioning = ImageCaptioning(video_runner_obj)
         image_captioning.run_image_captioning()
-        image_captioning.combine_captions_objects()
+        image_captioning.combine_image_caption()
         ##TODO Caption rating
         caption_rating = CaptionRating(video_runner_obj)
-        caption_rating.get_caption_rating()
+        caption_rating.get_all_caption_rating()
         ## Scene segmentation
         scene_segmentation = SceneSegmentation(video_runner_obj)
         scene_segmentation.run_scene_segmentation()
@@ -76,19 +75,17 @@ class PipelineRunner:
 if __name__ == "__main__":
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--yolo", default=8081, help="Yolo Port", type=int)
     parser.add_argument("--video_id", help="Video Id", type=str)
     parser.add_argument("--upload_to_server", help="Upload To YDX Server",action ='store_true')
     parser.add_argument("--start_time", default=None, help="Start Time", type=str)
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
     args = parser.parse_args()
     video_id = args.video_id
-    pagePort = args.yolo
     video_start_time = args.start_time
     video_end_time = args.end_time
     upload_to_server = args.upload_to_server
     pipeline_runner = PipelineRunner(
-        video_id, pagePort, video_start_time, video_end_time,upload_to_server
+        video_id, video_start_time, video_end_time,upload_to_server
     )
     pipeline_runner.run_full_pipeline()
     

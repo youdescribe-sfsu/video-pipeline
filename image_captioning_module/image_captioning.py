@@ -26,48 +26,24 @@ class ImageCaptioning:
         """
         Gets a caption from the server given an image filename
         """
-        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '5000')
+        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8083')
         token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
-        fileBuffer = open(filename, 'rb')
         multipart_form_data = {
-            'token': ('', str(token)),
-            'img_data': (os.path.basename(filename), fileBuffer),
+            'token': str(token),
+            'img_url': str(filename),
         }
         try:
-            response = requests.post(page, files=multipart_form_data)
-            fileBuffer.close()
+            response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
                 print("Server returned status {}.".format(response.status_code))
                 return []
-            print(response.text)
             return response.text.lstrip("['").rstrip("']")
         except:
-            response = requests.post(page, files=multipart_form_data)
-            fileBuffer.close()
+            response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
                 print("Server returned status {}.".format(response.status_code))
                 return []
-            print(response.text)
             return response.text.lstrip("['").rstrip("']")
-        
-    # def get_all_captions(self,video_name):
-    #     """
-    #     Gets a caption for each extracted frame and returns a list of frame indices
-    #     and the corresponding captions
-    #     """
-    #     captions = []
-    #     with open('{}/data.txt'.format(video_name), 'r') as datafile:
-    #         data = datafile.readline().split()
-    #         step = int(data[0])
-    #         num_frames = int(data[1])
-        
-    #     for frame_index in range(0, num_frames, step):
-    #         frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
-    #         caption = self.get_caption(frame_filename)
-    #         print(frame_index, caption)
-    #         captions.append((frame_index, caption))
-        
-    #     return captions
     
 
     def run_image_captioning(self):
@@ -103,57 +79,74 @@ class ImageCaptioning:
                     while not last_line.isnumeric():
                         i+= 1
                         last_line = lines[i].split(",")[0]
-                    start = int(last_line)+step
+                    start = int(last_line)
                     file.close()
 
         mode = 'w'
         if start != 0:
             mode = 'a'
-
+        index_start_value = 0
+        try:
+            index_start_value = keyframes.index(start)
+        except ValueError:
+            index_start_value = 0
         with open(outcsvpath, mode, newline='', encoding='utf-8') as outcsvfile:
             writer = csv.writer(outcsvfile)
             if start == 0:
                 writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR],KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR],KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
-            for frame_index in range(start, num_frames, step):
-                frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
-                print("frame_filename: {}".format(frame_filename))
-                caption = self.get_caption(frame_filename)
-                print(frame_index, caption)
-                if(type(caption) == str and caption.find('<unk>') == -1):
-                    row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
-                    writer.writerow(row)
-                elif(frame_index in keyframes):
-                    dropped_key_frames += 1
-                    print("Dropped keyframe: {}".format(frame_index))
-                outcsvfile.flush()
+            if(os.getenv('CAPTION_ONLY_KEYFRAMES') == True):
+                for frame_index in keyframes[index_start_value:]:
+                    frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
+                    print("frame_filename: {}".format(frame_filename))
+                    caption = self.get_caption(frame_filename)
+                    print(frame_index, caption)
+                    if(type(caption) == str and caption.find('<unk>') == -1):
+                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
+                        writer.writerow(row)
+                    elif(frame_index in keyframes):
+                        dropped_key_frames += 1
+                        print("Dropped keyframe: {}".format(frame_index))
+                    outcsvfile.flush()
+            else:
+                for frame_index in range(start, num_frames, step):
+                    frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
+                    print("frame_filename: {}".format(frame_filename))
+                    caption = self.get_caption(frame_filename)
+                    print(frame_index, caption)
+                    if(type(caption) == str and caption.find('<unk>') == -1):
+                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
+                        writer.writerow(row)
+                    elif(frame_index in keyframes):
+                        dropped_key_frames += 1
+                        print("Dropped keyframe: {}".format(frame_index))
+                    outcsvfile.flush()
             print("============================================")
             print('Dropped {} keyframes'.format(dropped_key_frames))
             print('Total keyframes: {}'.format(len(keyframes)))
             print('============================================')
-            return
+        return
     
-    def combine_captions_objects(self):
+    def combine_image_caption(self):
         """
         Outputs a csv file combining the columns of the object and caption csv files
         """
-        objcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+OBJECTS_CSV
-        with open(objcsvpath, newline='', encoding='utf-8') as objcsvfile:
-            reader = csv.reader(objcsvfile)
-            objheader = next(reader) # skip header
-            objrows = [row for row in reader]
+        # objcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+OBJECTS_CSV
+        # with open(objcsvpath, newline='', encoding='utf-8') as objcsvfile:
+        #     reader = csv.reader(objcsvfile)
+        #     objheader = next(reader) # skip header
+        #     objrows = [row for row in reader]
         
         captcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_CSV
-        with open(captcsvpath, newline='', encoding='utf-8') as captcsvfile:
-            reader = csv.reader(captcsvfile)
-            captheader = next(reader) # skip header
-            captrows = [row for row in reader]
+        # with open(captcsvpath, newline='', encoding='utf-8') as captcsvfile:
+        #     reader = csv.reader(captcsvfile)
+        #     captheader = next(reader) # skip header
+        #     captrows = [row for row in reader]
         
         ## Write Image Caption Pair to CSV
         with open(captcsvpath, 'r', newline='', encoding='utf-8') as captcsvfile:
             data = csv.DictReader(captcsvfile)
             video_frames_path = return_video_frames_folder(self.video_runner_obj)
             image_caption_pairs = list(map(lambda row: {"frame_index":row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]],"frame_url":'{}/frame_{}.jpg'.format(video_frames_path, row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]),"caption":row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]}, data))
-            print(image_caption_pairs[0])
             image_caption_csv_file = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_IMAGE_PAIR
             with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
                 csvDictWriter = csv.DictWriter(output_file, fieldnames=image_caption_pairs[0].keys())
@@ -161,15 +154,15 @@ class ImageCaptioning:
                 csvDictWriter.writerows(image_caption_pairs)
                 
             
-        outcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
-        with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
-            writer = csv.writer(outcsvfile)
-            header = captheader + objheader[1:]
-            writer.writerow(header)
-            for index in range(len(objrows)):
-                try:
-                    new_row = captrows[index] + objrows[index][1:]
-                    print(captrows[index])
-                    writer.writerow(new_row)
-                except:
-                    continue
+        # outcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
+        # with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
+        #     writer = csv.writer(outcsvfile)
+        #     header = captheader + objheader[1:]
+        #     writer.writerow(header)
+        #     for index in range(len(objrows)):
+        #         try:
+        #             new_row = captrows[index] + objrows[index][1:]
+        #             print(captrows[index])
+        #             writer.writerow(new_row)
+        #         except:
+        #             continue
