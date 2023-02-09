@@ -273,7 +273,6 @@ def text_summarization_csv(video_runner_obj):
         sentences_group = sentences_group[:3]
         scene_text = []
         # For each group of similar sentences, return the best caption (having highest degree of similarity)
-
         for idx in range(len(sentences_group)):
             # print("Sentence Group: ", idx)
             # print(sentences_group[idx])
@@ -295,12 +294,21 @@ def text_summarization_csv(video_runner_obj):
             sentences.append(sentence)
             # print(scene[2][index[0]])
             # print('\n\n')
+            
+    ## Filter Duplicate Scenes
+    seen = set()
+    filtered_sentences = []
+    for sentence in sentences:
+        scene_number = sentence['scene_number']
+        if scene_number not in seen:
+            seen.add(scene_number)
+            filtered_sentences.append(sentence)
+            
     fileName = return_video_folder_name(video_runner_obj)+'/'+SUMMARIZED_SCENES
     if os.path.exists(fileName):
         os.remove(fileName)
     f = open(fileName, "w+")
-
-    f.write(json.dumps(sentences))
+    f.write(json.dumps(filtered_sentences))
     f.close()
 
     # for i, scene in enumerate(scene_arr):
@@ -341,7 +349,7 @@ def getBestCaptionList(cap_idx_list, data):
 # In[ ]:
 
 def getBestCaptionListCSV(cap_idx_list, data):
-    # print(cap_idx_list)
+    print(cap_idx_list)
     res = []
     captions = []
 
@@ -362,6 +370,7 @@ def getBestCaptionListCSV(cap_idx_list, data):
             best_cap_idx = i
             best_score = score
     res.append(cap_idx_list[best_cap_idx])
+    print(res)
     return res
 
 

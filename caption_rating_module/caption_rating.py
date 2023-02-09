@@ -1,4 +1,3 @@
-## TODO : Implement the CaptionRating class
 from utils import CAPTION_SCORE, return_video_folder_name,CAPTION_IMAGE_PAIR,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV
 import csv
 import requests

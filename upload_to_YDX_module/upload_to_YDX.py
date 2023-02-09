@@ -86,9 +86,8 @@ class UploadToYDX:
             i["type"] = "Visual"
 
             ##TODO: Workaround for Multiple scenes remove once it's fixed
-            if i["scene_number"] == scene:
-                audio_clips.append(i)
-                scene += 1
+            audio_clips.append(i)
+            scene += 1
 
         with open(
             return_video_folder_name(self.video_runner_obj) + "/" + OCR_FILTER_REMOVE_SIMILAR

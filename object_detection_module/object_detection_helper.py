@@ -21,7 +21,7 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
     multipart_form_data = {
         'token': token,
         'threshold': threshold,
-        'img_file': filename
+        'img_url': filename
     }
     page='http://localhost:{}/api'.format(os.getenv('YOLO_PORT') or 8081)
     try:
