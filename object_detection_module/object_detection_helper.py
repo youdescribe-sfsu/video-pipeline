@@ -17,12 +17,12 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
     """
     # page = 
     token = os.getenv('ANDREW_YOLO_TOKEN')
-    
     multipart_form_data = {
         'token': token,
         'threshold': threshold,
         'img_url': filename
     }
+    print(multipart_form_data)
     page='http://localhost:{}/api'.format(os.getenv('YOLO_PORT') or 8081)
     try:
         response = requests.post(page, data=multipart_form_data)
@@ -43,7 +43,6 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
             return []
-
         print(response.text)
 
         # Changes made here

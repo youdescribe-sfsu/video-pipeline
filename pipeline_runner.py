@@ -58,13 +58,13 @@ class PipelineRunner:
         image_captioning = ImageCaptioning(video_runner_obj)
         image_captioning.run_image_captioning()
         image_captioning.combine_image_caption()
-        ## Caption rating
+        ##TODO Caption rating
         caption_rating = CaptionRating(video_runner_obj)
         caption_rating.get_all_caption_rating()
         ## Scene segmentation
         scene_segmentation = SceneSegmentation(video_runner_obj)
         scene_segmentation.run_scene_segmentation()
-        # Text summarization
+        ## Text summarization
         text_summarization = TextSummarization(video_runner_obj)
         text_summarization.generate_text_summary()
         ## Upload to YDX
@@ -90,4 +90,4 @@ if __name__ == "__main__":
     pipeline_runner.run_full_pipeline()
     
     
-    #python pipeline_runner.py --video_id ll8cTIg2rwM
+    #python pipeline_runner.py --video_id wzh0EuLhRhE --start_time 6 --end_time 11
