@@ -2,7 +2,7 @@
 
 This is a description of the YouDescribeX Pipeline, which includes the steps necessary to generate descriptions for videos using a variety of computer vision and natural language processing tools.
 
-![Pipeline Graph](https://drive.google.com/file/d/1WpUQ4XwMI56S2LMgypIC7QtzQFGKYZ60/view?usp=sharing)
+![Pipeline Graph](https://drive.google.com/uc?export=view&id=1WpUQ4XwMI56S2LMgypIC7QtzQFGKYZ60)
 
 ## PipelineRunner
 
