@@ -62,6 +62,7 @@ class PipelineRunner:
         ##TODO Caption rating
         caption_rating = CaptionRating(video_runner_obj)
         caption_rating.get_all_caption_rating()
+        caption_rating.filter_captions()
         ## Scene segmentation
         scene_segmentation = SceneSegmentation(video_runner_obj)
         scene_segmentation.run_scene_segmentation()
