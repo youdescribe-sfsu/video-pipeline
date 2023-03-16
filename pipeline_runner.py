@@ -16,6 +16,7 @@ from caption_rating_module.caption_rating import CaptionRating
 from scene_segmentation_module.scene_segmentation import SceneSegmentation
 from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
+from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
 
 
 class PipelineRunner:
@@ -70,6 +71,9 @@ class PipelineRunner:
         ## Upload to YDX
         upload_to_YDX = UploadToYDX(video_runner_obj,upload_to_server=self.upload_to_server)
         upload_to_YDX.upload_to_ydx()
+        if(self.upload_to_server):
+            generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
+            generate_YDX_caption.generateYDXCaption()
 
 
 if __name__ == "__main__":

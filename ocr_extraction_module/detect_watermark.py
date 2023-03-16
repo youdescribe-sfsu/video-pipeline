@@ -2,6 +2,10 @@ from utils import return_video_folder_name,OCR_TEXT_ANNOTATIONS_FILE_NAME,COUNT_
 import csv 
 import json
 
+import sys
+
+csv.field_size_limit(sys.maxsize)
+
 def isSamePolygon(polygon1, polygon2):
     if(len(polygon1) != len(polygon2)):
         return False

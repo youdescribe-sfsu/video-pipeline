@@ -28,18 +28,19 @@ class ImageCaptioning:
         """
         page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8083')
         token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
+        fileBuffer = open(filename, 'rb')
         multipart_form_data = {
-            'token': str(token),
-            'img_url': str(filename),
+            'token': ('', str(token)),
+            'img_data': (os.path.basename(filename), fileBuffer),
         }
         try:
-            response = requests.post(page, data=multipart_form_data)
+            response = requests.post(page, files=multipart_form_data)
             if response.status_code != 200:
                 print("Server returned status {}.".format(response.status_code))
                 return []
             return response.text.lstrip("['").rstrip("']")
         except:
-            response = requests.post(page, data=multipart_form_data)
+            response = requests.post(page, files=multipart_form_data)
             if response.status_code != 200:
                 print("Server returned status {}.".format(response.status_code))
                 return []

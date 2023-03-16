@@ -1,11 +1,11 @@
 import json
 import os
+from typing import Dict
 import requests
 
 class GenerateYDXCaption:
-    def __init__(self, video_id, pagePort):
-        self.video_id = video_id
-        self.pagePort = pagePort
+    def __init__(self, video_runner_obj: Dict[str, int]):
+        self.video_runner_obj = video_runner_obj
     
     def generateYDXCaption(self):
         userId = os.getenv('YDX_USER_ID')
@@ -14,7 +14,7 @@ class GenerateYDXCaption:
             userId = "65c433f7-ceb2-495d-ae01-994388ce56f5"
         data = {
         "userId" : userId,
-        "youtubeVideoId" : self.video_id,
+        "youtubeVideoId" : self.video_runner_obj.get("video_id"),
         # Change AI ID to the ID of the AI you want to use
         "aiUserId": aiUserId
         }

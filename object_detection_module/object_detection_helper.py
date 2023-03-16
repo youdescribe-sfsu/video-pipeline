@@ -10,6 +10,7 @@ YOLOv3_tiny = 8080
 YOLOv3_Openimages = 8083
 YOLOv3_9000 = 8084
 
+import json
 
 def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
     """
@@ -17,17 +18,27 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
     """
     # page = 
     token = os.getenv('ANDREW_YOLO_TOKEN')
+    
+    fileBuffer = open(filename, 'rb')
     multipart_form_data = {
-        'token': token,
-        'threshold': threshold,
-        'img_url': filename
+        'token': ('', str(token)),
+        'threshold': ('', str(threshold)),
+        'img_file': (os.path.basename(filename), fileBuffer)
     }
+    headers = {'token':token}
+    page='http://localhost:{}/upload'.format(os.getenv('YOLO_PORT') or 8081)
+
+    print('\n=====================')
+    print("page",page)
+    print("page ==",page)
+    print(headers)
     print(multipart_form_data)
-    page='http://localhost:{}/api'.format(os.getenv('YOLO_PORT') or 8081)
+    print('=====================')
+    
     try:
-        response = requests.post(page, data=multipart_form_data)
+        response = requests.post(page, files=multipart_form_data)
+        fileBuffer.close()
         print("=====in Object Detection=====")
-        print(response)
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
             return []
@@ -39,7 +50,7 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
         return results
 
     except:
-        response = requests.post(page, data=multipart_form_data)
+        response = requests.post(page, files=multipart_form_data)
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
             return []
@@ -65,6 +76,7 @@ def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fal
     for frame_index in range(0, num_frames, step):
         frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
         obj_list = get_object_from_YOLO(frame_filename, threshold, service)
+        breakFor = True
         frame_objects = {}
         for entry in obj_list:
             name, prob, (x, y, w, h) = entry
@@ -89,11 +101,12 @@ def object_detection_to_csv(video_runner_obj):
     """
     Collates all detected objects into columns and tracks them from frame to frame
     """
+    # get_object_from_YOLO(filename = '/home/datasets/pipeline/_THXHcNI82Y_files/frames/frame_1010.jpg',threshold = 0.00001)
     video_frames_path = return_video_frames_folder(video_runner_obj)
     print("FILENAME "+video_frames_path)
     outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
-        objects = detect_objects(video_frames_path, 0.01, logging=True)
+        objects = detect_objects(video_frames_path, 0.001, logging=True)
         print(video_frames_path)
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
