@@ -31,6 +31,15 @@ class SpeechToText:
     
     @timeit
     def get_speech_from_audio(self):
+        """
+        Extracts speech from an audio file associated with a video and returns the transcription.
+
+        This function uploads the audio file to a Google Cloud Storage bucket, performs speech recognition using
+        Google Cloud Speech-to-Text API, deletes the data from the bucket, and saves the transcription to a file.
+
+        Returns:
+            The transcription of the speech in the audio file.
+        """
         audio_file_name = return_audio_file_name(self.video_runner_obj)
         filepath = return_video_folder_name(self.video_runner_obj) + "/"
         file_name = filepath + audio_file_name

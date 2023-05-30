@@ -50,9 +50,8 @@ class PipelineRunner:
         speech_to_text = SpeechToText(video_runner_obj)
         speech_to_text.get_speech_from_audio()
         ## Frame extraction
-        if PipelineTask.FRAME_EXTRACTION.value in self.tasks:
-            frame_extraction = FrameExtraction(video_runner_obj, int(os.environ.get("FRAME_EXTRACTION_RATE", 3)))
-            frame_extraction.extract_frames()
+        frame_extraction = FrameExtraction(video_runner_obj, int(os.environ.get("FRAME_EXTRACTION_RATE", 3)))
+        frame_extraction.extract_frames()
         ## OCR extraction
         if PipelineTask.OCR_EXTRACTION.value in self.tasks:
             ocr_extraction = OcrExtraction(video_runner_obj)
@@ -61,10 +60,8 @@ class PipelineRunner:
         if PipelineTask.OBJECT_DETECTION.value in self.tasks:
             object_detection = ObjectDetection(video_runner_obj)
             object_detection.run_object_detection()
-        ## Keyframe selection
-        if PipelineTask.KEYFRAME_SELECTION.value in self.tasks:
             keyframe_selection = KeyframeSelection(video_runner_obj)
-            keyframe_selection.run_keyframe_selection()
+            keyframe_selection.run_keyframe_selection()            
         ## Image captioning
         if PipelineTask.IMAGE_CAPTIONING.value in self.tasks:
             image_captioning = ImageCaptioning(video_runner_obj)
