@@ -44,6 +44,24 @@ KEY_FRAME_HEADERS = {
 CAPTION_IMAGE_PAIR = 'caption_image_pair.csv'
 CAPTION_SCORE = 'caption_score.csv'
 
+
+from enum import Enum
+
+
+class PipelineTask(Enum):
+    DOWNLOAD_VIDEO = "download_video"
+    EXTRACT_AUDIO = "extract_audio"
+    SPEECH_TO_TEXT = "speech_to_text"
+    FRAME_EXTRACTION = "frame_extraction"
+    OCR_EXTRACTION = "ocr_extraction"
+    OBJECT_DETECTION = "object_detection"
+    KEYFRAME_SELECTION = "keyframe_selection"
+    IMAGE_CAPTIONING = "image_captioning"
+    CAPTION_RATING = "caption_rating"
+    SCENE_SEGMENTATION = "scene_segmentation"
+    TEXT_SUMMARIZATION = "text_summarization"
+    UPLOAD_TO_YDX = "upload_to_ydx"
+
 import os
 from typing import Dict,Union
 

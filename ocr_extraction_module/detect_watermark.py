@@ -4,7 +4,7 @@ import json
 
 import sys
 
-csv.field_size_limit(sys.maxsize)
+csv.field_size_limit(2**31-1)
 
 def isSamePolygon(polygon1, polygon2):
     if(len(polygon1) != len(polygon2)):

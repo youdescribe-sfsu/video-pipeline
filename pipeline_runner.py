@@ -17,14 +17,20 @@ from scene_segmentation_module.scene_segmentation import SceneSegmentation
 from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
+from utils import PipelineTask
 
 
 class PipelineRunner:
-    def __init__(self, video_id, video_start_time, video_end_time,upload_to_server):
+    ALL_TASKS = [t.value for t in PipelineTask]
+    def __init__(self, video_id, video_start_time, video_end_time,upload_to_server, tasks=None):
         self.video_id = video_id
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
         self.upload_to_server = upload_to_server
+        if(tasks is None):
+            self.tasks = self.ALL_TASKS
+        else:
+            self.tasks = tasks
 
 
     @timeit
@@ -44,37 +50,53 @@ class PipelineRunner:
         speech_to_text = SpeechToText(video_runner_obj)
         speech_to_text.get_speech_from_audio()
         ## Frame extraction
-        frame_extraction = FrameExtraction(video_runner_obj,int(os.environ["FRAME_EXTRACTION_RATE"] or 3))
-        frame_extraction.extract_frames()
+        if PipelineTask.FRAME_EXTRACTION.value in self.tasks:
+            frame_extraction = FrameExtraction(video_runner_obj, int(os.environ.get("FRAME_EXTRACTION_RATE", 3)))
+            frame_extraction.extract_frames()
         ## OCR extraction
-        ocr_extraction = OcrExtraction(video_runner_obj)
-        ocr_extraction.run_ocr_detection()
+        if PipelineTask.OCR_EXTRACTION.value in self.tasks:
+            ocr_extraction = OcrExtraction(video_runner_obj)
+            ocr_extraction.run_ocr_detection()
         ## Object detection
-        object_detection = ObjectDetection(video_runner_obj)
-        object_detection.run_object_detection()
+        if PipelineTask.OBJECT_DETECTION.value in self.tasks:
+            object_detection = ObjectDetection(video_runner_obj)
+            object_detection.run_object_detection()
         ## Keyframe selection
-        keyframe_selection = KeyframeSelection(video_runner_obj)
-        keyframe_selection.run_keyframe_selection()
+        if PipelineTask.KEYFRAME_SELECTION.value in self.tasks:
+            keyframe_selection = KeyframeSelection(video_runner_obj)
+            keyframe_selection.run_keyframe_selection()
         ## Image captioning
-        image_captioning = ImageCaptioning(video_runner_obj)
-        image_captioning.run_image_captioning()
-        image_captioning.combine_image_caption()
-        ##TODO Caption rating
-        caption_rating = CaptionRating(video_runner_obj)
-        caption_rating.get_all_caption_rating()
-        caption_rating.filter_captions()
+        if PipelineTask.IMAGE_CAPTIONING.value in self.tasks:
+            image_captioning = ImageCaptioning(video_runner_obj)
+            image_captioning.run_image_captioning()
+            image_captioning.combine_image_caption()
+        ## Caption rating
+        if PipelineTask.CAPTION_RATING.value in self.tasks:
+            caption_rating = CaptionRating(video_runner_obj)
+            caption_rating.get_all_caption_rating()
+            caption_rating.filter_captions()
         ## Scene segmentation
-        scene_segmentation = SceneSegmentation(video_runner_obj)
-        scene_segmentation.run_scene_segmentation()
+        if PipelineTask.SCENE_SEGMENTATION.value in self.tasks:
+            scene_segmentation = SceneSegmentation(video_runner_obj)
+            scene_segmentation.run_scene_segmentation()
         ## Text summarization
-        text_summarization = TextSummarization(video_runner_obj)
-        text_summarization.generate_text_summary()
+        if PipelineTask.TEXT_SUMMARIZATION.value in self.tasks:
+            text_summarization = TextSummarization(video_runner_obj)
+            text_summarization.generate_text_summary()
         ## Upload to YDX
         upload_to_YDX = UploadToYDX(video_runner_obj,upload_to_server=self.upload_to_server)
         upload_to_YDX.upload_to_ydx()
         if(self.upload_to_server):
             generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
             generate_YDX_caption.generateYDXCaption()
+
+
+def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server, tasks=None):
+    pipeline_runner = PipelineRunner(
+        video_id, video_start_time, video_end_time,upload_to_server, tasks
+    )
+    pipeline_runner.run_full_pipeline()
+    return
 
 
 if __name__ == "__main__":
@@ -89,10 +111,7 @@ if __name__ == "__main__":
     video_start_time = args.start_time
     video_end_time = args.end_time
     upload_to_server = args.upload_to_server
-    pipeline_runner = PipelineRunner(
-        video_id, video_start_time, video_end_time,upload_to_server
-    )
-    pipeline_runner.run_full_pipeline()
+    run_pipeline(video_id, video_start_time, video_end_time,upload_to_server)
     
     
     #python pipeline_runner.py --video_id wzh0EuLhRhE --start_time 6 --end_time 11
