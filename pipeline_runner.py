@@ -112,3 +112,4 @@ if __name__ == "__main__":
     
     
     #python pipeline_runner.py --video_id wzh0EuLhRhE --start_time 6 --end_time 11
+    #python pipeline_runner.py --video_id V7QYLEusDU4 > V7QYLEusDU4.log

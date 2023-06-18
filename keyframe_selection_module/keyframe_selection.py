@@ -18,6 +18,10 @@ class KeyframeSelection:
         self.target_keyframes_per_second = target_keyframes_per_second
         pass
 
+    ## Give start and end time
+    ## Get Key frames around it +-8
+    ## Get 8 key frames
+    ## getting number of key frames should be configurable
     @timeit
     def run_keyframe_selection(self):
         """
