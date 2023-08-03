@@ -3,8 +3,8 @@ requests
 google
 google-cloud
 google-cloud-vision
-yt-dlp
-youtube_dl
+yt-dlp==2023.7.6
+youtube_dl==2021.12.17
 pandas
 nltk
 python-dotenv
