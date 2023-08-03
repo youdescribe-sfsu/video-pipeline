@@ -10,7 +10,7 @@ from utils import (CAPTIONS_AND_OBJECTS_CSV, CAPTIONS_CSV,
                    OBJECTS_CSV, TIMESTAMP_SELECTOR, return_video_folder_name,
                    return_video_frames_folder,CAPTION_IMAGE_PAIR)
 import json
-
+import socket
 class ImageCaptioning:
     def __init__(self, video_runner_obj):
         """
@@ -22,29 +22,43 @@ class ImageCaptioning:
         """
         self.video_runner_obj = video_runner_obj
     
-    def get_caption(self,filename):
+
+
+    def get_caption(self, filename):
         """
         Gets a caption from the server given an image filename
         """
-        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8083')
+        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8085')
         token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
-        fileBuffer = open(filename, 'rb')
-        multipart_form_data = {
-            'token': ('', str(token)),
-            'img_data': (os.path.basename(filename), fileBuffer),
-        }
+        
+        caption_img = ""
+        fileBuffer = None
         try:
+            fileBuffer = open(filename, 'rb')
+            multipart_form_data = {
+                'token': ('', str(token)),
+                'image': (os.path.basename(filename), fileBuffer),
+            }
+            
+            print("multipart_form_data", multipart_form_data)
+            
             response = requests.post(page, files=multipart_form_data)
-            if response.status_code != 200:
+            if response.status_code == 200:
+                json_obj = response.json()
+                caption_img = json_obj['caption']
+            else:
                 print("Server returned status {}.".format(response.status_code))
-                return []
-            return response.text.lstrip("['").rstrip("']")
-        except:
-            response = requests.post(page, files=multipart_form_data)
-            if response.status_code != 200:
-                print("Server returned status {}.".format(response.status_code))
-                return []
-            return response.text.lstrip("['").rstrip("']")
+        except requests.exceptions.RequestException as e:
+            print("Exception occurred during the request:", str(e))
+        finally:
+            # Close the socket if it's still open
+            if fileBuffer is not None:
+                fileBuffer.close()
+        
+        print("caption:", caption_img)
+        return caption_img.strip()
+
+
     
 
     def run_image_captioning(self):
