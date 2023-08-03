@@ -77,6 +77,7 @@ class PipelineRunner:
             scene_segmentation = SceneSegmentation(video_runner_obj)
             scene_segmentation.run_scene_segmentation()
         ## Text summarization
+        ## Check for better summarization with GPT-3/3.5
         if PipelineTask.TEXT_SUMMARIZATION.value in self.tasks:
             text_summarization = TextSummarization(video_runner_obj)
             text_summarization.generate_text_summary()
@@ -112,4 +113,4 @@ if __name__ == "__main__":
     
     
     #python pipeline_runner.py --video_id wzh0EuLhRhE --start_time 6 --end_time 11
-    #python pipeline_runner.py --video_id V7QYLEusDU4 > V7QYLEusDU4.log
+    #python pipeline_runner.py --video_id uqOtCbvFUZA > uqOtCbvFUZA.log
