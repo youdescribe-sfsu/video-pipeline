@@ -70,7 +70,7 @@ class SpeechToText:
             enable_speaker_diarization=True,
             language_code="en-US",
         )
-        if(self.progress_file['SpeechToText']['get_speech_from_audio'] == 0):
+        if(self.progress_file['SpeechToText']['getting_speech_from_audio'] == 0):
             operation = client.long_running_recognize(config=config, audio=audio)
             response = operation.result(timeout=10000)
             response = type(response).to_json(response)
@@ -78,7 +78,7 @@ class SpeechToText:
             return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
         ) as outfile:
                 outfile.write(response)
-                self.progress_file['SpeechToText']['get_speech_from_audio'] = 1
+                self.progress_file['SpeechToText']['getting_speech_from_audio'] = 1
                 save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
         
         print("Deleting Data from Bucket")

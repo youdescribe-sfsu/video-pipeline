@@ -107,7 +107,7 @@ def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     video_folder_name = return_video_folder_name(video_runner_obj)
     return f"{video_folder_name}/progress.json"
 
-def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict | None:
+def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict and None:
     """
     Load progress from a JSON file or start with a default progress dictionary.
 
@@ -125,6 +125,8 @@ def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict | None:
         if os.path.exists(progress_file):
             with open(progress_file, 'r') as progress_file_obj:
                 loaded_progress = json.load(progress_file_obj)
+        else:
+            return None
     except Exception as e:
         print(f"Error loading progress from file: {e}")
         return None
@@ -144,6 +146,9 @@ def save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[
         None
     """
     progress_file = return_video_progress_file(video_runner_obj)
+    directory = os.path.dirname(progress_file)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     try:
         with open(progress_file, 'w') as progress_file_obj:

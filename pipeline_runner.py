@@ -17,7 +17,7 @@ from scene_segmentation_module.scene_segmentation import SceneSegmentation
 from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
-from utils import DEFAULT_SAVE_PROGRESS, PipelineTask, load_progress_from_file, return_video_progress_file, save_progress_to_file
+from utils import DEFAULT_SAVE_PROGRESS, PipelineTask, load_progress_from_file, save_progress_to_file
 import logging
 
 class PipelineRunner:
