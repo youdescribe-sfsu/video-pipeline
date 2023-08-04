@@ -49,10 +49,10 @@ class FrameExtraction:
             # Check if the number of extracted frames is less than the total number of frames
             # If yes, extract the frames and save them
             if len(list) < (num_frames/frames_per_extraction):
-                self.logger.info(f"Extracting frames from {self.video_runner_obj.video_id} ({fps} fps, {num_frames} frames)...")
+                self.logger.info(f"Extracting frames from {self.video_runner_obj['video_id']} ({fps} fps, {num_frames} frames)...")
                 if logging:
                     
-                    print("Extracting frames from {} ({} fps, {} frames)...".format(self.video_runner_obj.video_id, fps, num_frames))
+                    print("Extracting frames from {} ({} fps, {} frames)...".format(self.video_runner_obj['video_id'], fps, num_frames))
 
                 frame_count = 0
                 while frame_count < num_frames:

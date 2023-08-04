@@ -67,7 +67,7 @@ def get_ocr_confidences(video_runner_obj):
 		frames_per_second = float(data[2])
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
-	outcsvpath = "OCR Confidences - " + video_runner_obj.video_id + ".csv"
+	outcsvpath = "OCR Confidences - " + video_runner_obj['video_id'] + ".csv"
 	with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
 		writer = csv.writer(outcsvfile)
 		writer.writerow(["Frame Index", "Confidence", "OCR Text"])
