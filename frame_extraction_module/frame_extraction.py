@@ -16,6 +16,7 @@ class FrameExtraction:
         """
         self.video_runner_obj = video_runner_obj
         self.frames_per_second = frames_per_second
+        self.logger = video_runner_obj.get("logger")
 
 
     def extract_frames(self, logging=False):
@@ -32,6 +33,7 @@ class FrameExtraction:
                 try:
                     os.mkdir(vid_name)
                 except OSError:
+                    self.logger.error("Cannot create directory for frames")
                     print("Cannot create directory for frames")
                     return
 
@@ -47,23 +49,28 @@ class FrameExtraction:
             # Check if the number of extracted frames is less than the total number of frames
             # If yes, extract the frames and save them
             if len(list) < (num_frames/frames_per_extraction):
+                self.logger.info(f"Extracting frames from {self.video_runner_obj.video_id} ({fps} fps, {num_frames} frames)...")
                 if logging:
+                    
                     print("Extracting frames from {} ({} fps, {} frames)...".format(self.video_runner_obj.video_id, fps, num_frames))
 
                 frame_count = 0
                 while frame_count < num_frames:
                     status, frame = vid.read()
                     if not status:
+                        self.logger.error("Error extracting frame {}.".format(frame_count))
                         print("Error extracting frame {}.".format(frame_count))
                         break
                     if frame_count % frames_per_extraction == 0:
                         # save the frame
                         cv2.imwrite("{}/frame_{}.jpg".format(vid_name, frame_count), frame)
+                    self.logger.info(f"{frame_count*100//num_frames}% complete")
                     if logging:
                         print('\r{}% complete  '.format((frame_count*100)//num_frames), end='')
                     frame_count += 1
                 if logging:
                     print('\r100% complete   ')
+                self.logger.info(f"Extraction complete.")
                 vid.release()
 
                 # Create a data file to accompany the frames to keep track of the total
@@ -74,4 +81,5 @@ class FrameExtraction:
                 with open('{}/data.txt'.format(video_frames_folder), 'w') as datafile:
                     datafile.write('{} {} {}\n'.format(frames_per_extraction, frame_count, actual_frames_per_second))
             else:
+                self.logger.info(f"Frames already extracted, skipping step.")
                 print("Frames already extracted, skipping step.")

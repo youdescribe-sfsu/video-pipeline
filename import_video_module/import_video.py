@@ -1,11 +1,11 @@
+from logging import Logger
 from timeit_decorator import timeit
 import json
 import yt_dlp as ydl
-from utils import return_video_download_location, return_video_frames_folder, return_video_folder_name
+from utils import return_video_download_location, return_video_folder_name
 from datetime import timedelta
 import ffmpeg
 import os
-from operator import itemgetter
 from typing import Dict
 
 class ImportVideo:
@@ -32,6 +32,7 @@ class ImportVideo:
         video_id = self.video_runner_obj.get("video_id")
         video_start_time = self.video_runner_obj.get("video_start_time",None)
         video_end_time = self.video_runner_obj.get("video_end_time",None)
+        logger: Logger = self.video_runner_obj.get("logger")
         
         ydl_opts = {'outtmpl': return_video_download_location(self.video_runner_obj), "format": "best" }
         vid = ydl.YoutubeDL(ydl_opts).extract_info(
@@ -42,6 +43,7 @@ class ImportVideo:
 
         # Get Video Title
         title = vid.get('title')
+        logger.info(f"Video Title: {title}")
         print("Video Title: ", title)
 
         # Save metadata to json file
@@ -51,8 +53,11 @@ class ImportVideo:
             # Convert start and end time to timedelta
             start_time = timedelta(seconds=int(video_start_time))
             end_time = timedelta(seconds=int(video_end_time))
+            
             print("start time: ", start_time)
+            logger.info(f"start time: {start_time}")
             print("end time: ", end_time)
+            logger.info(f"end time: {end_time}")
 
             # Trim video and audio based on start and end time
             input_stream = ffmpeg.input(return_video_download_location(self.video_runner_obj))
@@ -71,6 +76,7 @@ class ImportVideo:
             joined = ffmpeg.concat(vid, aud, v=1, a=1).node
 
             # Output trimmed video
+            logger.info(f"Trimming video {return_video_folder_name(self.video_runner_obj)}")
             print("Trimming video",return_video_folder_name(self.video_runner_obj))
             output = ffmpeg.output(joined[0], joined[1], return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4')
             output.run(overwrite_output=True)
@@ -82,6 +88,7 @@ class ImportVideo:
             # Rename trimmed video to original name
             os.rename(return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4', return_video_download_location(self.video_runner_obj))
             
+        logger.info(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
         return
     
     

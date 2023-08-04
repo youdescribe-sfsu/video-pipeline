@@ -18,7 +18,7 @@ from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
 from utils import PipelineTask
-
+import logging
 
 class PipelineRunner:
     ALL_TASKS = [t.value for t in PipelineTask]
@@ -32,14 +32,27 @@ class PipelineRunner:
         else:
             self.tasks = tasks
 
+    def setup_logger(self,video_id):
+        log_file = f"{video_id}_pipeline.log"
+        log_mode = 'a' if os.path.exists(log_file) else 'w'
+        logger = logging.getLogger(f"PipelineLogger-{video_id}")
+        logger.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler = logging.FileHandler(log_file, mode=log_mode)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        return logger
 
     @timeit
     def run_full_pipeline(self):
         ## Download video from YouTube
+        logger = self.setup_logger(self.video_id)
+        logger.info(f"Processing video: {self.video_id}")
         video_runner_obj = {
             "video_id": self.video_id,
             "video_start_time": self.video_start_time,
-            "video_end_time": self.video_end_time
+            "video_end_time": self.video_end_time,
+            "logger": logger
         }
         import_video = ImportVideo(video_runner_obj)
         import_video.download_video()

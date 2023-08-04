@@ -12,6 +12,7 @@ def get_all_ocr(video_runner_obj):
         The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
     :return: None
     """
+    video_runner_obj["logger"].info(f"Getting all OCR for {video_runner_obj['video_id']}")
     annotation_file = open(return_video_folder_name(video_runner_obj)+"/"+COUNT_VERTICE)
     annotation_file_json = json.load(annotation_file)
     max_count_annotation = None
@@ -26,6 +27,7 @@ def get_all_ocr(video_runner_obj):
     ocr_text_csv_file = open(ocr_text_csv, 'w', newline='', encoding='utf-8')
     ocr_text_csv_writer = csv.writer(ocr_text_csv_file)
     ocr_text_csv_writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
+    video_runner_obj["logger"].info(f"Writing OCR to {ocr_text_csv}")
     with open(outcsvpath, encoding='utf-8') as csvf: 
         csvReader = csv.DictReader(csvf) 
         #convert each csv row into python dict

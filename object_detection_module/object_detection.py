@@ -15,6 +15,7 @@ class ObjectDetection:
     
     def run_object_detection(self):
         try:
+            self.video_runner_obj["logger"].info(f"Running object detection for {self.video_runner_obj['video_id']}")
             print("=== TRACK OBJECTS ===")
             object_detection_to_csv(self.video_runner_obj)
             return True

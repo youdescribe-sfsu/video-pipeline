@@ -76,9 +76,13 @@ def get_ocr_confidences(video_runner_obj):
 			texts = detect_text(frame_filename)
 			if len(texts) > 0:
 				new_row = [frame_index, texts[0].confidence, texts[0].description]
+				video_runner_obj.logger.info(f"Frame Index: {frame_index}")
 				print(frame_index)
+				video_runner_obj.logger.info(f"Timestamp: {float(frame_index)*seconds_per_frame}")
 				print(float(frame_index)*seconds_per_frame)
+				video_runner_obj.logger.info(f"Confidence: {texts[0].confidence}")
 				print(texts[0].description)
+				video_runner_obj.logger.info(f"OCR Text: {texts[0].description}")
 				print()
 				writer.writerow(new_row)
 
@@ -102,6 +106,8 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
     Keep track of bounding boxes for each OCR annotation.
     """
 	video_frames_folder = return_video_frames_folder(video_runner_obj)
+	video_runner_obj["logger"].info(f"Getting all OCR annotations for {video_runner_obj['video_id']}")
+	video_runner_obj["logger"].info(f"video_frames_folder={video_frames_folder}")
 	print("--------------------------")
 	print("video_frames_folder=",video_frames_folder)
 	print("--------------------------")
@@ -148,15 +154,18 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 				writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for frame_index in range(start, num_frames, step):				
 				frame_filename = '{}/frame_{}.jpg'.format(video_frames_folder, frame_index)
+				video_runner_obj["logger"].info(f"Frame Index: {frame_index}")
 				texts = detect_text(frame_filename)
 				if len(texts) > 0:
 					try:
 						new_row = [frame_index, float(frame_index)*seconds_per_frame, json.dumps(texts)]
+						video_runner_obj["logger"].info(f"Timestamp: {float(frame_index)*seconds_per_frame}")
 						print("Frame Index: ", frame_index)
 						writer.writerow(new_row)
 						outcsvfile.flush()
 					except Exception as e:
 						print(e)
+						video_runner_obj["logger"].info(f"Error writing to file")
 						print("Error writing to file")
         
 if __name__ == "__main__":

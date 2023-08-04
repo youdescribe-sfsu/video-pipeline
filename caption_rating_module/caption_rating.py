@@ -36,11 +36,13 @@ class CaptionRating:
         try:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
+                self.video_runner_obj["logger"].info("Server returned status {}.".format(response.status_code))
                 print("Server returned status {}.".format(response.status_code))
             return response.text.lstrip("['").rstrip("']")
         except:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
+                self.video_runner_obj["logger"].info("Server returned status {}.".format(response.status_code))
                 print("Server returned status {}.".format(response.status_code))
             return response.text.lstrip("['").rstrip("']")
         
@@ -56,6 +58,7 @@ class CaptionRating:
             data = csv.DictReader(captcsvfile)
             for image_data in data:
                 rating = self.get_caption_rating(image_data)
+                self.video_runner_obj["logger"].info(f"Rating for caption {image_data['caption']} is {rating}")
                 output_csv.append({'frame_index': image_data['frame_index'], 'frame_url': image_data['frame_url'], 
                                 'caption': image_data['caption'], 'rating': rating})
 
@@ -103,4 +106,5 @@ class CaptionRating:
                     writer.writerow(new_row)
                 except:
                     continue
+        self.video_runner_obj["logger"].info(f"Caption filtering complete for {self.video_runner_obj['video_id']}")
 

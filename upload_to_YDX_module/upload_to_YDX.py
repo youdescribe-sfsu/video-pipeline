@@ -55,6 +55,7 @@ class UploadToYDX:
             return (False, "")
 
     def upload_to_ydx(self):
+        self.video_runner_obj["logger"].info("Uploading to YDX")
         dialogue_timestamps = []
         sequence_num = 0
 
@@ -156,6 +157,8 @@ class UploadToYDX:
         }
         print("===== UPLOADING DATA =====")
         print(data)
+        self.video_runner_obj["logger"].info("===== UPLOADING DATA =====")
+        self.video_runner_obj["logger"].info(data)
         with open(return_video_folder_name(self.video_runner_obj) + "/" + DIALOGS, mode="w") as f:
             f.write(json.dumps(dialogue_timestamps))
         with open(
@@ -170,13 +173,18 @@ class UploadToYDX:
                 ydx_server = "http://3.101.130.10:4000"
             url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
             headers = {"Content-Type": "application/json; charset=utf-8"}
+            self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
             try:
                 r = requests.post(url, data=json.dumps(data), headers=headers)
                 print("===== RESPONSE =====")
                 print(r.text)
+                self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                self.video_runner_obj["logger"].info(r.text)
                 r.close()
             except:
                 r = requests.post(url, data=json.dumps(data), headers=headers)
+                self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                self.video_runner_obj["logger"].info(r.text)
                 print(r.text)
                 r.close()
         return

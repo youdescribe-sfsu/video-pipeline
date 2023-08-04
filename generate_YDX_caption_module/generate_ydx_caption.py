@@ -23,11 +23,18 @@ class GenerateYDXCaption:
             ydx_server = 'http://3.101.130.10:4000'
         url = '{}/api/create-user-links/create-new-user-ad'.format(ydx_server)
         headers = {"Content-Type": "application/json; charset=utf-8"}
+        self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
         response = requests.post(url, data=json.dumps(data), headers=headers)
+        self.video_runner_obj["logger"].info("===== RESPONSE =====")
+        self.video_runner_obj["logger"].info(response.text)
         data = response.json()
         if(response.status_code == 200):
             print("Success")
+            self.video_runner_obj["logger"].info("Success")
+            self.video_runner_obj["logger"].info(data)
             requests.get(data['url'])
         else:
+            self.video_runner_obj["logger"].info("Failure in generating YDX Caption")
+            self.video_runner_obj["logger"].info(data.get('message'))
             print("Failure in generating YDX Caption")
             print(data.get('message'))

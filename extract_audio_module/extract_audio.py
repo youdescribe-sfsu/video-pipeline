@@ -1,3 +1,4 @@
+from logging import Logger
 import ffmpeg
 from typing import Dict
 from utils import return_video_download_location
@@ -21,10 +22,12 @@ class ExtractAudio:
         # Define the input and output file paths
         input_file = return_video_download_location(self.video_runner_obj)
         output_file = input_file.replace(".mp4", ".flac")
+        logger:Logger = self.video_runner_obj.get("logger")
         
         # Check if the output file already exists
         if not os.path.exists(output_file):
             # Use ffmpeg to extract the audio and save it as a FLAC file
+            logger.info(f"Extracting audio from {input_file} and saving it as {output_file}")
             ffmpeg.input(input_file).output(output_file).run()
-        
+        logger.info(f"Audio extraction completed.")
         return

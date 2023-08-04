@@ -29,6 +29,7 @@ class KeyframeSelection:
         confidences and is reasonably close to 1/target_keyframes_per_second seconds
         after the previous keyframe
         """
+        self.video_runner_obj["logger"].info(f"Running keyframe selection for {self.video_runner_obj['video_id']}")
         video_frames_path = return_video_frames_folder(self.video_runner_obj)
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
@@ -37,6 +38,7 @@ class KeyframeSelection:
             frames_per_second = float(data[2])
         
         incsvpath = return_video_folder_name(self.video_runner_obj)+ "/" + OBJECTS_CSV
+        self.video_runner_obj["logger"].info(f"Reading object detection results from {incsvpath}")
         with open(incsvpath, newline='', encoding='utf-8') as incsvfile:
             reader = csv.reader(incsvfile)
             header = next(reader) # skip header
@@ -71,6 +73,7 @@ class KeyframeSelection:
                 keyframes.append(best)
                 last_keyframe = best
         
+        self.video_runner_obj["logger"].info(f"Writing keyframe selection results to {KEYFRAMES_CSV}")
         seconds_per_frame = 1.0/video_fps
         outcsvpath = return_video_folder_name(self.video_runner_obj)+ "/" + KEYFRAMES_CSV
         with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
@@ -78,7 +81,8 @@ class KeyframeSelection:
             writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR]])
             for frame_index in keyframes:
                 new_row = [frame_index, float(frame_index)*seconds_per_frame]
+                self.video_runner_obj["logger"].info(f"Frame Index: {frame_index} Timestamp: {float(frame_index)*seconds_per_frame}")
                 print(frame_index, float(frame_index)*seconds_per_frame)
                 writer.writerow(new_row)
-
+        self.video_runner_obj["logger"].info(f"Keyframe selection complete for {self.video_runner_obj['video_id']}")
         return True

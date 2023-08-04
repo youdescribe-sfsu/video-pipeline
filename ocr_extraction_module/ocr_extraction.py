@@ -22,18 +22,25 @@ class OcrExtraction:
         Returns:
         bool: Returns True if the OCR detection is successful, False otherwise.
         """
+        self.video_runner_obj["logger"].info(f"Running OCR detection on {self.video_runner_obj['video_id']}")
         print("=== GET ALL OCR ANNOTATIONS ===")
         get_all_ocr_annotations(self.video_runner_obj)
+        self.video_runner_obj["logger"].info(f"OCR detection completed on {self.video_runner_obj['video_id']}")
         print("=== DETECT WATERMARK ===")
+        self.video_runner_obj["logger"].info(f"Detecting watermark on {self.video_runner_obj['video_id']}")
         if(skip_detect_watermark == False):
             detect_watermark(self.video_runner_obj)
         print("PRINT OCR")
+        self.video_runner_obj["logger"].info(f"Printing OCR on {self.video_runner_obj['video_id']}")
         get_all_ocr(self.video_runner_obj)
         print("=== FILTER OCR V1 ===")
+        self.video_runner_obj["logger"].info(f"Filtering OCR on {self.video_runner_obj['video_id']}")
         filter_ocr(self.video_runner_obj)
         print("=== FILTER OCR V2 ===")
+        self.video_runner_obj["logger"].info(f"Filtering OCR on {self.video_runner_obj['video_id']}")
         filter_ocr_agreement(self.video_runner_obj)
         print("=== REMOVE SIMILAR OCR ===")
+        self.video_runner_obj["logger"].info(f"Removing similar OCR on {self.video_runner_obj['video_id']}")
         filter_ocr_remove_similarity(self.video_runner_obj)
         return True
             

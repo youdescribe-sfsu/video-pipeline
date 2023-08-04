@@ -200,6 +200,7 @@ def text_summarization_csv(video_runner_obj):
     j = 0
 
     print("Number of scenes: ", len(scene_arr))
+    video_runner_obj["logger"].info(f"Number of scenes: {len(scene_arr)}")
 
     scene_output = []
     sentences = []
@@ -219,6 +220,8 @@ def text_summarization_csv(video_runner_obj):
         }
 
         scene_output.append(out)
+        video_runner_obj["logger"].info("===========================================")
+        video_runner_obj["logger"].info(f"Start Time: {scene[0]} | End Time: {scene[1]}")
         print(
             f"======================Scene #{i}==============================")
         print(f"Start Time: {scene[0]} | End Time: {scene[1]}")

@@ -88,6 +88,7 @@ class SceneSegmentation:
 
     def run_scene_segmentation(self):
         """Segment the video into scenes based on the average of the scene and the average of the shot."""
+        self.video_runner_obj["logger"].info("Running scene segmentation")
         generate_average_output(self.video_runner_obj)
         outputavgFile = return_video_folder_name(self.video_runner_obj) + "/" + OUTPUT_AVG_CSV
         sceneSegmentedFile = (
@@ -99,4 +100,5 @@ class SceneSegmentation:
             writer = csv.writer(csvFile)
             writer.writerow(self.columns.values())
             writer.writerows(data)
+        self.video_runner_obj["logger"].info(f"Writing scene segmentation results to {sceneSegmentedFile}")
         return

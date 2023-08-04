@@ -40,6 +40,8 @@ class ImageCaptioning:
                 'image': (os.path.basename(filename), fileBuffer),
             }
             
+            self.video_runner_obj["logger"].info(f"Running image captioning for {filename}")
+            self.video_runner_obj["logger"].info(f"multipart_form_data: {multipart_form_data}")
             print("multipart_form_data", multipart_form_data)
             
             response = requests.post(page, files=multipart_form_data)
@@ -48,7 +50,9 @@ class ImageCaptioning:
                 caption_img = json_obj['caption']
             else:
                 print("Server returned status {}.".format(response.status_code))
+                self.video_runner_obj["logger"].info(f"Server returned status {response.status_code}")
         except requests.exceptions.RequestException as e:
+            self.video_runner_obj["logger"].info(f"Exception occurred during the request: {str(e)}")
             print("Exception occurred during the request:", str(e))
         finally:
             # Close the socket if it's still open
@@ -56,6 +60,7 @@ class ImageCaptioning:
                 fileBuffer.close()
         
         print("caption:", caption_img)
+        self.video_runner_obj["logger"].info(f"caption: {caption_img}")
         return caption_img.strip()
 
 
@@ -113,32 +118,42 @@ class ImageCaptioning:
                 for frame_index in keyframes[index_start_value:]:
                     frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
                     print("frame_filename: {}".format(frame_filename))
+                    self.video_runner_obj["logger"].info(f"frame_filename: {frame_filename}")
                     caption = self.get_caption(frame_filename)
                     print(frame_index, caption)
+                    self.video_runner_obj["logger"].info(f"{frame_index}, {caption}")
                     if(type(caption) == str and caption.find('<unk>') == -1):
                         row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
                         writer.writerow(row)
                     elif(frame_index in keyframes):
                         dropped_key_frames += 1
                         print("Dropped keyframe: {}".format(frame_index))
+                        self.video_runner_obj["logger"].info(f"Dropped keyframe: {frame_index}")
                     outcsvfile.flush()
             else:
                 for frame_index in range(start, num_frames, step):
                     frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
                     print("frame_filename: {}".format(frame_filename))
+                    self.video_runner_obj["logger"].info(f"frame_filename: {frame_filename}")
                     caption = self.get_caption(frame_filename)
                     print(frame_index, caption)
+                    self.video_runner_obj["logger"].info(f"{frame_index}, {caption}")
                     if(type(caption) == str and caption.find('<unk>') == -1):
                         row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
                         writer.writerow(row)
                     elif(frame_index in keyframes):
                         dropped_key_frames += 1
                         print("Dropped keyframe: {}".format(frame_index))
+                        self.video_runner_obj["logger"].info(f"Dropped keyframe: {frame_index}")
                     outcsvfile.flush()
             print("============================================")
             print('Dropped {} keyframes'.format(dropped_key_frames))
             print('Total keyframes: {}'.format(len(keyframes)))
             print('============================================')
+            self.video_runner_obj["logger"].info("============================================")
+            self.video_runner_obj["logger"].info('Dropped %d keyframes', dropped_key_frames)
+            self.video_runner_obj["logger"].info('Total keyframes: %d', len(keyframes))
+            self.video_runner_obj["logger"].info('============================================')
         return
     
     def combine_image_caption(self):
@@ -162,12 +177,14 @@ class ImageCaptioning:
             data = csv.DictReader(captcsvfile)
             video_frames_path = return_video_frames_folder(self.video_runner_obj)
             image_caption_pairs = list(map(lambda row: {"frame_index":row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]],"frame_url":'{}/frame_{}.jpg'.format(video_frames_path, row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]),"caption":row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]}, data))
+            self.video_runner_obj["logger"].info(f"Writing image caption pairs to {return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_IMAGE_PAIR}")
             image_caption_csv_file = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_IMAGE_PAIR
             with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
                 csvDictWriter = csv.DictWriter(output_file, fieldnames=image_caption_pairs[0].keys())
                 csvDictWriter.writeheader()
                 csvDictWriter.writerows(image_caption_pairs)
-                
+            
+            self.video_runner_obj["logger"].info(f"Uploading image caption pairs to server")
             
         # outcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
         # with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:

@@ -12,7 +12,7 @@ YOLOv3_9000 = 8084
 
 import json
 
-def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
+def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
     """
     Use remote image object detection service provided by Andrew
     """
@@ -34,13 +34,24 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
     print(headers)
     print(multipart_form_data)
     print('=====================')
+    if logger:
+        logger.info(f"Running object detection for {filename}")
+        logger.info(f"page: {page}")
+        logger.info(f"headers: {headers}")
+        logger.info(f"multipart_form_data: {multipart_form_data}")
+        logger.info(f"=========================")
     
     try:
         response = requests.post(page, files=multipart_form_data)
         fileBuffer.close()
         print("=====in Object Detection=====")
+        if logger:
+            logger.info("========================")
+            logger.info(f"response: {response.text}")
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
+            if logger:
+                logger.info(f"Server returned status {response.status_code}")
             return []
         print(response.text)
 
@@ -53,7 +64,9 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
         response = requests.post(page, files=multipart_form_data)
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
+            logger.info(f"Server returned status {response.status_code}")
             return []
+        logger.info(f"response: {response.text}")
         print(response.text)
 
         # Changes made here
@@ -62,7 +75,7 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny):
         return results
 
 
-def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False):
+def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False,logger=None):
     """
     Detects objects in each frame and collates the results into a dictionary
     The key is the name of the object, and each entry contains the frame index, detection confidence, and count
@@ -75,7 +88,7 @@ def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fal
 
     for frame_index in range(0, num_frames, step):
         frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
-        obj_list = get_object_from_YOLO(frame_filename, threshold, service)
+        obj_list = get_object_from_YOLO(frame_filename, threshold, service,logger=logger)
         breakFor = True
         frame_objects = {}
         for entry in obj_list:
@@ -92,8 +105,13 @@ def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=Fal
         if logging:
             print('\rOn frame {}/{} ({}% complete)          '.format(frame_index,
                   num_frames, (frame_index*100)//num_frames), end='')
+        if logger:
+            logger.info(f"Frame Index: {frame_index}")
+        
     if logging:
         print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
+    if logger:
+        logger.info(f"Frame Index: {frame_index}")
     return objects
 
 @timeit
@@ -103,10 +121,12 @@ def object_detection_to_csv(video_runner_obj):
     """
     # get_object_from_YOLO(filename = '/home/datasets/pipeline/_THXHcNI82Y_files/frames/frame_1010.jpg',threshold = 0.00001)
     video_frames_path = return_video_frames_folder(video_runner_obj)
+    video_runner_obj["logger"].info(f"Running object detection for {video_runner_obj['video_id']}")
     print("FILENAME "+video_frames_path)
     outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
-        objects = detect_objects(video_frames_path, 0.001, logging=True)
+        objects = detect_objects(video_frames_path, 0.001, logging=True,logger=video_runner_obj["logger"])
+        video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")
         print(video_frames_path)
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
