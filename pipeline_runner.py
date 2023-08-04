@@ -17,7 +17,7 @@ from scene_segmentation_module.scene_segmentation import SceneSegmentation
 from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
-from utils import PipelineTask
+from utils import DEFAULT_SAVE_PROGRESS, PipelineTask, load_progress_from_file, return_video_progress_file, save_progress_to_file
 import logging
 
 class PipelineRunner:
@@ -48,12 +48,23 @@ class PipelineRunner:
         ## Download video from YouTube
         logger = self.setup_logger(self.video_id)
         logger.info(f"Processing video: {self.video_id}")
+        
+        
         video_runner_obj = {
             "video_id": self.video_id,
             "video_start_time": self.video_start_time,
             "video_end_time": self.video_end_time,
             "logger": logger
         }
+        
+        
+        progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+        if progress_file is None:
+            progress_file = DEFAULT_SAVE_PROGRESS
+            progress_file['video_id'] = self.video_id
+            save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+            
+            
         import_video = ImportVideo(video_runner_obj)
         import_video.download_video()
         # Extract audio from video

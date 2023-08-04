@@ -2,7 +2,7 @@ from logging import Logger
 from timeit_decorator import timeit
 import json
 import yt_dlp as ydl
-from utils import return_video_download_location, return_video_folder_name
+from utils import load_progress_from_file, return_video_download_location, return_video_folder_name, save_progress_to_file
 from datetime import timedelta
 import ffmpeg
 import os
@@ -18,6 +18,7 @@ class ImportVideo:
             The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
         """
         self.video_runner_obj = video_runner_obj
+        self.progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
     
     @timeit
     def download_video(self):
@@ -33,6 +34,12 @@ class ImportVideo:
         video_start_time = self.video_runner_obj.get("video_start_time",None)
         video_end_time = self.video_runner_obj.get("video_end_time",None)
         logger: Logger = self.video_runner_obj.get("logger")
+        
+        if(self.progress_file['ImportVideo']['download_video']):
+            ## Video already downloaded, skipping step
+            logger.info("Video already downloaded, skipping step.")
+            print("Video already downloaded, skipping step.")
+            return
         
         ydl_opts = {'outtmpl': return_video_download_location(self.video_runner_obj), "format": "best" }
         vid = ydl.YoutubeDL(ydl_opts).extract_info(
@@ -87,7 +94,8 @@ class ImportVideo:
 
             # Rename trimmed video to original name
             os.rename(return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4', return_video_download_location(self.video_runner_obj))
-            
+        self.progress_file['ImportVideo']['download_video'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)    
         logger.info(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
         return
     

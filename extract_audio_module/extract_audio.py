@@ -1,7 +1,7 @@
 from logging import Logger
 import ffmpeg
 from typing import Dict
-from utils import return_video_download_location
+from utils import return_video_download_location, load_progress_from_file, save_progress_to_file
 import os
 class ExtractAudio:
     def __init__(self, video_runner_obj: Dict[str, int]):
@@ -13,6 +13,7 @@ class ExtractAudio:
             The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
         """
         self.video_runner_obj = video_runner_obj
+        self.progress_file = load_progress_from_file(video_runner_obj)
         
     def extract_audio(self):
         """
@@ -23,11 +24,17 @@ class ExtractAudio:
         input_file = return_video_download_location(self.video_runner_obj)
         output_file = input_file.replace(".mp4", ".flac")
         logger:Logger = self.video_runner_obj.get("logger")
-        
+        if(self.progress_file['ExtractAudio']['extract_audio']):
+            ## Audio already extracted, skipping step
+            logger.info("Audio already extracted, skipping step.")
+            print("Audio already extracted, skipping step.")
+            return
         # Check if the output file already exists
         if not os.path.exists(output_file):
             # Use ffmpeg to extract the audio and save it as a FLAC file
             logger.info(f"Extracting audio from {input_file} and saving it as {output_file}")
             ffmpeg.input(input_file).output(output_file).run()
+        self.progress_file['ExtractAudio']['extract_audio'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
         logger.info(f"Audio extraction completed.")
         return

@@ -1,4 +1,4 @@
-from utils import TRANSCRIPTS
+from utils import TRANSCRIPTS, load_progress_from_file, save_progress_to_file
 import os
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tts_cloud_key.json"
@@ -29,6 +29,7 @@ class SpeechToText:
         """
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
+        self.progress_file = load_progress_from_file(video_runner_obj)
     
     @timeit
     def get_speech_from_audio(self):
@@ -39,7 +40,7 @@ class SpeechToText:
         Google Cloud Speech-to-Text API, deletes the data from the bucket, and saves the transcription to a file.
 
         Returns:
-            The transcription of the speech in the audio file.
+            None.
         """
         audio_file_name = return_audio_file_name(self.video_runner_obj)
         filepath = return_video_folder_name(self.video_runner_obj) + "/"
@@ -53,6 +54,8 @@ class SpeechToText:
         self.logger.info(f"Uploading {source_file_name} to {destination_blob_name}")
         print("Uploading to Google Bucket")
         self.upload_blob(bucket_name, source_file_name, destination_blob_name)
+        self.progress_file['SpeechToText']['upload_blob'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
 
         gcs_uri = "gs://" + bucket_name + "/" + audio_file_name
 
@@ -67,17 +70,27 @@ class SpeechToText:
             enable_speaker_diarization=True,
             language_code="en-US",
         )
-        operation = client.long_running_recognize(config=config, audio=audio)
-        response = operation.result(timeout=10000)
-        response = type(response).to_json(response)
+        if(self.progress_file['SpeechToText']['get_speech_from_audio'] == 0):
+            operation = client.long_running_recognize(config=config, audio=audio)
+            response = operation.result(timeout=10000)
+            response = type(response).to_json(response)
+            with open(
+            return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
+        ) as outfile:
+                outfile.write(response)
+                self.progress_file['SpeechToText']['get_speech_from_audio'] = 1
+                save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        
         print("Deleting Data from Bucket")
         self.logger.info(f"Deleting {destination_blob_name} from {bucket_name}")
         self.delete_blob(bucket_name, destination_blob_name)
-        with open(
-            return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
-        ) as outfile:
-            outfile.write(response)
-        return response
+        self.progress_file['SpeechToText']['delete_blob'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        # with open(
+        #     return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
+        # ) as outfile:
+        #     outfile.write(response)
+        return
 
     def upload_blob(self, bucket_name, source_file_name, destination_blob_name):
         """
@@ -88,6 +101,11 @@ class SpeechToText:
             source_file_name (str): The file path of the source file to be uploaded
             destination_blob_name (str): The name of the destination blob in the bucket
         """
+        if(self.progress_file['SpeechToText']['upload_blob']):
+            ## Audio already uploaded, skipping step
+            self.logger.info("Audio already uploaded, skipping step.")
+            print("Audio already uploaded, skipping step.")
+            return
         self.logger.info(f"Uploading {source_file_name} to {destination_blob_name}")
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(bucket_name)
@@ -104,6 +122,11 @@ class SpeechToText:
             bucket_name (str): The name of the GCS bucket
             blob_name (str): The name of the blob to be deleted
         """
+        if(self.progress_file['SpeechToText']['delete_blob']):
+            ## Audio already deleted, skipping step
+            self.logger.info("Audio already deleted, skipping step.")
+            print("Audio already deleted, skipping step.")
+            return
         self.logger.info(f"Deleting {blob_name} from {bucket_name}")
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(bucket_name)

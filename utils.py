@@ -46,6 +46,7 @@ CAPTION_SCORE = 'caption_score.csv'
 
 
 from enum import Enum
+import json
 
 
 class PipelineTask(Enum):
@@ -92,6 +93,63 @@ def return_video_folder_name(video_runner_obj: Dict[str, int]) -> str:
     else:
         return f"/home/datasets/pipeline/{video_id}_files"
 
+def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
+    """
+    Returns the progress file for a video.
+
+    Parameters:
+    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+        The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+
+    Returns:
+    str: The progress file for the video.
+    """
+    video_folder_name = return_video_folder_name(video_runner_obj)
+    return f"{video_folder_name}/progress.json"
+
+def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict | None:
+    """
+    Load progress from a JSON file or start with a default progress dictionary.
+
+    Parameters:
+        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+
+    Returns:
+        dict: The loaded progress dictionary or the default progress if the file doesn't exist.
+    """
+    progress_file = return_video_progress_file(video_runner_obj)
+    loaded_progress = DEFAULT_SAVE_PROGRESS
+
+    try:
+        if os.path.exists(progress_file):
+            with open(progress_file, 'r') as progress_file_obj:
+                loaded_progress = json.load(progress_file_obj)
+    except Exception as e:
+        print(f"Error loading progress from file: {e}")
+        return None
+
+    return loaded_progress
+
+def save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[str, int]):
+    """
+    Save progress data to a JSON file.
+
+    Parameters:
+        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+        progress_data (Dict[str, int]): The progress data to be saved to the file.
+
+    Returns:
+        None
+    """
+    progress_file = return_video_progress_file(video_runner_obj)
+
+    try:
+        with open(progress_file, 'w') as progress_file_obj:
+            json.dump(progress_data, progress_file_obj)
+    except Exception as e:
+        print(f"Error saving progress to file: {e}")
 
 
 def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:
@@ -159,3 +217,24 @@ def return_int_if_possible(value: Union[int, float, str]) -> Union[int, float, s
     except (TypeError, ValueError):
         return value
 
+
+
+DEFAULT_SAVE_PROGRESS = {
+    'video_id': '',
+    'ImportVideo': {
+        'download_video': 0,
+    },
+    'ExtractAudio': {
+        'extract_audio': 0,
+    },
+    'SpeechToText': {
+        'upload_blob': 0,
+        'getting_speech_from_audio': 0,
+        'delete_blob': 0,
+    },
+    'FrameExtraction': {
+        'started':False,
+        'frame_extraction_rate': 0,
+        'extract_frames': 0,
+    }
+}
