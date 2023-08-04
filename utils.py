@@ -238,8 +238,15 @@ DEFAULT_SAVE_PROGRESS = {
         'delete_blob': 0,
     },
     'FrameExtraction': {
-        'started':False,
+        'started': False,
         'frame_extraction_rate': 0,
         'extract_frames': 0,
+    },
+    'OCR': {
+        'started': False,
+        'extracted_frames': 0,
+        'step': 0,
+        'num_frames': 0,
+        'frames_per_second': 0,
     }
 }

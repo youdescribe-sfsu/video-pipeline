@@ -7,11 +7,24 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
-from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
+from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, load_progress_from_file, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR, save_progress_to_file
 from timeit_decorator import timeit
 from google.cloud.vision_v1 import AnnotateImageResponse
 import json
 from typing import Dict
+
+def get_ocr_progress(video_runner_obj):
+    """Get the OCR progress data for a specific video."""
+    save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
+    return save_data
+
+def update_ocr_progress(video_runner_obj,save_data ,frame_index):
+    """Update the OCR progress data for a specific video."""
+    progress_data = save_data
+    progress_data["FrameExtraction"]["extract_frames"] = frame_index
+    save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_data)
+    return
+
 
 def detect_text(path: str) -> Dict:
     """
@@ -114,12 +127,33 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 
 	# video_name = video_name.split('/')[-1].split('.')[0]
  	# Read data for the video
-	with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
-		data = datafile.readline().split()
-		step = int(data[0])
-		num_frames = int(data[1])
-		frames_per_second = float(data[2])
-  
+	
+	progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+	if progress_file['OCR']['started'] == False:
+		progress_file['OCR']['started'] = True
+		step = progress_file['FrameExtraction']['frames_per_extraction']
+		progress_file['OCR']['step'] = step
+		num_frames = progress_file['FrameExtraction']['frame_count']
+		progress_file['OCR']['num_frames'] = num_frames
+		# progress_file['OCR']['frames_per_second'] = progress_file['FrameExtraction']['actual_frames_per_second']
+		frames_per_second = progress_file['FrameExtraction']['actual_frames_per_second']
+		progress_file['OCR']['frames_per_second'] = frames_per_second
+		start = 0
+		progress_file['OCR']['start'] = start
+		save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+
+	else:
+		step = progress_file['OCR']['step']
+		num_frames = progress_file['OCR']['num_frames']
+		frames_per_second = progress_file['OCR']['frames_per_second']
+		start = progress_file['OCR']['start']
+		
+	# with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
+	# 	data = datafile.readline().split()
+	# 	step = int(data[0]) ## frames_per_extraction
+	# 	num_frames = int(data[1]) ## frame_count
+	# 	frames_per_second = float(data[2]) ## actual_frames_per_second
+	
 	# Calculate video fps and seconds per frame
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
@@ -128,18 +162,18 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 	outcsvpath = return_video_folder_name(video_runner_obj=video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
  
 	#check if file already contains progress from last attempt
-	if os.path.exists(outcsvpath) :
-		if os.stat(outcsvpath).st_size > 32:
-			with open(outcsvpath, 'r', newline='', encoding='utf-8') as file:
-				lines = file.readlines()
-				lines.reverse()
-				i = 0
-				last_line = lines[i].split(",")[0]
-				while not last_line.isnumeric():
-					i+= 1
-					last_line = lines[i].split(",")[0]			
-				start = int(last_line)+step
-				file.close()
+	# if os.path.exists(outcsvpath) :
+	# 	if os.stat(outcsvpath).st_size > 32:
+	# 		with open(outcsvpath, 'r', newline='', encoding='utf-8') as file:
+	# 			lines = file.readlines()
+	# 			lines.reverse()
+	# 			i = 0
+	# 			last_line = lines[i].split(",")[0]
+	# 			while not last_line.isnumeric():
+	# 				i+= 1
+	# 				last_line = lines[i].split(",")[0]			
+	# 			start = int(last_line)+step
+	# 			file.close()
 
 	if start != 0:
 		mode = 'a'
@@ -167,6 +201,8 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 						print(e)
 						video_runner_obj["logger"].info(f"Error writing to file")
 						print("Error writing to file")
+				progress_file['OCR']['start'] = frame_index
+				save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
         
 if __name__ == "__main__":
 	# video_name = 'A dog collapses and faints right in front of us I have never seen anything like it'
