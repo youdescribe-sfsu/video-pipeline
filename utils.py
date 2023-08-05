@@ -241,12 +241,20 @@ DEFAULT_SAVE_PROGRESS = {
         'started': False,
         'frame_extraction_rate': 0,
         'extract_frames': 0,
+        'num_frames': 0,
     },
     'OCR': {
         'started': False,
-        'extracted_frames': 0,
+        'detect_watermark': 0,
+        'get_all_ocr': 0,
+        'filter_ocr': 0,
+        'filter_ocr_agreement': 0,
+        'filter_ocr_remove_similarity': 0,
+    },
+    'ObjectDetection': {
+        'started': False,
         'step': 0,
         'num_frames': 0,
-        'frames_per_second': 0,
     }
 }
+

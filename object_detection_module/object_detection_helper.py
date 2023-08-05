@@ -3,7 +3,7 @@
 import requests
 import os
 import csv
-from utils import return_video_frames_folder,return_video_folder_name,OBJECTS_CSV
+from utils import load_progress_from_file, return_video_frames_folder,return_video_folder_name,OBJECTS_CSV, save_progress_to_file
 from timeit_decorator import timeit
 
 YOLOv3_tiny = 8080
@@ -75,44 +75,62 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
         return results
 
 
-def detect_objects(video_files_path, threshold, service=YOLOv3_tiny, logging=False,logger=None):
+def detect_objects(video_files_path, threshold,video_runner_obj, service=YOLOv3_tiny, logging=False, logger=None):
     """
     Detects objects in each frame and collates the results into a dictionary
     The key is the name of the object, and each entry contains the frame index, detection confidence, and count
     """
     objects = {}
-    with open('{}/data.txt'.format(video_files_path), 'r') as datafile:
-        data = datafile.readline().split()
-        step = int(data[0])
-        num_frames = int(data[1])
+    # with open('{}/data.txt'.format(video_files_path), 'r') as datafile:
+    #     data = datafile.readline().split()
+    #     step = int(data[0])
+    #     num_frames = int(data[1])
+    last_processed_frame = 0
+    save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
+    if(save_data['ObjectDetection']['started'] == False):
+        save_data['ObjectDetection']['started'] = True
+        save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
+        save_data['ObjectDetection']['num_frames'] = save_data['OCR']['num_frames']
+        save_data['ObjectDetection']['step'] = save_data['OCR']['num_frames']
+        step = save_data['ObjectDetection']['step']
+        num_frames = save_data['ObjectDetection']['num_frames']
+        save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
+    else:
+        last_processed_frame = save_data['ObjectDetection']['last_processed_frame']
+        num_frames = save_data['ObjectDetection']['num_frames']
+        step = save_data['ObjectDetection']['step']
+    
 
-    for frame_index in range(0, num_frames, step):
+    for frame_index in range(last_processed_frame, num_frames, step):
         frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
-        obj_list = get_object_from_YOLO(frame_filename, threshold, service,logger=logger)
+        obj_list = get_object_from_YOLO(frame_filename, threshold, service, logger=logger)
         breakFor = True
         frame_objects = {}
         for entry in obj_list:
             name, prob, (x, y, w, h) = entry
             if name not in frame_objects:
-                # NOTE(Lothar): Detections are sorted according to probability, so each object records the maximum confidence detection each frame
+                # NOTE (Lothar): Detections are sorted according to probability, so each object records the maximum confidence detection each frame
                 frame_objects[name] = [frame_index, prob, 1]
-            else:  # TODO(Lothar): Check bounds
+            else:  # TODO (Lothar): Check bounds
                 frame_objects[name][2] += 1
         for name, data in frame_objects.items():
             if name not in objects:
                 objects[name] = []
             objects[name].append(data)
         if logging:
-            print('\rOn frame {}/{} ({}% complete)          '.format(frame_index,
-                  num_frames, (frame_index*100)//num_frames), end='')
+            print('\rOn frame {}/{} ({}% complete)          '.format(frame_index, num_frames, (frame_index*100)//num_frames), end='')
         if logger:
             logger.info(f"Frame Index: {frame_index}")
-        
+        last_processed_frame = frame_index
+        save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
+        save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
+
     if logging:
         print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
     if logger:
         logger.info(f"Frame Index: {frame_index}")
     return objects
+
 
 @timeit
 def object_detection_to_csv(video_runner_obj):
@@ -123,6 +141,10 @@ def object_detection_to_csv(video_runner_obj):
     video_frames_path = return_video_frames_folder(video_runner_obj)
     video_runner_obj["logger"].info(f"Running object detection for {video_runner_obj['video_id']}")
     print("FILENAME "+video_frames_path)
+    
+    progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+    
+    
     outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OBJECTS_CSV
     if not os.path.exists(outcsvpath):
         objects = detect_objects(video_frames_path, 0.001, logging=True,logger=video_runner_obj["logger"])

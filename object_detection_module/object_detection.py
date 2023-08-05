@@ -1,5 +1,7 @@
 from object_detection_module.object_detection_helper import object_detection_to_csv
 from typing import Dict
+
+from utils import load_progress_from_file, save_progress_to_file
 class ObjectDetection:
     def __init__(self, video_runner_obj: Dict[str, int]):
         """
@@ -17,7 +19,15 @@ class ObjectDetection:
         try:
             self.video_runner_obj["logger"].info(f"Running object detection for {self.video_runner_obj['video_id']}")
             print("=== TRACK OBJECTS ===")
+            if(self.video_runner_obj['ObjectDetection']['started'] == 'done'):
+                ## Object detection already done, skipping step
+                self.video_runner_obj["logger"].info("Object detection already done, skipping step.")
+                print("Object detection already done, skipping step.")
+                return True
             object_detection_to_csv(self.video_runner_obj)
+            save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+            save_file['ObjectDetection']['started'] = 'done'
+            save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
             return True
         except Exception as e:
             print("OBJECT TRACKING ERROR: ",e)
