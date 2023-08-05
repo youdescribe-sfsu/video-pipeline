@@ -42,24 +42,20 @@ class ImageCaptioning:
             
             self.video_runner_obj["logger"].info(f"Running image captioning for {filename}")
             self.video_runner_obj["logger"].info(f"multipart_form_data: {multipart_form_data}")
-            print("multipart_form_data", multipart_form_data)
             
             response = requests.post(page, files=multipart_form_data)
             if response.status_code == 200:
                 json_obj = response.json()
                 caption_img = json_obj['caption']
             else:
-                print("Server returned status {}.".format(response.status_code))
                 self.video_runner_obj["logger"].info(f"Server returned status {response.status_code}")
         except requests.exceptions.RequestException as e:
             self.video_runner_obj["logger"].info(f"Exception occurred during the request: {str(e)}")
-            print("Exception occurred during the request:", str(e))
         finally:
             # Close the socket if it's still open
             if fileBuffer is not None:
                 fileBuffer.close()
         
-        print("caption:", caption_img)
         self.video_runner_obj["logger"].info(f"caption: {caption_img}")
         return caption_img.strip()
 
@@ -117,39 +113,29 @@ class ImageCaptioning:
             if(os.getenv('CAPTION_ONLY_KEYFRAMES') == True):
                 for frame_index in keyframes[index_start_value:]:
                     frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
-                    print("frame_filename: {}".format(frame_filename))
                     self.video_runner_obj["logger"].info(f"frame_filename: {frame_filename}")
                     caption = self.get_caption(frame_filename)
-                    print(frame_index, caption)
                     self.video_runner_obj["logger"].info(f"{frame_index}, {caption}")
                     if(type(caption) == str and caption.find('<unk>') == -1):
                         row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
                         writer.writerow(row)
                     elif(frame_index in keyframes):
                         dropped_key_frames += 1
-                        print("Dropped keyframe: {}".format(frame_index))
                         self.video_runner_obj["logger"].info(f"Dropped keyframe: {frame_index}")
                     outcsvfile.flush()
             else:
                 for frame_index in range(start, num_frames, step):
                     frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
-                    print("frame_filename: {}".format(frame_filename))
                     self.video_runner_obj["logger"].info(f"frame_filename: {frame_filename}")
                     caption = self.get_caption(frame_filename)
-                    print(frame_index, caption)
                     self.video_runner_obj["logger"].info(f"{frame_index}, {caption}")
                     if(type(caption) == str and caption.find('<unk>') == -1):
                         row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
                         writer.writerow(row)
                     elif(frame_index in keyframes):
                         dropped_key_frames += 1
-                        print("Dropped keyframe: {}".format(frame_index))
                         self.video_runner_obj["logger"].info(f"Dropped keyframe: {frame_index}")
                     outcsvfile.flush()
-            print("============================================")
-            print('Dropped {} keyframes'.format(dropped_key_frames))
-            print('Total keyframes: {}'.format(len(keyframes)))
-            print('============================================')
             self.video_runner_obj["logger"].info("============================================")
             self.video_runner_obj["logger"].info('Dropped %d keyframes', dropped_key_frames)
             self.video_runner_obj["logger"].info('Total keyframes: %d', len(keyframes))

@@ -27,7 +27,6 @@ class ExtractAudio:
         if(self.progress_file['ExtractAudio']['extract_audio']):
             ## Audio already extracted, skipping step
             logger.info("Audio already extracted, skipping step.")
-            print("Audio already extracted, skipping step.")
             return
         # Check if the output file already exists
         if not os.path.exists(output_file):

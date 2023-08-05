@@ -82,7 +82,6 @@ class KeyframeSelection:
             for frame_index in keyframes:
                 new_row = [frame_index, float(frame_index)*seconds_per_frame]
                 self.video_runner_obj["logger"].info(f"Frame Index: {frame_index} Timestamp: {float(frame_index)*seconds_per_frame}")
-                print(frame_index, float(frame_index)*seconds_per_frame)
                 writer.writerow(new_row)
         self.video_runner_obj["logger"].info(f"Keyframe selection complete for {self.video_runner_obj['video_id']}")
         return True

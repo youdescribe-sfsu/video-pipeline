@@ -29,7 +29,6 @@ def combine_captions_objects(video_id):
 		for index in range(len(objrows)):
 			try:
 				new_row = captrows[index] + objrows[index][1:]
-				print(captrows[index])
 				writer.writerow(new_row)
 			except:
 				continue

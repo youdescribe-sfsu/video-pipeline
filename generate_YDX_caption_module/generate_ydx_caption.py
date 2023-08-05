@@ -29,7 +29,7 @@ class GenerateYDXCaption:
         self.video_runner_obj["logger"].info(response.text)
         data = response.json()
         if(response.status_code == 200):
-            print("Success")
+            print("Success in generating YDX Caption")
             self.video_runner_obj["logger"].info("Success")
             self.video_runner_obj["logger"].info(data)
             requests.get(data['url'])

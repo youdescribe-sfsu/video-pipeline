@@ -20,7 +20,6 @@ class FrameExtraction:
         
         if(self.progress_file['FrameExtraction']['started'] == 'done'):
             self.logger.info("Frames already extracted, skipping step.")
-            print("Frames already extracted, skipping step.")
             return
 
         if not os.path.exists(vid_name):
@@ -28,7 +27,6 @@ class FrameExtraction:
                 os.mkdir(vid_name)
             except OSError:
                 self.logger.error("Cannot create directory for frames")
-                print("Cannot create directory for frames")
                 return
         video_location = return_video_download_location(self.video_runner_obj)
         vid = cv2.VideoCapture(video_location)
@@ -53,26 +51,23 @@ class FrameExtraction:
         last_extracted_frame = self.progress_file['FrameExtraction']['extract_frames']
         if last_extracted_frame >= num_frames:
             self.logger.info("Frames already extracted, skipping step.")
-            print("Frames already extracted, skipping step.")
             return
 
         self.logger.info(f"Extracting frames from {self.video_runner_obj['video_id']} ({fps} fps, {num_frames} frames)...")
-        if logging:
-            print(f"Extracting frames from {self.video_runner_obj['video_id']} ({fps} fps, {num_frames} frames)...")
 
         frame_count = last_extracted_frame
         while frame_count < num_frames:
             status, frame = vid.read()
             if not status:
                 self.logger.error("Error extracting frame {}.".format(frame_count))
-                print("Error extracting frame {}.".format(frame_count))
                 break
             if frame_count % frames_per_extraction == 0:
                 frame_filename = "{}/frame_{}.jpg".format(vid_name, frame_count)
                 cv2.imwrite(frame_filename, frame)
             self.logger.info(f"{frame_count * 100 // num_frames}% complete")
-            if logging:
-                print("\r{}% complete  ".format((frame_count * 100) // num_frames), end='')
+            self.logger.info("\r{}% complete  ".format((frame_count * 100) // num_frames))
+            # if logging:
+            #     print("\r{}% complete  ".format((frame_count * 100) // num_frames), end='')
             
             # Save progress after each frame extraction
             self.progress_file['FrameExtraction']['extract_frames'] = frame_count
@@ -80,8 +75,8 @@ class FrameExtraction:
 
             frame_count += 1
 
-        if logging:
-            print("\r100% complete   ")
+        # if logging:
+        self.logger.info("\r100% complete   ")
 
         vid.release()
 
@@ -99,4 +94,4 @@ class FrameExtraction:
         save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
 
         self.logger.info("Extraction complete.")
-        print("Extraction complete.")
+        # print("Extraction complete.")

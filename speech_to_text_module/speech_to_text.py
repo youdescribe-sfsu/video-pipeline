@@ -52,7 +52,6 @@ class SpeechToText:
         source_file_name = filepath + audio_file_name
         destination_blob_name = audio_file_name
         self.logger.info(f"Uploading {source_file_name} to {destination_blob_name}")
-        print("Uploading to Google Bucket")
         self.upload_blob(bucket_name, source_file_name, destination_blob_name)
         self.progress_file['SpeechToText']['upload_blob'] = True
         save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
@@ -81,7 +80,6 @@ class SpeechToText:
                 self.progress_file['SpeechToText']['getting_speech_from_audio'] = 1
                 save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
         
-        print("Deleting Data from Bucket")
         self.logger.info(f"Deleting {destination_blob_name} from {bucket_name}")
         self.delete_blob(bucket_name, destination_blob_name)
         self.progress_file['SpeechToText']['delete_blob'] = True
@@ -104,7 +102,6 @@ class SpeechToText:
         if(self.progress_file['SpeechToText']['upload_blob']):
             ## Audio already uploaded, skipping step
             self.logger.info("Audio already uploaded, skipping step.")
-            print("Audio already uploaded, skipping step.")
             return
         self.logger.info(f"Uploading {source_file_name} to {destination_blob_name}")
         storage_client = storage.Client()
@@ -125,7 +122,6 @@ class SpeechToText:
         if(self.progress_file['SpeechToText']['delete_blob']):
             ## Audio already deleted, skipping step
             self.logger.info("Audio already deleted, skipping step.")
-            print("Audio already deleted, skipping step.")
             return
         self.logger.info(f"Deleting {blob_name} from {bucket_name}")
         storage_client = storage.Client()
@@ -145,11 +141,9 @@ class SpeechToText:
         Returns:
             tuple: A tuple of integers, representing the frame rate and number of channels of the audio file
         """
-        print("Extracting Audio metadata")
         self.logger.info(f"Extracting Audio metadata from {audio_file_name}")
         wave_file = audio_metadata.load(audio_file_name)
         frame_rate = wave_file["streaminfo"].sample_rate
         channels = wave_file["streaminfo"].channels
-        print("Audio frame_rate={} and channels={}".format(frame_rate, channels))
         self.logger.info(f"Audio frame_rate={frame_rate} and channels={channels}")
         return frame_rate, channels

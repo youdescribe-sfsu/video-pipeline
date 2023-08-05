@@ -37,13 +37,11 @@ class CaptionRating:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
                 self.video_runner_obj["logger"].info("Server returned status {}.".format(response.status_code))
-                print("Server returned status {}.".format(response.status_code))
             return response.text.lstrip("['").rstrip("']")
         except:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
                 self.video_runner_obj["logger"].info("Server returned status {}.".format(response.status_code))
-                print("Server returned status {}.".format(response.status_code))
             return response.text.lstrip("['").rstrip("']")
         
 

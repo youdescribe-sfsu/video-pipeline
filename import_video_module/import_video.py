@@ -29,7 +29,6 @@ class ImportVideo:
         None
         """
         # Download video from YouTube
-        print("Downloading video from YouTube")
         video_id = self.video_runner_obj.get("video_id")
         video_start_time = self.video_runner_obj.get("video_start_time",None)
         video_end_time = self.video_runner_obj.get("video_end_time",None)
@@ -38,7 +37,6 @@ class ImportVideo:
         if(self.progress_file['ImportVideo']['download_video']):
             ## Video already downloaded, skipping step
             logger.info("Video already downloaded, skipping step.")
-            print("Video already downloaded, skipping step.")
             return
         
         ydl_opts = {'outtmpl': return_video_download_location(self.video_runner_obj), "format": "best" }
@@ -51,7 +49,6 @@ class ImportVideo:
         # Get Video Title
         title = vid.get('title')
         logger.info(f"Video Title: {title}")
-        print("Video Title: ", title)
 
         # Save metadata to json file
         with open(return_video_folder_name(self.video_runner_obj) + '/metadata.json', 'w') as f:
@@ -61,9 +58,7 @@ class ImportVideo:
             start_time = timedelta(seconds=int(video_start_time))
             end_time = timedelta(seconds=int(video_end_time))
             
-            print("start time: ", start_time)
             logger.info(f"start time: {start_time}")
-            print("end time: ", end_time)
             logger.info(f"end time: {end_time}")
 
             # Trim video and audio based on start and end time
@@ -84,7 +79,6 @@ class ImportVideo:
 
             # Output trimmed video
             logger.info(f"Trimming video {return_video_folder_name(self.video_runner_obj)}")
-            print("Trimming video",return_video_folder_name(self.video_runner_obj))
             output = ffmpeg.output(joined[0], joined[1], return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4')
             output.run(overwrite_output=True)
 

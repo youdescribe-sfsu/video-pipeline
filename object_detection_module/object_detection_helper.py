@@ -149,7 +149,7 @@ def object_detection_to_csv(video_runner_obj):
     if not os.path.exists(outcsvpath):
         objects = detect_objects(video_frames_path, 0.001, logging=True,logger=video_runner_obj["logger"])
         video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")
-        print(video_frames_path)
+        video_runner_obj["logger"].info(f"video_frames_path: {video_frames_path}")
         with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
             data = datafile.readline().split()
             step = int(data[0])

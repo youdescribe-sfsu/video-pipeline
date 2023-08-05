@@ -90,13 +90,9 @@ def get_ocr_confidences(video_runner_obj):
 			if len(texts) > 0:
 				new_row = [frame_index, texts[0].confidence, texts[0].description]
 				video_runner_obj.logger.info(f"Frame Index: {frame_index}")
-				print(frame_index)
 				video_runner_obj.logger.info(f"Timestamp: {float(frame_index)*seconds_per_frame}")
-				print(float(frame_index)*seconds_per_frame)
 				video_runner_obj.logger.info(f"Confidence: {texts[0].confidence}")
-				print(texts[0].description)
 				video_runner_obj.logger.info(f"OCR Text: {texts[0].description}")
-				print()
 				writer.writerow(new_row)
 
 
@@ -121,9 +117,6 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 	video_frames_folder = return_video_frames_folder(video_runner_obj)
 	video_runner_obj["logger"].info(f"Getting all OCR annotations for {video_runner_obj['video_id']}")
 	video_runner_obj["logger"].info(f"video_frames_folder={video_frames_folder}")
-	print("--------------------------")
-	print("video_frames_folder=",video_frames_folder)
-	print("--------------------------")
 
 	# video_name = video_name.split('/')[-1].split('.')[0]
  	# Read data for the video
@@ -194,13 +187,12 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 					try:
 						new_row = [frame_index, float(frame_index)*seconds_per_frame, json.dumps(texts)]
 						video_runner_obj["logger"].info(f"Timestamp: {float(frame_index)*seconds_per_frame}")
-						print("Frame Index: ", frame_index)
+						video_runner_obj["logger"].info(f"Frame Index : {frame_index}")
 						writer.writerow(new_row)
 						outcsvfile.flush()
 					except Exception as e:
 						print(e)
 						video_runner_obj["logger"].info(f"Error writing to file")
-						print("Error writing to file")
 				progress_file['OCR']['start'] = frame_index
 				save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
         
