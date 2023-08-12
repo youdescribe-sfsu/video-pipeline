@@ -73,11 +73,15 @@ def get_ocr_confidences(video_runner_obj):
 	NOTE: Does not actually work - always returns 0.0
 	"""
 	video_frames_folder = return_video_frames_folder(video_runner_obj)
-	with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
-		data = datafile.readline().split()
-		step = int(data[0])
-		num_frames = int(data[1])
-		frames_per_second = float(data[2])
+	# with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
+	# 	data = datafile.readline().split()
+	# 	step = int(data[0])
+	# 	num_frames = int(data[1])
+	# 	frames_per_second = float(data[2])
+	save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+	step = save_file['video_common_values']['frames_per_extraction']
+	num_frames = save_file['video_common_values']['num_frames']
+	frames_per_second = save_file['video_common_values']['actual_frames_per_second']
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
 	outcsvpath = "OCR Confidences - " + video_runner_obj['video_id'] + ".csv"

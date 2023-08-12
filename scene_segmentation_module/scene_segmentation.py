@@ -1,5 +1,5 @@
 import csv
-from utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, return_video_folder_name
+from utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, load_progress_from_file, return_video_folder_name, save_progress_to_file
 from scene_segmentation_module.generate_average_output import generate_average_output
 
 class SceneSegmentation:
@@ -89,7 +89,23 @@ class SceneSegmentation:
     def run_scene_segmentation(self):
         """Segment the video into scenes based on the average of the scene and the average of the shot."""
         self.video_runner_obj["logger"].info("Running scene segmentation")
-        generate_average_output(self.video_runner_obj)
+        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        
+        if save_file['SceneSegmentation']['run_scene_segmentation'] == 1:
+            ## Already processed
+            self.video_runner_obj["logger"].info("Already processed")
+            return
+        
+        
+        
+        save_file.setdefault("SceneSegmentation", {})["started"] = True
+        if(save_file['SceneSegmentation']['generate_average_output'] == 1):
+            self.video_runner_obj["logger"].info("Already processed")
+        else:    
+            generate_average_output(self.video_runner_obj)
+            save_file['SceneSegmentation']['generate_average_output'] = 1
+            save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        
         outputavgFile = return_video_folder_name(self.video_runner_obj) + "/" + OUTPUT_AVG_CSV
         sceneSegmentedFile = (
             return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
@@ -101,4 +117,6 @@ class SceneSegmentation:
             writer.writerow(self.columns.values())
             writer.writerows(data)
         self.video_runner_obj["logger"].info(f"Writing scene segmentation results to {sceneSegmentedFile}")
+        save_file['SceneSegmentation']['run_scene_segmentation'] = 1
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         return

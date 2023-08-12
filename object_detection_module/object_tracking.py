@@ -1,3 +1,13 @@
+"""
+Unused Python File
+------------------
+This Python file contains code that is currently not being used anywhere in the project.
+It is kept for reference purposes or potential future use.
+
+Date: August 12, 2023
+"""
+
+
 from object_detection_module.object_detection_helper import object_detection_to_csv
 from object_detection_module.keyframe_selection import keyframe_selection
 from object_detection_module.keyframe_captions import captions_to_csv

@@ -1,3 +1,12 @@
+"""
+Unused Python File
+------------------
+This Python file contains code that is currently not being used anywhere in the project.
+It is kept for reference purposes or potential future use.
+
+Date: August 12, 2023
+"""
+
 import csv
 from utils import returnVideoFramesFolder,returnVideoFolderName
 from timeit_decorator import timeit

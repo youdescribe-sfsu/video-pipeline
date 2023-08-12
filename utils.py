@@ -223,9 +223,13 @@ def return_int_if_possible(value: Union[int, float, str]) -> Union[int, float, s
         return value
 
 
-
 DEFAULT_SAVE_PROGRESS = {
     'video_id': '',
+    'video_common_values': {
+        'step': None,
+        'num_frames': None,
+        'frames_per_second': None,
+    },
     'ImportVideo': {
         'download_video': 0,
     },
@@ -255,6 +259,34 @@ DEFAULT_SAVE_PROGRESS = {
         'started': False,
         'step': 0,
         'num_frames': 0,
-    }
+    },
+    'KeyframeSelection': {
+        'started': False,
+    },
+    'ImageCaptioning': {
+        'started': False,
+        'run_image_captioning': {
+            'started': False,
+            'last_processed_frame': 0,
+        },
+        'combine_image_caption': 0,
+    },
+    'CaptionRating': {
+        'started': False,
+        'last_processed_frame': 0,
+        'get_all_caption_rating': 0,
+        'filter_captions': 0,
+    },
+    'SceneSegmentation': {
+        'started': False,
+        'generate_average_output': 0,
+        'run_scene_segmentation': 0,
+    },
+    'TextSummarization': {
+        'started': False,
+    },
+    'UploadToYDX': {
+        'started': False,
+        'generateYDXCaption': 0,
+    },
 }
-

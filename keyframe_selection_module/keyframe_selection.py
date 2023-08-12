@@ -1,5 +1,5 @@
 import csv
-from utils import return_video_frames_folder,return_video_folder_name
+from utils import load_progress_from_file, return_video_frames_folder,return_video_folder_name, save_progress_to_file
 from timeit_decorator import timeit
 from utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV,KEYFRAMES_CSV
 
@@ -16,6 +16,9 @@ class KeyframeSelection:
         """
         self.video_runner_obj = video_runner_obj
         self.target_keyframes_per_second = target_keyframes_per_second
+        self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        self.save_file['KeyframeSelection']['started'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
         pass
 
     ## Give start and end time
@@ -30,12 +33,22 @@ class KeyframeSelection:
         after the previous keyframe
         """
         self.video_runner_obj["logger"].info(f"Running keyframe selection for {self.video_runner_obj['video_id']}")
-        video_frames_path = return_video_frames_folder(self.video_runner_obj)
-        with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
-            data = datafile.readline().split()
-            step = int(data[0])
-            num_frames = int(data[1])
-            frames_per_second = float(data[2])
+        # video_frames_path = return_video_frames_folder(self.video_runner_obj)
+        if(self.save_file['KeyframeSelection']['started'] == 'done'):
+            ## Keyframe selection already done, skipping step
+            self.video_runner_obj["logger"].info("Keyframe selection already done, skipping step.")
+            print("Keyframe selection already done, skipping step.")
+            return True
+        # with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
+        #     data = datafile.readline().split()
+        #     step = int(data[0])
+        #     num_frames = int(data[1])
+        #     frames_per_second = float(data[2])
+
+        step = self.video_runner_obj['video_common_values']['step']
+        num_frames = self.video_runner_obj['video_common_values']['num_frames']
+        frames_per_second = self.video_runner_obj['video_common_values']['frames_per_second']
+        
         
         incsvpath = return_video_folder_name(self.video_runner_obj)+ "/" + OBJECTS_CSV
         self.video_runner_obj["logger"].info(f"Reading object detection results from {incsvpath}")
@@ -84,4 +97,7 @@ class KeyframeSelection:
                 self.video_runner_obj["logger"].info(f"Frame Index: {frame_index} Timestamp: {float(frame_index)*seconds_per_frame}")
                 writer.writerow(new_row)
         self.video_runner_obj["logger"].info(f"Keyframe selection complete for {self.video_runner_obj['video_id']}")
+        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        save_file['KeyframeSelection']['started'] = 'done'
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         return True

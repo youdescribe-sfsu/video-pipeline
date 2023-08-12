@@ -1,6 +1,7 @@
 import json
 import requests
 from utils import (
+    load_progress_from_file,
     return_video_folder_name,
     SUMMARIZED_SCENES,
     OCR_FILTER_REMOVE_SIMILAR,
@@ -9,6 +10,7 @@ from utils import (
     OCR_HEADERS,
     TIMESTAMP_SELECTOR,
     OCR_TEXT_SELECTOR,
+    save_progress_to_file,
 )
 import os
 import csv
@@ -55,6 +57,11 @@ class UploadToYDX:
             return (False, "")
 
     def upload_to_ydx(self):
+        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        if(save_file["UploadToYDX"]['started'] == 'done'):
+            ## Already uploaded to YDX
+            self.video_runner_obj["logger"].info("Already uploaded to YDX")
+            return
         self.video_runner_obj["logger"].info("Uploading to YDX")
         dialogue_timestamps = []
         sequence_num = 0
@@ -187,4 +194,6 @@ class UploadToYDX:
                 self.video_runner_obj["logger"].info(r.text)
                 print(r.text)
                 r.close()
+        save_file["UploadToYDX"]['started'] = 'done'
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         return

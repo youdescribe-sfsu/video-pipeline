@@ -1,6 +1,14 @@
 '''
 version: Python3.7
 '''
+"""
+Unused Python File
+------------------
+This Python file contains code that is currently not being used anywhere in the project.
+It is kept for reference purposes or potential future use.
+
+Date: August 12, 2023
+"""
 
 # Inserting the extracted keyframes in db (replace csv file path and video id)
 import requests

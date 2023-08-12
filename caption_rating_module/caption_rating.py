@@ -1,4 +1,4 @@
-from utils import CAPTION_SCORE, return_video_folder_name,CAPTION_IMAGE_PAIR,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV
+from utils import CAPTION_SCORE, load_progress_from_file, return_video_folder_name,CAPTION_IMAGE_PAIR,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV, save_progress_to_file
 import csv
 import requests
 import os
@@ -14,6 +14,21 @@ class CaptionRating:
             video_runner_obj (obj): Object containing video information.
         """
         self.video_runner_obj = video_runner_obj
+    
+    def perform_caption_rating(self):
+        """
+        This method calls the get_all_caption_rating() and filter_captions() methods.
+        """
+        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        if save_file['CaptionRating']['started'] == 'done':
+            ## Already processed
+            self.video_runner_obj["logger"].info("Already processed")
+            return
+        else:
+            self.get_all_caption_rating()
+            self.filter_captions()
+        return
+        
     
     
     def get_caption_rating(self, image_data):
@@ -50,23 +65,54 @@ class CaptionRating:
         This method calculates the rating for all captions in the image_caption_csv_file
         and writes the results to the output_csv_file.
         """
-        output_csv = []
-        image_caption_csv_file = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_IMAGE_PAIR
+        image_caption_csv_file = return_video_folder_name(self.video_runner_obj) + '/' + CAPTION_IMAGE_PAIR
+        output_csv_file = return_video_folder_name(self.video_runner_obj) + '/' + CAPTION_SCORE
+
+        self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        
+        if self.save_file['CaptionRating']['get_all_caption_rating'] == 1:
+            ## Already processed
+            self.video_runner_obj["logger"].info("Already processed")
+            return
+
+        processed_frame_indices = self.save_file.get('CaptionRating', {}).get('processed_frame_indices', [])
+        
+        # Check if the output file exists, create it if not
+        if not os.path.exists(output_csv_file):
+            header = ['frame_index', 'frame_url', 'caption', 'rating']
+            with open(output_csv_file, 'w', newline='', encoding='utf-8') as output_csvfile:
+                csv_writer = csv.writer(output_csvfile)
+                csv_writer.writerow(header)
+
         with open(image_caption_csv_file, 'r', newline='', encoding='utf-8') as captcsvfile:
             data = csv.DictReader(captcsvfile)
-            for image_data in data:
-                rating = self.get_caption_rating(image_data)
-                self.video_runner_obj["logger"].info(f"Rating for caption {image_data['caption']} is {rating}")
-                output_csv.append({'frame_index': image_data['frame_index'], 'frame_url': image_data['frame_url'], 
-                                'caption': image_data['caption'], 'rating': rating})
+            
+            # Open the output CSV in append mode
+            with open(output_csv_file, 'a', newline='', encoding='utf-8') as output_csvfile:
+                csv_writer = csv.writer(output_csvfile)
+                
+                for image_data in data:
+                    frame_index = int(image_data['frame_index'])
+                    
+                    if frame_index in processed_frame_indices:
+                        continue  # Skip already processed frames
 
-        output_csv_file = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_SCORE
-        with open(output_csv_file, 'w', newline='', encoding='utf-8') as captcsvfile:
-            csv_writer = csv.writer(captcsvfile)
-            header = ['frame_index', 'frame_url', 'caption', 'rating']
-            csv_writer.writerow(header)
-            for data in output_csv:
-                csv_writer.writerow(data.values())
+                    rating = self.get_caption_rating(image_data)
+                    self.video_runner_obj["logger"].info(f"Rating for caption {image_data['caption']} is {rating}")
+
+                    row = [frame_index, image_data['frame_url'], image_data['caption'], rating]
+                    csv_writer.writerow(row)
+                    
+                    # Update the processed_frame_indices and progress data
+                    processed_frame_indices.append(frame_index)
+                    self.save_file.setdefault('CaptionRating', {})['processed_frame_indices'] = processed_frame_indices
+                    save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+
+        # Mark the processing as complete
+        self.save_file.setdefault('CaptionRating', {})['get_all_caption_rating'] = 1
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+        return
+        
     
     def filter_captions(self):
         """
@@ -76,6 +122,15 @@ class CaptionRating:
         Returns:
             None
         """
+        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        
+        
+        if save_file['CaptionRating']['filter_captions'] == 1:
+            ## Already processed
+            self.video_runner_obj["logger"].info("Already processed")
+            return
+                
+        
         caption_filter_csv = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_SCORE
         with open(caption_filter_csv, newline='', encoding='utf-8') as caption_filter_file:
             data = list(csv.DictReader(caption_filter_file))
@@ -105,4 +160,8 @@ class CaptionRating:
                 except:
                     continue
         self.video_runner_obj["logger"].info(f"Caption filtering complete for {self.video_runner_obj['video_id']}")
+        save_file['CaptionRating']['filter_captions'] = 0
+        save_file['CaptionRating']['started'] = 'done'
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        return
 

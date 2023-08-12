@@ -1,5 +1,15 @@
 # Uses Andrew's captioning service to find captions for each keyframe
 
+"""
+Unused Python File
+------------------
+This Python file contains code that is currently not being used anywhere in the project.
+It is kept for reference purposes or potential future use.
+
+Date: August 12, 2023
+"""
+
+
 import requests
 import os
 import csv
@@ -33,24 +43,24 @@ def get_caption(filename):
 			return []
 		return response.text
 
-def get_all_captions(video_name):
-	"""
-	Gets a caption for each extracted frame and returns a list of frame indices
-	and the corresponding captions
-	"""
-	captions = []
-	with open('{}/data.txt'.format(video_name), 'r') as datafile:
-		data = datafile.readline().split()
-		step = int(data[0])
-		num_frames = int(data[1])
+# def get_all_captions(video_name):
+# 	"""
+# 	Gets a caption for each extracted frame and returns a list of frame indices
+# 	and the corresponding captions
+# 	"""
+# 	captions = []
+# 	with open('{}/data.txt'.format(video_name), 'r') as datafile:
+# 		data = datafile.readline().split()
+# 		step = int(data[0])
+# 		num_frames = int(data[1])
 	
-	for frame_index in range(0, num_frames, step):
-		frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
-		caption = get_caption(frame_filename)
-		print(frame_index, caption)
-		captions.append((frame_index, caption))
+# 	for frame_index in range(0, num_frames, step):
+# 		frame_filename = '{}/frame_{}.jpg'.format(video_name, frame_index)
+# 		caption = get_caption(frame_filename)
+# 		print(frame_index, caption)
+# 		captions.append((frame_index, caption))
 	
-	return captions
+# 	return captions
 
 @timeit
 def captions_to_csv(video_id, start=0):

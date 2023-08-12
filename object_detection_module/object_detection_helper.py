@@ -90,15 +90,15 @@ def detect_objects(video_files_path, threshold,video_runner_obj, service=YOLOv3_
     if(save_data['ObjectDetection']['started'] == False):
         save_data['ObjectDetection']['started'] = True
         save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
-        save_data['ObjectDetection']['num_frames'] = save_data['OCR']['num_frames']
-        save_data['ObjectDetection']['step'] = save_data['OCR']['num_frames']
-        step = save_data['ObjectDetection']['step']
-        num_frames = save_data['ObjectDetection']['num_frames']
+        # save_data['ObjectDetection']['num_frames'] = save_data['OCR']['num_frames']
+        # save_data['ObjectDetection']['step'] = save_data['OCR']['num_frames']
+        step = save_data['video_common_values']['step']
+        num_frames = save_data['video_common_values']['num_frames']
         save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
     else:
         last_processed_frame = save_data['ObjectDetection']['last_processed_frame']
-        num_frames = save_data['ObjectDetection']['num_frames']
-        step = save_data['ObjectDetection']['step']
+        num_frames = save_data['video_common_values']['num_frames']
+        step = save_data['video_common_values']['step']
     
 
     for frame_index in range(last_processed_frame, num_frames, step):
@@ -142,18 +142,21 @@ def object_detection_to_csv(video_runner_obj):
     video_runner_obj["logger"].info(f"Running object detection for {video_runner_obj['video_id']}")
     print("FILENAME "+video_frames_path)
     
-    progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+    # progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
     
     
     outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OBJECTS_CSV
+    save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+    num_frames = save_file['video_common_values']['num_frames']
+    step = save_file['video_common_values']['step']
     if not os.path.exists(outcsvpath):
         objects = detect_objects(video_frames_path, 0.001, logging=True,logger=video_runner_obj["logger"])
         video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")
         video_runner_obj["logger"].info(f"video_frames_path: {video_frames_path}")
-        with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
-            data = datafile.readline().split()
-            step = int(data[0])
-            num_frames = int(data[1])
+        # with open('{}/data.txt'.format(video_frames_path), 'r') as datafile:
+        #     data = datafile.readline().split()
+        #     step = int(data[0])
+        #     num_frames = int(data[1])
 
         with open(outcsvpath, 'a', newline='') as outcsvfile:
             writer = csv.writer(outcsvfile)

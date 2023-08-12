@@ -94,8 +94,7 @@ class PipelineRunner:
         ## Caption rating
         if PipelineTask.CAPTION_RATING.value in self.tasks:
             caption_rating = CaptionRating(video_runner_obj)
-            caption_rating.get_all_caption_rating()
-            caption_rating.filter_captions()
+            caption_rating.perform_caption_rating()
         ## Scene segmentation
         if PipelineTask.SCENE_SEGMENTATION.value in self.tasks:
             scene_segmentation = SceneSegmentation(video_runner_obj)
