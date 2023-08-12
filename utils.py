@@ -47,7 +47,9 @@ CAPTION_SCORE = 'caption_score.csv'
 
 from enum import Enum
 import json
-
+# Define a lock for thread safety
+import threading
+progress_lock = threading.Lock()
 
 class PipelineTask(Enum):
     DOWNLOAD_VIDEO = "download_video"
@@ -107,7 +109,7 @@ def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     video_folder_name = return_video_folder_name(video_runner_obj)
     return f"{video_folder_name}/progress.json"
 
-def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict and None:
+def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None:
     """
     Load progress from a JSON file or start with a default progress dictionary.
 
@@ -122,11 +124,12 @@ def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict and None:
     loaded_progress = DEFAULT_SAVE_PROGRESS
 
     try:
-        if os.path.exists(progress_file):
-            with open(progress_file, 'r') as progress_file_obj:
-                loaded_progress = json.load(progress_file_obj)
-        else:
-            return None
+        with progress_lock:
+            if os.path.exists(progress_file):
+                with open(progress_file, 'r') as progress_file_obj:
+                    loaded_progress = json.load(progress_file_obj)
+            else:
+                return None
     except Exception as e:
         print(f"Error loading progress from file: {e}")
         return None
@@ -151,10 +154,12 @@ def save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[
         os.makedirs(directory)
 
     try:
-        with open(progress_file, 'w') as progress_file_obj:
-            json.dump(progress_data, progress_file_obj)
+        with progress_lock:
+            with open(progress_file, 'w') as progress_file_obj:
+                json.dump(progress_data, progress_file_obj)
     except Exception as e:
         print(f"Error saving progress to file: {e}")
+
 
 
 def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:

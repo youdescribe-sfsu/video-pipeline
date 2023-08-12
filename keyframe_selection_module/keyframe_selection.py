@@ -16,9 +16,7 @@ class KeyframeSelection:
         """
         self.video_runner_obj = video_runner_obj
         self.target_keyframes_per_second = target_keyframes_per_second
-        self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
-        self.save_file['KeyframeSelection']['started'] = True
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+        
         pass
 
     ## Give start and end time
@@ -33,6 +31,10 @@ class KeyframeSelection:
         after the previous keyframe
         """
         self.video_runner_obj["logger"].info(f"Running keyframe selection for {self.video_runner_obj['video_id']}")
+        self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        self.save_file['KeyframeSelection']['started'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+        
         # video_frames_path = return_video_frames_folder(self.video_runner_obj)
         if(self.save_file['KeyframeSelection']['started'] == 'done'):
             ## Keyframe selection already done, skipping step

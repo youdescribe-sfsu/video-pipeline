@@ -26,6 +26,10 @@ class OcrExtraction:
         Returns:
         bool: Returns True if the OCR detection is successful, False otherwise.
         """
+        
+        self.progress_file = load_progress_from_file(self.video_runner_obj)
+        
+        
         self.video_runner_obj["logger"].info(f"Running OCR detection on {self.video_runner_obj['video_id']}")
         print("=== GET ALL OCR ANNOTATIONS ===")
         get_all_ocr_annotations(self.video_runner_obj)

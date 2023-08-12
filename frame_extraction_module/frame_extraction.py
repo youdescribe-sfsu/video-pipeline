@@ -15,7 +15,7 @@ class FrameExtraction:
     def extract_frames(self, logging=False):
         # Load progress from JSON file
         # save_progress = load_progress_from_file(self.video_runner_obj)
-
+        self.progress_file = load_progress_from_file(self.video_runner_obj)
         vid_name = return_video_frames_folder(self.video_runner_obj)
         
         if(self.progress_file['FrameExtraction']['started'] == 'done'):

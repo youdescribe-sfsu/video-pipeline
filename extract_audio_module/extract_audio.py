@@ -20,6 +20,9 @@ class ExtractAudio:
         Extracts audio from the video file and saves it as a FLAC file.
         The FLAC file will have the same name as the video file, with .flac as its extension.
         """
+        
+        self.progress_file = load_progress_from_file(self.video_runner_obj)
+        
         # Define the input and output file paths
         input_file = return_video_download_location(self.video_runner_obj)
         output_file = input_file.replace(".mp4", ".flac")

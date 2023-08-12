@@ -70,6 +70,7 @@ class PostHandler:
         user_name = data_json.get('user_name')
         
         logger.info("User ID: {} called for youtube video :: {}".format(user_id,data_json['youtube_id']))
+        
 
         # Create a separate thread to run the pipeline in the background
         logger.info("Starting pipeline thread")
@@ -81,6 +82,7 @@ class PostHandler:
                 'video_start_time': data_json.get('video_start_time', None),
                 'video_end_time': data_json.get('video_end_time', None),
                 'upload_to_server': data_json.get('upload_to_server', True),
+                'multi_thread': data_json.get('multi_thread', False),
                 'tasks': data_json.get('tasks', None),
                 'user_id': user_id,
                 'user_email': user_email,

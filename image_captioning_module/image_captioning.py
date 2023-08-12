@@ -1,13 +1,14 @@
 import csv
 import os
+import shutil
 
 import requests
 
 from timeit_decorator import timeit
-from utils import (CAPTIONS_AND_OBJECTS_CSV, CAPTIONS_CSV,
+from utils import (CAPTIONS_CSV,
                    FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
                    KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
-                   OBJECTS_CSV, TIMESTAMP_SELECTOR, load_progress_from_file, return_video_folder_name,
+                   TIMESTAMP_SELECTOR, load_progress_from_file, return_video_folder_name,
                    return_video_frames_folder,CAPTION_IMAGE_PAIR, save_progress_to_file)
 import json
 import socket
@@ -21,7 +22,7 @@ class ImageCaptioning:
             The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
         """
         self.video_runner_obj = video_runner_obj
-        self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        # self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         pass
     
 
@@ -104,10 +105,10 @@ class ImageCaptioning:
         video_fps = step * frames_per_second
         seconds_per_frame = 1.0/video_fps
         
-        with open(video_folder_path + '/'+ KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
-            reader = csv.reader(incsvfile)
-            header = next(reader) # skip header
-            keyframes = [int(row[0]) for row in reader]
+        # with open(video_folder_path + '/'+ KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
+        #     reader = csv.reader(incsvfile)
+        #     header = next(reader) # skip header
+        #     keyframes = [int(row[0]) for row in reader]
         
         # start = 0
         outcsvpath = video_folder_path + '/' + CAPTIONS_CSV
@@ -129,11 +130,11 @@ class ImageCaptioning:
                 frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
                 caption = self.get_caption(frame_filename)
 
-                if type(caption) == str and caption.find('<unk>') == -1:
-                    row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, caption]
+                if type(caption) == str:
+                    row = [frame_index, float(frame_index) * seconds_per_frame, False, caption]
                     writer.writerow(row)
-                elif frame_index in keyframes:
-                    dropped_key_frames += 1
+                # elif frame_index in keyframes:
+                #     dropped_key_frames += 1
 
                 outcsvfile.flush()
                 self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame'] = frame_index
@@ -146,10 +147,61 @@ class ImageCaptioning:
 
             save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
             self.video_runner_obj["logger"].info("============================================")
-            self.video_runner_obj["logger"].info('Dropped %d keyframes', dropped_key_frames)
-            self.video_runner_obj["logger"].info('Total keyframes: %d', len(keyframes))
+            # self.video_runner_obj["logger"].info('Dropped %d keyframes', dropped_key_frames)
+            # self.video_runner_obj["logger"].info('Total keyframes: %d', len(keyframes))
             self.video_runner_obj["logger"].info('============================================')
         return
+    
+    def filter_keyframes_from_caption(self):
+        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        if(save_file['ImageCaptioning']['filter_keyframes_from_caption'] == 1):
+            ## Already done, skipping step
+            self.video_runner_obj["logger"].info("Filtering keyframes from caption already done, skipping step.")
+            print("Filtering keyframes from caption already done, skipping step.")
+            return
+            
+            
+        video_folder_path = return_video_folder_name(self.video_runner_obj)
+        with open(video_folder_path + '/'+ KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
+            reader = csv.reader(incsvfile)
+            header = next(reader) # skip header
+            
+            
+            keyframes = [int(row[0]) for row in reader]
+            
+            
+            csv_file_path = video_folder_path + '/' + CAPTIONS_CSV
+            updated_rows = []
+            # Iterate through the rows and update 'Is Keyframe' column
+            with open(csv_file_path, 'r', newline='', encoding='utf-8') as csv_file:
+                csv_reader = csv.reader(csv_file)
+                header = next(csv_reader)  # Skip header
+                updated_rows.append(header)
+
+                for row in csv_reader:
+                    ## row[0] is frame index
+                    ## row[2] is is_keyframe
+                    ## row[3] is caption
+                    frame_index = int(row[0])
+                    is_keyframe = True if frame_index in keyframes else False
+                    row[2] = is_keyframe  # Update 'Is Keyframe' column
+                    updated_rows.append(row)
+
+            # Remove rows with '<unk>' in the caption
+            final_rows = [row for row in updated_rows if '<unk>' not in row[3]]  # Assuming caption is in index 3
+
+            # Save the updated data to the same CSV file
+            temp_csv_path = "temp_updated_csv_file.csv"
+            with open(temp_csv_path, 'w', newline='', encoding='utf-8') as temp_csv_file:
+                csv_writer = csv.writer(temp_csv_file)
+                csv_writer.writerows(final_rows)
+
+            # Overwrite the original CSV file with the updated data
+            shutil.move(temp_csv_path, csv_file_path)
+        save_file['ImageCaptioning']['filter_keyframes_from_caption'] = 1
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        return
+            
     
     def combine_image_caption(self):
         """

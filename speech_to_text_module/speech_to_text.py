@@ -42,6 +42,9 @@ class SpeechToText:
         Returns:
             None.
         """
+        
+        self.progress_file = load_progress_from_file(self.video_runner_obj)
+        
         audio_file_name = return_audio_file_name(self.video_runner_obj)
         filepath = return_video_folder_name(self.video_runner_obj) + "/"
         file_name = filepath + audio_file_name

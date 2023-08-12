@@ -1,4 +1,3 @@
-# Runs all parts of the video processing pipeline except downloading the video
 # ! /usr/bin/env python
 from dotenv import load_dotenv
 import os
@@ -19,6 +18,7 @@ from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
 from utils import DEFAULT_SAVE_PROGRESS, PipelineTask, load_progress_from_file, save_progress_to_file
 import logging
+from multi_thread_pipeline import run_pipeline_multi_thread
 
 class PipelineRunner:
     ALL_TASKS = [t.value for t in PipelineTask]
@@ -110,13 +110,23 @@ class PipelineRunner:
         if(self.upload_to_server):
             generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
             generate_YDX_caption.generateYDXCaption()
+        
+
+    def run_multi_thread_pipeline(self):
+        logger = self.setup_logger(self.video_id)
+        run_pipeline_multi_thread(self.video_id, self.video_start_time, self.video_end_time,self.upload_to_server,logger)
+        return
 
 
-def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server, tasks=None):
+
+def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server,multi_thread, tasks=None):
     pipeline_runner = PipelineRunner(
         video_id, video_start_time, video_end_time,upload_to_server, tasks
     )
-    pipeline_runner.run_full_pipeline()
+    if(multi_thread):
+        pipeline_runner.run_multi_thread_pipeline()
+    else:
+        pipeline_runner.run_full_pipeline()
     return
 
 
