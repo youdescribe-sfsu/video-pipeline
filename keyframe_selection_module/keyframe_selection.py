@@ -47,9 +47,9 @@ class KeyframeSelection:
         #     num_frames = int(data[1])
         #     frames_per_second = float(data[2])
 
-        step = self.video_runner_obj['video_common_values']['step']
-        num_frames = self.video_runner_obj['video_common_values']['num_frames']
-        frames_per_second = self.video_runner_obj['video_common_values']['frames_per_second']
+        step = self.save_file['video_common_values']['step']
+        num_frames = self.save_file['video_common_values']['num_frames']
+        frames_per_second = self.save_file['video_common_values']['frames_per_second']
         
         
         incsvpath = return_video_folder_name(self.video_runner_obj)+ "/" + OBJECTS_CSV

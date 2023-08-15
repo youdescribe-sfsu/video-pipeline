@@ -29,7 +29,7 @@ class SpeechToText:
         """
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.progress_file = load_progress_from_file(video_runner_obj)
+        # self.progress_file = load_progress_from_file(video_runner_obj)
     
     @timeit
     def get_speech_from_audio(self):
@@ -43,7 +43,7 @@ class SpeechToText:
             None.
         """
         
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
         
         audio_file_name = return_audio_file_name(self.video_runner_obj)
         filepath = return_video_folder_name(self.video_runner_obj) + "/"
@@ -56,8 +56,9 @@ class SpeechToText:
         destination_blob_name = audio_file_name
         self.logger.info(f"Uploading {source_file_name} to {destination_blob_name}")
         self.upload_blob(bucket_name, source_file_name, destination_blob_name)
-        self.progress_file['SpeechToText']['upload_blob'] = True
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        progress_file_new['SpeechToText']['upload_blob'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
 
         gcs_uri = "gs://" + bucket_name + "/" + audio_file_name
 
@@ -72,7 +73,8 @@ class SpeechToText:
             enable_speaker_diarization=True,
             language_code="en-US",
         )
-        if(self.progress_file['SpeechToText']['getting_speech_from_audio'] == 0):
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        if(progress_file_new['SpeechToText']['getting_speech_from_audio'] == 0):
             operation = client.long_running_recognize(config=config, audio=audio)
             response = operation.result(timeout=10000)
             response = type(response).to_json(response)
@@ -80,13 +82,15 @@ class SpeechToText:
             return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
         ) as outfile:
                 outfile.write(response)
-                self.progress_file['SpeechToText']['getting_speech_from_audio'] = 1
-                save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+                progress_file_new = load_progress_from_file(self.video_runner_obj)
+                progress_file_new['SpeechToText']['getting_speech_from_audio'] = 1
+                save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
         
         self.logger.info(f"Deleting {destination_blob_name} from {bucket_name}")
         self.delete_blob(bucket_name, destination_blob_name)
-        self.progress_file['SpeechToText']['delete_blob'] = True
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        progress_file_new['SpeechToText']['delete_blob'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
         # with open(
         #     return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
         # ) as outfile:
@@ -102,7 +106,8 @@ class SpeechToText:
             source_file_name (str): The file path of the source file to be uploaded
             destination_blob_name (str): The name of the destination blob in the bucket
         """
-        if(self.progress_file['SpeechToText']['upload_blob']):
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        if(progress_file_new['SpeechToText']['upload_blob']):
             ## Audio already uploaded, skipping step
             self.logger.info("Audio already uploaded, skipping step.")
             return
@@ -122,7 +127,8 @@ class SpeechToText:
             bucket_name (str): The name of the GCS bucket
             blob_name (str): The name of the blob to be deleted
         """
-        if(self.progress_file['SpeechToText']['delete_blob']):
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        if(progress_file_new['SpeechToText']['delete_blob']):
             ## Audio already deleted, skipping step
             self.logger.info("Audio already deleted, skipping step.")
             return

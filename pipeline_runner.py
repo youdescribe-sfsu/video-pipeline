@@ -119,7 +119,7 @@ class PipelineRunner:
 
 
 
-def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server,multi_thread, tasks=None):
+def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server,multi_thread=True, tasks=None):
     pipeline_runner = PipelineRunner(
         video_id, video_start_time, video_end_time,upload_to_server, tasks
     )
@@ -145,5 +145,5 @@ if __name__ == "__main__":
     run_pipeline(video_id, video_start_time, video_end_time,upload_to_server)
     
     
-    #python pipeline_runner.py --video_id wzh0EuLhRhE --start_time 6 --end_time 11
+    #python pipeline_runner.py --video_id c1ROUg6rOGs --start_time 6 --end_time 11
     #python pipeline_runner.py --video_id uqOtCbvFUZA > uqOtCbvFUZA.log

@@ -17,9 +17,10 @@ class ObjectDetection:
     
     def run_object_detection(self):
         try:
+            save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
             self.video_runner_obj["logger"].info(f"Running object detection for {self.video_runner_obj['video_id']}")
             print("=== TRACK OBJECTS ===")
-            if(self.video_runner_obj['ObjectDetection']['started'] == 'done'):
+            if(save_file['ObjectDetection']['started'] == 'done'):
                 ## Object detection already done, skipping step
                 self.video_runner_obj["logger"].info("Object detection already done, skipping step.")
                 print("Object detection already done, skipping step.")

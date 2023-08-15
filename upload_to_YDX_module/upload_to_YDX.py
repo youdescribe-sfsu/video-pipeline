@@ -18,7 +18,7 @@ import string
 
 
 class UploadToYDX:
-    def __init__(self, video_runner_obj, upload_to_server=True):
+    def __init__(self, video_runner_obj, upload_to_server=False):
         self.video_runner_obj = video_runner_obj
         self.upload_to_server = upload_to_server
 
@@ -172,28 +172,28 @@ class UploadToYDX:
             return_video_folder_name(self.video_runner_obj) + "/" + "final_data.json", mode="w"
         ) as f:
             f.write(json.dumps(data, indent=4))
-        if(self.upload_to_server):
-            print("===== UPLOADING DATA =====")
-            # send data to wherever db is
-            ydx_server = os.getenv("YDX_WEB_SERVER")
-            if ydx_server == None:
-                ydx_server = "http://3.101.130.10:4000"
-            url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
-            headers = {"Content-Type": "application/json; charset=utf-8"}
-            self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
-            try:
-                r = requests.post(url, data=json.dumps(data), headers=headers)
-                print("===== RESPONSE =====")
-                print(r.text)
-                self.video_runner_obj["logger"].info("===== RESPONSE =====")
-                self.video_runner_obj["logger"].info(r.text)
-                r.close()
-            except:
-                r = requests.post(url, data=json.dumps(data), headers=headers)
-                self.video_runner_obj["logger"].info("===== RESPONSE =====")
-                self.video_runner_obj["logger"].info(r.text)
-                print(r.text)
-                r.close()
+        # if(self.upload_to_server):
+        #     print("===== UPLOADING DATA =====")
+        #     # send data to wherever db is
+        #     ydx_server = os.getenv("YDX_WEB_SERVER")
+        #     if ydx_server == None:
+        #         ydx_server = "http://3.101.130.10:4000"
+        #     url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
+        #     headers = {"Content-Type": "application/json; charset=utf-8"}
+        #     self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
+        #     try:
+        #         r = requests.post(url, data=json.dumps(data), headers=headers)
+        #         print("===== RESPONSE =====")
+        #         print(r.text)
+        #         self.video_runner_obj["logger"].info("===== RESPONSE =====")
+        #         self.video_runner_obj["logger"].info(r.text)
+        #         r.close()
+        #     except:
+        #         r = requests.post(url, data=json.dumps(data), headers=headers)
+        #         self.video_runner_obj["logger"].info("===== RESPONSE =====")
+        #         self.video_runner_obj["logger"].info(r.text)
+        #         print(r.text)
+        #         r.close()
         save_file["UploadToYDX"]['started'] = 'done'
         save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         return

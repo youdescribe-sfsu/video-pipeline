@@ -88,9 +88,9 @@ class ImageCaptioning:
             self.save_file['ImageCaptioning']['started'] = True
             
             
-        step = self.save_file['video_common_values']['frames_per_extraction']
+        step = self.save_file['video_common_values']['step']
         num_frames = self.save_file['video_common_values']['num_frames']
-        frames_per_second = self.save_file['video_common_values']['actual_frames_per_second']
+        frames_per_second = self.save_file['video_common_values']['frames_per_second']
         
         frames_to_process = list(range(last_processed_frame + step, num_frames, step))
         # self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames

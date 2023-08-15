@@ -41,12 +41,15 @@ class FrameExtraction:
             frames_per_extraction = round(fps / self.frames_per_second)
             num_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
             actual_frames_per_second = fps / frames_per_extraction
-            self.progress_file['FrameExtraction']['started'] = True
-            self.progress_file['FrameExtraction']['fps'] = fps
-            self.progress_file['FrameExtraction']['frames_per_extraction'] = frames_per_extraction
-            self.progress_file['FrameExtraction']['num_frames'] = num_frames
-            self.progress_file['FrameExtraction']['actual_frames_per_second'] = actual_frames_per_second
-            save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+            
+            ## Get a fresh copy
+            progress_file_new = load_progress_from_file(self.video_runner_obj)
+            progress_file_new['FrameExtraction']['started'] = True
+            progress_file_new['FrameExtraction']['fps'] = fps
+            progress_file_new['FrameExtraction']['frames_per_extraction'] = frames_per_extraction
+            progress_file_new['FrameExtraction']['num_frames'] = num_frames
+            progress_file_new['FrameExtraction']['actual_frames_per_second'] = actual_frames_per_second
+            save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
 
         last_extracted_frame = self.progress_file['FrameExtraction']['extract_frames']
         if last_extracted_frame >= num_frames:
@@ -86,16 +89,17 @@ class FrameExtraction:
         # self.progress_file['FrameExtraction']['actual_frames_per_second'] = actual_frames_per_second
         
         ## Save to Common
-        self.progress_file['video_common_values']['step']= frames_per_extraction
-        self.progress_file['video_common_values']['num_frames']= num_frames
-        self.progress_file['video_common_values']['frames_per_second']= actual_frames_per_second
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        progress_file_new['video_common_values']['step']= frames_per_extraction
+        progress_file_new['video_common_values']['num_frames']= num_frames
+        progress_file_new['video_common_values']['frames_per_second']= actual_frames_per_second
         # with open(data_file_path, 'w') as datafile:
         #     datafile.write('{} {} {}\n'.format(frames_per_extraction, frame_count, actual_frames_per_second))
 
         # Save progress to JSON file one last time after extraction is complete
         # self.progress_file['FrameExtraction']['extract_frames'] = frame_count
-        self.progress_file['FrameExtraction']['started'] = 'done'
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        progress_file_new['FrameExtraction']['started'] = 'done'
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
 
         self.logger.info("Extraction complete.")
         # print("Extraction complete.")

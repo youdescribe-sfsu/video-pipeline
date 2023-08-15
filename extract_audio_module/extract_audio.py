@@ -21,12 +21,13 @@ class ExtractAudio:
         The FLAC file will have the same name as the video file, with .flac as its extension.
         """
         
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
+        
         
         # Define the input and output file paths
         input_file = return_video_download_location(self.video_runner_obj)
         output_file = input_file.replace(".mp4", ".flac")
         logger:Logger = self.video_runner_obj.get("logger")
+        self.progress_file = load_progress_from_file(self.video_runner_obj)
         if(self.progress_file['ExtractAudio']['extract_audio']):
             ## Audio already extracted, skipping step
             logger.info("Audio already extracted, skipping step.")
@@ -36,7 +37,9 @@ class ExtractAudio:
             # Use ffmpeg to extract the audio and save it as a FLAC file
             logger.info(f"Extracting audio from {input_file} and saving it as {output_file}")
             ffmpeg.input(input_file).output(output_file).run()
-        self.progress_file['ExtractAudio']['extract_audio'] = True
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        
+        progress_file_new = load_progress_from_file(self.video_runner_obj)
+        progress_file_new['ExtractAudio']['extract_audio'] = True
+        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
         logger.info(f"Audio extraction completed.")
         return
