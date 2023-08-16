@@ -64,7 +64,7 @@ class ImageCaptioning:
 
 
     
-
+    @timeit
     def run_image_captioning(self):
         """
         Gets a caption for each extracted frame and writes it to a csv file along with
@@ -100,7 +100,22 @@ class ImageCaptioning:
         # frames_per_second = self.save_file['video_common_values']['frames_per_second']
         frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['video_common_values']['frames_per_second']")
         
-        frames_to_process = list(range(last_processed_frame + step, num_frames, step))
+        ## Get this from first column of Keyframe.csv
+        # frames_to_process = list(range(last_processed_frame + step, num_frames, step))
+        with open(video_folder_path + '/'+ KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
+            ## Get all values of first column
+            reader = csv.reader(incsvfile)
+            header = next(reader) # skip header
+            keyframes = [int(row[0]) for row in reader]
+        frames_to_process = keyframes
+        
+        ## Remove all frames that have already been processed
+        frames_to_process = [frame for frame in frames_to_process if frame > last_processed_frame]
+        
+        
+        print("Frames to process: ", frames_to_process)
+        
+        
         # self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames
         
         

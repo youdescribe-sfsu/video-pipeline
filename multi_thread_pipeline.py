@@ -1,6 +1,7 @@
 # ! /usr/bin/env python
 import os
 import threading
+from pipeline_runner import run_generate_ydx_caption
 from timeit_decorator import timeit
 from import_video_module.import_video import ImportVideo
 from extract_audio_module.extract_audio import ExtractAudio
@@ -19,7 +20,7 @@ from utils import DEFAULT_SAVE_PROGRESS, load_progress_from_file, save_progress_
 
 
 @timeit
-def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_to_server,logger):
+def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_to_server,logger,ydx_server=None,ydx_app_host=None,userId=None,aiUserId=None):
     ## Run the pipeline in parallel
     
     
@@ -90,8 +91,7 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
 
     ocr_extraction = OcrExtraction(video_runner_obj)
     object_detection = ObjectDetection(video_runner_obj)
-    ## Image captioning
-    image_captioning = ImageCaptioning(video_runner_obj)
+    
     
     def run_ocr():
         ocr_extraction.run_ocr_detection()
@@ -103,21 +103,21 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
         keyframe_selection.run_keyframe_selection()
     
     
-    def run_image_captioning():
-        image_captioning.run_image_captioning()
+    # def run_image_captioning():
+    #     image_captioning.run_image_captioning()
         
     
     ocr_thread = threading.Thread(target=run_ocr)
     object_detection_and_keyframe_selection_thread = threading.Thread(target=run_object_detection_and_keyframe_selection)
-    image_captioning_thread = threading.Thread(target=run_image_captioning)
+    # image_captioning_thread = threading.Thread(target=run_image_captioning)
     
     ocr_thread.start()
     object_detection_and_keyframe_selection_thread.start()
-    image_captioning_thread.start()
+    # image_captioning_thread.start()
     
     ocr_thread.join()
     object_detection_and_keyframe_selection_thread.join()
-    image_captioning_thread.join()
+    # image_captioning_thread.join()
     
     
     
@@ -126,7 +126,9 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
     ##################################### 
     
     ## Rest of the code should be run sequentially
-           
+    ## Image captioning
+    image_captioning = ImageCaptioning(video_runner_obj)
+    image_captioning.run_image_captioning()       
     image_captioning.filter_keyframes_from_caption()
     image_captioning.combine_image_caption()
     ## Caption rating
@@ -143,7 +145,8 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
     upload_to_YDX = UploadToYDX(video_runner_obj,upload_to_server=upload_to_server)
     upload_to_YDX.upload_to_ydx()
     if(upload_to_server):
-        generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
-        generate_YDX_caption.generateYDXCaption()
+        run_generate_ydx_caption(video_id, aiUserId)
+    #     generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
+    #     generate_YDX_caption.generateYDXCaption()
     
     return True

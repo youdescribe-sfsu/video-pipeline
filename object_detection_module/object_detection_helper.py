@@ -25,20 +25,19 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
         'threshold': ('', str(threshold)),
         'img_file': (os.path.basename(filename), fileBuffer)
     }
-    headers = {'token':token}
+    # headers = {'token':token}
     page='http://localhost:{}/upload'.format(os.getenv('YOLO_PORT') or 8081)
 
-    print('\n=====================')
+    # print('\n=====================')
     # print("page",page)
-    print("page ==",page)
+    # print("page ==",page)
     # print(headers)
-    print(multipart_form_data)
-    print('=====================')
+    # print('=====================')
     if logger:
         logger.info(f"Running object detection for {filename}")
-        logger.info(f"page: {page}")
+        # logger.info(f"page: {page}")
         # logger.info(f"headers: {headers}")
-        logger.info(f"multipart_form_data: {multipart_form_data}")
+        # logger.info(f"multipart_form_data: {multipart_form_data}")
         logger.info(f"=========================")
     
     try:
@@ -47,13 +46,13 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
         print("=====in Object Detection=====")
         if logger:
             logger.info("========================")
-            logger.info(f"response: {response.text}")
+            logger.info(f"response length: {len(response.text)}")
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
             if logger:
                 logger.info(f"Server returned status {response.status_code}")
             return []
-        print(response.text)
+        print(f"response length: {len(response.text)}")
 
         # Changes made here
         results = eval(response.text)
@@ -64,10 +63,10 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
         response = requests.post(page, files=multipart_form_data)
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
-            logger.info(f"Server returned status {response.status_code}")
+            logger.info(f"response length: {len(response.text)}")
             return []
         logger.info(f"response: {response.text}")
-        print(response.text)
+        print(f"response length: {len(response.text)}")
 
         # Changes made here
         results = eval(response.text)
