@@ -1,7 +1,7 @@
 # ! /usr/bin/env python
 import os
 import threading
-from pipeline_runner import run_generate_ydx_caption
+# from pipeline_runner import run_generate_ydx_caption
 from timeit_decorator import timeit
 from import_video_module.import_video import ImportVideo
 from extract_audio_module.extract_audio import ExtractAudio
@@ -17,6 +17,7 @@ from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
 from utils import DEFAULT_SAVE_PROGRESS, load_progress_from_file, save_progress_to_file
+from ydx_caption import run_generate_ydx_caption
 
 
 @timeit
