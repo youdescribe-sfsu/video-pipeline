@@ -16,7 +16,7 @@ from scene_segmentation_module.scene_segmentation import SceneSegmentation
 from text_summarization_module.text_summary import TextSummarization
 from upload_to_YDX_module.upload_to_YDX import UploadToYDX
 from generate_YDX_caption_module.generate_ydx_caption import GenerateYDXCaption
-from utils import DEFAULT_SAVE_PROGRESS, PipelineTask, load_progress_from_file, save_progress_to_file
+from utils import DEFAULT_SAVE_PROGRESS, PipelineTask, load_progress_from_file, return_video_folder_name, save_progress_to_file
 import logging
 from multi_thread_pipeline import run_pipeline_multi_thread
 
@@ -32,8 +32,8 @@ class PipelineRunner:
         else:
             self.tasks = tasks
 
-    def setup_logger(self,video_id):
-        log_file = f"{video_id}_pipeline.log"
+    def setup_logger(self,video_runner_obj):
+        log_file = f"{return_video_folder_name(video_runner_obj)}/pipeline.log"
         log_mode = 'a' if os.path.exists(log_file) else 'w'
         logger = logging.getLogger(f"PipelineLogger-{video_id}")
         logger.setLevel(logging.INFO)
@@ -46,7 +46,11 @@ class PipelineRunner:
     @timeit
     def run_full_pipeline(self):
         ## Download video from YouTube
-        logger = self.setup_logger(self.video_id)
+        logger = self.setup_logger({
+            "video_id": self.video_id,
+            "video_start_time": self.video_start_time,
+            "video_end_time": self.video_end_time,
+        })
         logger.info(f"Processing video: {self.video_id}")
         
         
@@ -54,7 +58,7 @@ class PipelineRunner:
             "video_id": self.video_id,
             "video_start_time": self.video_start_time,
             "video_end_time": self.video_end_time,
-            "logger": logger
+            # "logger": logger
         }
         
         
@@ -113,7 +117,11 @@ class PipelineRunner:
         
 
     def run_multi_thread_pipeline(self):
-        logger = self.setup_logger(self.video_id)
+        logger = self.setup_logger({
+            "video_id": self.video_id,
+            "video_start_time": self.video_start_time,
+            "video_end_time": self.video_end_time,
+        })
         run_pipeline_multi_thread(self.video_id, self.video_start_time, self.video_end_time,self.upload_to_server,logger)
         return
 

@@ -108,6 +108,7 @@ def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     """
     video_folder_name = return_video_folder_name(video_runner_obj)
     return f"{video_folder_name}/progress.json"
+    
 
 def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None:
     """
@@ -136,6 +137,33 @@ def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None:
 
     return loaded_progress
 
+def read_value_from_file(video_runner_obj: Dict[str, int], key: str) -> Dict or None:
+    """
+    Read a specific value from the progress data stored in a JSON file associated with the given video runner object.
+
+    This function retrieves the progress data by loading it from a JSON file based on the provided video runner object.
+    It then looks for the specified key within the progress data and returns its corresponding value. If the key is not
+    found in the progress data, or if there is an issue loading the progress data from the file, the function returns None.
+
+    Parameters:
+        video_runner_obj (Dict[str, int]): A dictionary containing the information of the video runner.
+            The keys are "video_id", "video_start_time", and "video_end_time", with their values as integers.
+        key (str): The key corresponding to the value you want to retrieve from the progress data.
+
+    Returns:
+        The value associated with the provided key within the progress data, or None if the key is not found or an error occurs.
+    """
+    json_file = load_progress_from_file(video_runner_obj)
+    expression = f"json_file{key}"
+    value = None
+    try:
+        value = eval(expression)
+    except KeyError:
+        pass
+
+    return value
+
+
 def save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[str, int]):
     """
     Save progress data to a JSON file.
@@ -159,6 +187,34 @@ def save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[
                 json.dump(progress_data, progress_file_obj)
     except Exception as e:
         print(f"Error saving progress to file: {e}")
+
+
+def save_value_to_file(video_runner_obj: Dict[str, int], key: str, value: str) -> None:
+    """
+    Save a new value associated with a specific key to the progress data stored in a JSON file for the given video runner object.
+
+    This function first loads the existing progress data from a JSON file based on the provided video runner object.
+    It then updates the progress data with the new key-value pair, and saves the modified progress data back to the file.
+    If there are any errors during the process, the function handles them gracefully.
+
+    Parameters:
+        video_runner_obj (Dict[str, int]): A dictionary containing the information of the video runner.
+            The keys are "video_id", "video_start_time", and "video_end_time", with their values as integers.
+        key (str): The key under which the new value will be stored in the progress data.
+        value (Any): The value to be associated with the provided key in the progress data.
+
+    Returns:
+        None
+    """
+    json_file = load_progress_from_file(video_runner_obj)  # Load existing progress data
+    expression = f"json_file{key}"
+    try:
+        # Update progress data with the new key-value pair
+        exec(f"{expression} = value")
+        save_progress_to_file(video_runner_obj, json_file)  # Save the modified progress data
+    except Exception as e:
+        print(f"Error saving value to file: {e}")
+    return
 
 
 

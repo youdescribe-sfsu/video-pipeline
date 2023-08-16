@@ -3,7 +3,7 @@
 import requests
 import os
 import csv
-from utils import load_progress_from_file, return_video_frames_folder,return_video_folder_name,OBJECTS_CSV, save_progress_to_file
+from utils import load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OBJECTS_CSV, save_progress_to_file, save_value_to_file
 from timeit_decorator import timeit
 
 YOLOv3_tiny = 8080
@@ -29,15 +29,15 @@ def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
     page='http://localhost:{}/upload'.format(os.getenv('YOLO_PORT') or 8081)
 
     print('\n=====================')
-    print("page",page)
+    # print("page",page)
     print("page ==",page)
-    print(headers)
+    # print(headers)
     print(multipart_form_data)
     print('=====================')
     if logger:
         logger.info(f"Running object detection for {filename}")
         logger.info(f"page: {page}")
-        logger.info(f"headers: {headers}")
+        # logger.info(f"headers: {headers}")
         logger.info(f"multipart_form_data: {multipart_form_data}")
         logger.info(f"=========================")
     
@@ -86,19 +86,30 @@ def detect_objects(video_files_path, threshold,video_runner_obj, service=YOLOv3_
     #     step = int(data[0])
     #     num_frames = int(data[1])
     last_processed_frame = 0
-    save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
-    if(save_data['ObjectDetection']['started'] == False):
-        save_data['ObjectDetection']['started'] = True
-        save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
+    # save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
+    # if(save_data['ObjectDetection']['started'] == False):
+    if read_value_from_file(video_runner_obj=video_runner_obj,key="['ObjectDetection']['started']") == False:
+        # save_data['ObjectDetection']['started'] = True
+        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=True)
+        # save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
+        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=last_processed_frame)
+        
+        
         # save_data['ObjectDetection']['num_frames'] = save_data['OCR']['num_frames']
         # save_data['ObjectDetection']['step'] = save_data['OCR']['num_frames']
-        step = save_data['video_common_values']['step']
-        num_frames = save_data['video_common_values']['num_frames']
-        save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
+        # step = save_data['video_common_values']['step']
+        step = read_value_from_file(video_runner_obj=video_runner_obj,key="['video_common_values']['step']")
+        # num_frames = save_data['video_common_values']['num_frames']
+        num_frames = read_value_from_file(video_runner_obj=video_runner_obj,key="['video_common_values']['num_frames']")
+        # save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
+        
     else:
-        last_processed_frame = save_data['ObjectDetection']['last_processed_frame']
-        num_frames = save_data['video_common_values']['num_frames']
-        step = save_data['video_common_values']['step']
+        # last_processed_frame = save_data['ObjectDetection']['last_processed_frame']
+        last_processed_frame = read_value_from_file(video_runner_obj=video_runner_obj,key="['ObjectDetection']['last_processed_frame']")
+        # num_frames = save_data['video_common_values']['num_frames']
+        num_frames = read_value_from_file(video_runner_obj=video_runner_obj,key="['video_common_values']['num_frames']")
+        # step = save_data['video_common_values']['step']
+        step = read_value_from_file(video_runner_obj=video_runner_obj,key="['video_common_values']['step']")
     
 
     for frame_index in range(last_processed_frame, num_frames, step):
@@ -122,8 +133,9 @@ def detect_objects(video_files_path, threshold,video_runner_obj, service=YOLOv3_
         if logger:
             logger.info(f"Frame Index: {frame_index}")
         last_processed_frame = frame_index
-        save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
-        save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
+        # save_data['ObjectDetection']['last_processed_frame'] = last_processed_frame
+        # save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=save_data)
+        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=last_processed_frame)
 
     if logging:
         print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
@@ -146,9 +158,11 @@ def object_detection_to_csv(video_runner_obj):
     
     
     outcsvpath = return_video_folder_name(video_runner_obj)+ "/" + OBJECTS_CSV
-    save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
-    num_frames = save_file['video_common_values']['num_frames']
-    step = save_file['video_common_values']['step']
+    # save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+    # num_frames = save_file['video_common_values']['num_frames']
+    num_frames = read_value_from_file(video_runner_obj=video_runner_obj,key="['video_common_values']['num_frames']")
+    # step = save_file['video_common_values']['step']
+    step = read_value_from_file(video_runner_obj=video_runner_obj,key="['video_common_values']['step']")
     if not os.path.exists(outcsvpath):
         objects = detect_objects(video_frames_path, 0.001,video_runner_obj=video_runner_obj, logging=True,logger=video_runner_obj["logger"])
         video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")

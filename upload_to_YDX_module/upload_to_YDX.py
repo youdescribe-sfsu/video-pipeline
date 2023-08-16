@@ -1,7 +1,8 @@
 import json
 import requests
 from utils import (
-    load_progress_from_file,
+    # load_progress_from_file,
+    read_value_from_file,
     return_video_folder_name,
     SUMMARIZED_SCENES,
     OCR_FILTER_REMOVE_SIMILAR,
@@ -10,7 +11,8 @@ from utils import (
     OCR_HEADERS,
     TIMESTAMP_SELECTOR,
     OCR_TEXT_SELECTOR,
-    save_progress_to_file,
+    save_value_to_file,
+    # save_progress_to_file,
 )
 import os
 import csv
@@ -57,8 +59,9 @@ class UploadToYDX:
             return (False, "")
 
     def upload_to_ydx(self):
-        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
-        if(save_file["UploadToYDX"]['started'] == 'done'):
+        # save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        # if(save_file["UploadToYDX"]['started'] == 'done'):
+        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='UploadToYDX', task_status='started') == 'done':
             ## Already uploaded to YDX
             self.video_runner_obj["logger"].info("Already uploaded to YDX")
             return
@@ -194,6 +197,7 @@ class UploadToYDX:
         #         self.video_runner_obj["logger"].info(r.text)
         #         print(r.text)
         #         r.close()
-        save_file["UploadToYDX"]['started'] = 'done'
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        # save_file["UploadToYDX"]['started'] = 'done'
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
         return

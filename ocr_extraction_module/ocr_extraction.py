@@ -4,7 +4,7 @@ from ocr_extraction_module.filter_ocr import filter_ocr, filter_ocr_agreement, f
 from ocr_extraction_module.detect_watermark import detect_watermark
 from typing import Dict
 
-from utils import load_progress_from_file, save_progress_to_file
+from utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
 
 class OcrExtraction:
     def __init__(self, video_runner_obj: Dict[str, int]):
@@ -37,47 +37,57 @@ class OcrExtraction:
 
         print("=== DETECT WATERMARK ===")
         self.video_runner_obj["logger"].info(f"Detecting watermark on {self.video_runner_obj['video_id']}")
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        if self.progress_file['OCR']['detect_watermark'] == 0 and not skip_detect_watermark:
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # if self.progress_file['OCR']['detect_watermark'] == 0 and not skip_detect_watermark:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['OCR']['detect_watermark']") == 0 and not skip_detect_watermark:
             detect_watermark(self.video_runner_obj)
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        self.progress_file['OCR']['detect_watermark'] = 1
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
-
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # self.progress_file['OCR']['detect_watermark'] = 1
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['OCR']['detect_watermark']", value=1)
+        
         print("PRINT OCR")
         self.video_runner_obj["logger"].info(f"Printing OCR on {self.video_runner_obj['video_id']}")
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        if self.progress_file['OCR']['get_all_ocr'] == 0:
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # if self.progress_file['OCR']['get_all_ocr'] == 0:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['OCR']['get_all_ocr']") == 0:
             get_all_ocr(self.video_runner_obj)
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        self.progress_file['OCR']['get_all_ocr'] = 1
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # self.progress_file['OCR']['get_all_ocr'] = 1
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['OCR']['get_all_ocr']", value=1)
 
         print("=== FILTER OCR V1 ===")
         self.video_runner_obj["logger"].info(f"Filtering OCR on {self.video_runner_obj['video_id']}")
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        if self.progress_file['OCR']['filter_ocr'] == 0:
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # if self.progress_file['OCR']['filter_ocr'] == 0:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['OCR']['filter_ocr']") == 0:
             filter_ocr(self.video_runner_obj)
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        self.progress_file['OCR']['filter_ocr'] = 1
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
-
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # self.progress_file['OCR']['filter_ocr'] = 1
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['OCR']['filter_ocr']", value=1)
+        
         print("=== FILTER OCR V2 ===")
         self.video_runner_obj["logger"].info(f"Filtering OCR on {self.video_runner_obj['video_id']}")
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        if self.progress_file['OCR']['filter_ocr_agreement'] == 0:
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # if self.progress_file['OCR']['filter_ocr_agreement'] == 0:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['OCR']['filter_ocr_agreement']") == 0:
             filter_ocr_agreement(self.video_runner_obj)
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        self.progress_file['OCR']['filter_ocr_agreement'] = 1
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
-
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # self.progress_file['OCR']['filter_ocr_agreement'] = 1
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['OCR']['filter_ocr_agreement']", value=1)
+        
         print("=== REMOVE SIMILAR OCR ===")
         self.video_runner_obj["logger"].info(f"Removing similar OCR on {self.video_runner_obj['video_id']}")
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        if self.progress_file['OCR']['filter_ocr_remove_similarity'] == 0:
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # if self.progress_file['OCR']['filter_ocr_remove_similarity'] == 0:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['OCR']['filter_ocr_remove_similarity']") == 0:
             filter_ocr_remove_similarity(self.video_runner_obj)
-        self.progress_file = load_progress_from_file(self.video_runner_obj)
-        self.progress_file['OCR']['filter_ocr_remove_similarity'] = 1
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        # self.progress_file = load_progress_from_file(self.video_runner_obj)
+        # self.progress_file['OCR']['filter_ocr_remove_similarity'] = 1
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['OCR']['filter_ocr_remove_similarity']", value=1)
 
         return True

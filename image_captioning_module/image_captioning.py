@@ -8,8 +8,8 @@ from timeit_decorator import timeit
 from utils import (CAPTIONS_CSV,
                    FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
                    KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
-                   TIMESTAMP_SELECTOR, load_progress_from_file, return_video_folder_name,
-                   return_video_frames_folder,CAPTION_IMAGE_PAIR, save_progress_to_file)
+                   TIMESTAMP_SELECTOR, load_progress_from_file, read_value_from_file, return_video_folder_name,
+                   return_video_frames_folder,CAPTION_IMAGE_PAIR, save_progress_to_file, save_value_to_file)
 import json
 import socket
 class ImageCaptioning:
@@ -72,25 +72,33 @@ class ImageCaptioning:
         """
         video_frames_path = return_video_frames_folder(self.video_runner_obj)
         video_folder_path = return_video_folder_name(self.video_runner_obj)
-        self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        # self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         
-        if self.save_file['ImageCaptioning']['started'] == 'done':
+        # if self.save_file['ImageCaptioning']['started'] == 'done':
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImageCaptioning']['started']") == 'done':
             self.video_runner_obj["logger"].info("Image captioning already done")
             return
         
         
-        if self.save_file['ImageCaptioning']['started'] == True:
-            last_processed_frame = self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame']
-            dropped_key_frames = self.save_file['ImageCaptioning']['dropped_key_frames']
+        # if self.save_file['ImageCaptioning']['started'] == True:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImageCaptioning']['started']") == True:
+            # last_processed_frame = self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame']
+            last_processed_frame = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImageCaptioning']['run_image_captioning']['last_processed_frame']")
+            # dropped_key_frames = self.save_file['ImageCaptioning']['dropped_key_frames']
+            dropped_key_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImageCaptioning']['dropped_key_frames']")
         else:
             last_processed_frame = 0
             dropped_key_frames = 0
-            self.save_file['ImageCaptioning']['started'] = True
+            # self.save_file['ImageCaptioning']['started'] = True
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['started']", value=True)
             
             
-        step = self.save_file['video_common_values']['step']
-        num_frames = self.save_file['video_common_values']['num_frames']
-        frames_per_second = self.save_file['video_common_values']['frames_per_second']
+        # step = self.save_file['video_common_values']['step']
+        step = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['video_common_values']['step']")
+        # num_frames = self.save_file['video_common_values']['num_frames']
+        num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['video_common_values']['num_frames']")
+        # frames_per_second = self.save_file['video_common_values']['frames_per_second']
+        frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['video_common_values']['frames_per_second']")
         
         frames_to_process = list(range(last_processed_frame + step, num_frames, step))
         # self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames
@@ -137,15 +145,20 @@ class ImageCaptioning:
                 #     dropped_key_frames += 1
 
                 outcsvfile.flush()
-                self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame'] = frame_index
-                self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames
-                save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+                # self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame'] = frame_index
+                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['run_image_captioning']['last_processed_frame']", value=frame_index)
+                # self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames
+                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['dropped_key_frames']", value=dropped_key_frames)
+                # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
 
-            self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame'] = frames_to_process[-1]
-            self.save_file['ImageCaptioning']['started'] = 'done'
-            self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames
+            # self.save_file['ImageCaptioning']['run_image_captioning']['last_processed_frame'] = frames_to_process[-1]
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['run_image_captioning']['last_processed_frame']", value=frames_to_process[-1])
+            # self.save_file['ImageCaptioning']['started'] = 'done'
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['started']", value='done')
+            # self.save_file['ImageCaptioning']['dropped_key_frames'] = dropped_key_frames
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['dropped_key_frames']", value=dropped_key_frames)
 
-            save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+            # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
             self.video_runner_obj["logger"].info("============================================")
             # self.video_runner_obj["logger"].info('Dropped %d keyframes', dropped_key_frames)
             # self.video_runner_obj["logger"].info('Total keyframes: %d', len(keyframes))
@@ -153,8 +166,9 @@ class ImageCaptioning:
         return
     
     def filter_keyframes_from_caption(self):
-        save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
-        if(save_file['ImageCaptioning']['filter_keyframes_from_caption'] == 1):
+        # save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
+        # if(save_file['ImageCaptioning']['filter_keyframes_from_caption'] == 1):
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImageCaptioning']['filter_keyframes_from_caption']") == 1:
             ## Already done, skipping step
             self.video_runner_obj["logger"].info("Filtering keyframes from caption already done, skipping step.")
             print("Filtering keyframes from caption already done, skipping step.")
@@ -198,8 +212,9 @@ class ImageCaptioning:
 
             # Overwrite the original CSV file with the updated data
             shutil.move(temp_csv_path, csv_file_path)
-        save_file['ImageCaptioning']['filter_keyframes_from_caption'] = 1
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        # save_file['ImageCaptioning']['filter_keyframes_from_caption'] = 1
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['filter_keyframes_from_caption']", value=1)
         return
             
     
@@ -218,7 +233,8 @@ class ImageCaptioning:
         #     reader = csv.reader(captcsvfile)
         #     captheader = next(reader) # skip header
         #     captrows = [row for row in reader]
-        if(self.save_file['ImageCaptioning']['combine_image_caption'] == 0):
+        # if(self.save_file['ImageCaptioning']['combine_image_caption'] == 0):
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImageCaptioning']['combine_image_caption']") == 0:
             # return
             ## Write Image Caption Pair to CSV
             with open(captcsvpath, 'r', newline='', encoding='utf-8') as captcsvfile:
@@ -231,8 +247,9 @@ class ImageCaptioning:
                     csvDictWriter = csv.DictWriter(output_file, fieldnames=image_caption_pairs[0].keys())
                     csvDictWriter.writeheader()
                     csvDictWriter.writerows(image_caption_pairs)
-                self.save_file['ImageCaptioning']['combine_image_caption'] = 1
-                save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
+                # self.save_file['ImageCaptioning']['combine_image_caption'] = 1
+                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['combine_image_caption']", value=1)
+                # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
                 ## Completed Writing Image Caption Pair to CSV
                 self.video_runner_obj["logger"].info(f"Completed Writing Image Caption Pair to CSV")
                 

@@ -7,23 +7,23 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
-from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, load_progress_from_file, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR, save_progress_to_file
+from utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR, save_progress_to_file, save_value_to_file
 from timeit_decorator import timeit
 from google.cloud.vision_v1 import AnnotateImageResponse
 import json
 from typing import Dict
 
-def get_ocr_progress(video_runner_obj):
-    """Get the OCR progress data for a specific video."""
-    save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
-    return save_data
+# def get_ocr_progress(video_runner_obj):
+#     """Get the OCR progress data for a specific video."""
+#     save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
+#     return save_data
 
-def update_ocr_progress(video_runner_obj,save_data ,frame_index):
-    """Update the OCR progress data for a specific video."""
-    progress_data = save_data
-    progress_data["FrameExtraction"]["extract_frames"] = frame_index
-    save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_data)
-    return
+# def update_ocr_progress(video_runner_obj,save_data ,frame_index):
+#     """Update the OCR progress data for a specific video."""
+#     progress_data = save_data
+#     progress_data["FrameExtraction"]["extract_frames"] = frame_index
+#     save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_data)
+#     return
 
 
 def detect_text(path: str) -> Dict:
@@ -78,10 +78,13 @@ def get_ocr_confidences(video_runner_obj):
 	# 	step = int(data[0])
 	# 	num_frames = int(data[1])
 	# 	frames_per_second = float(data[2])
-	save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
-	step = save_file['video_common_values']['frames_per_extraction']
-	num_frames = save_file['video_common_values']['num_frames']
-	frames_per_second = save_file['video_common_values']['actual_frames_per_second']
+	# save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+	# step = save_file['video_common_values']['frames_per_extraction']
+	step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['frames_per_extraction']")
+	# num_frames = save_file['video_common_values']['num_frames']
+	num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
+	# frames_per_second = save_file['video_common_values']['actual_frames_per_second']
+	frames_per_second = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['actual_frames_per_second']")
 	video_fps = step * frames_per_second
 	seconds_per_frame = 1.0/video_fps
 	outcsvpath = "OCR Confidences - " + video_runner_obj['video_id'] + ".csv"
@@ -125,25 +128,35 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 	# video_name = video_name.split('/')[-1].split('.')[0]
  	# Read data for the video
 	
-	progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
-	if progress_file['OCR']['started'] == False:
-		progress_file['OCR']['started'] = True
-		step = progress_file['video_common_values']['step']
-		progress_file['OCR']['step'] = step
-		num_frames = progress_file['video_common_values']['num_frames']
-		progress_file['OCR']['num_frames'] = num_frames
+	# progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+	# if progress_file['OCR']['started'] == False:
+	if read_value_from_file(video_runner_obj=video_runner_obj, key="['OCR']['started']") == False:
+		# progress_file['OCR']['started'] = True
+		save_value_to_file(video_runner_obj=video_runner_obj, key="['OCR']['started']", value=True)
+		# step = progress_file['video_common_values']['step']
+		step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
+		# progress_file['OCR']['step'] = step
+		# num_frames = progress_file['video_common_values']['num_frames']
+		num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
+		# progress_file['OCR']['num_frames'] = num_frames
 		# progress_file['OCR']['frames_per_second'] = progress_file['FrameExtraction']['actual_frames_per_second']
-		frames_per_second = progress_file['video_common_values']['frames_per_second']
-		progress_file['OCR']['frames_per_second'] = frames_per_second
+		# frames_per_second = progress_file['video_common_values']['frames_per_second']
+		frames_per_second = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['frames_per_second']")
+		# progress_file['OCR']['frames_per_second'] = frames_per_second
 		start = 0
-		progress_file['OCR']['start'] = start
-		save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+		# progress_file['OCR']['start'] = start
+		# save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+		save_value_to_file(video_runner_obj=video_runner_obj, key="['OCR']['start']", value=start)
 
 	else:
-		step = progress_file['video_common_values']['step']
-		num_frames = progress_file['video_common_values']['num_frames']
-		frames_per_second = progress_file['video_common_values']['frames_per_second']
-		start = progress_file['OCR']['start']
+		# step = progress_file['video_common_values']['step']
+		step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
+		# num_frames = progress_file['video_common_values']['num_frames']
+		num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
+		# frames_per_second = progress_file['video_common_values']['frames_per_second']
+		frames_per_second = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['frames_per_second']")
+		# start = progress_file['OCR']['start']
+		start = read_value_from_file(video_runner_obj=video_runner_obj, key="['OCR']['start']")
 		
 	# with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
 	# 	data = datafile.readline().split()
@@ -197,8 +210,9 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 					except Exception as e:
 						print(e)
 						video_runner_obj["logger"].info(f"Error writing to file")
-				progress_file['OCR']['start'] = frame_index
-				save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+				# progress_file['OCR']['start'] = frame_index
+				# save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+				save_value_to_file(video_runner_obj=video_runner_obj, key="['OCR']['start']", value=frame_index)
         
 if __name__ == "__main__":
 	# video_name = 'A dog collapses and faints right in front of us I have never seen anything like it'

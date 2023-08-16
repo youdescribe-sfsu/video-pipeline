@@ -2,7 +2,7 @@ from logging import Logger
 from timeit_decorator import timeit
 import json
 import yt_dlp as ydl
-from utils import load_progress_from_file, return_video_download_location, return_video_folder_name, save_progress_to_file
+from utils import load_progress_from_file, read_value_from_file, return_video_download_location, return_video_folder_name, save_progress_to_file, save_value_to_file
 from datetime import timedelta
 import ffmpeg
 import os
@@ -18,7 +18,7 @@ class ImportVideo:
             The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
         """
         self.video_runner_obj = video_runner_obj
-        self.progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
+        # self.progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
     
     @timeit
     def download_video(self):
@@ -34,7 +34,7 @@ class ImportVideo:
         video_end_time = self.video_runner_obj.get("video_end_time",None)
         logger: Logger = self.video_runner_obj.get("logger")
         
-        if(self.progress_file['ImportVideo']['download_video']):
+        if(read_value_from_file(video_runner_obj=self.video_runner_obj,key="['ImportVideo']['download_video']")):
             ## Video already downloaded, skipping step
             logger.info("Video already downloaded, skipping step.")
             return
@@ -88,8 +88,9 @@ class ImportVideo:
 
             # Rename trimmed video to original name
             os.rename(return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4', return_video_download_location(self.video_runner_obj))
-        self.progress_file['ImportVideo']['download_video'] = True
-        save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)    
+        # self.progress_file['ImportVideo']['download_video'] = True
+        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.progress_file)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']", value=True)    
         logger.info(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
         return
     
