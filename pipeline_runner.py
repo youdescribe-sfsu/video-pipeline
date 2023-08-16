@@ -119,7 +119,7 @@ class PipelineRunner:
 
 
 
-def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server,multi_thread=True, tasks=None):
+def run_pipeline(video_id, video_start_time, video_end_time,upload_to_server,multi_thread=False, tasks=None):
     pipeline_runner = PipelineRunner(
         video_id, video_start_time, video_end_time,upload_to_server, tasks
     )

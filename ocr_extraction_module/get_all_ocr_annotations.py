@@ -128,21 +128,21 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 	progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
 	if progress_file['OCR']['started'] == False:
 		progress_file['OCR']['started'] = True
-		step = progress_file['FrameExtraction']['frames_per_extraction']
+		step = progress_file['video_common_values']['step']
 		progress_file['OCR']['step'] = step
-		num_frames = progress_file['FrameExtraction']['num_frames']
+		num_frames = progress_file['video_common_values']['num_frames']
 		progress_file['OCR']['num_frames'] = num_frames
 		# progress_file['OCR']['frames_per_second'] = progress_file['FrameExtraction']['actual_frames_per_second']
-		frames_per_second = progress_file['FrameExtraction']['actual_frames_per_second']
+		frames_per_second = progress_file['video_common_values']['frames_per_second']
 		progress_file['OCR']['frames_per_second'] = frames_per_second
 		start = 0
 		progress_file['OCR']['start'] = start
 		save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
 
 	else:
-		step = progress_file['OCR']['step']
-		num_frames = progress_file['OCR']['num_frames']
-		frames_per_second = progress_file['OCR']['frames_per_second']
+		step = progress_file['video_common_values']['step']
+		num_frames = progress_file['video_common_values']['num_frames']
+		frames_per_second = progress_file['video_common_values']['frames_per_second']
 		start = progress_file['OCR']['start']
 		
 	# with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
