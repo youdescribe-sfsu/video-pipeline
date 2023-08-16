@@ -141,6 +141,8 @@ class ImageCaptioning:
                 if type(caption) == str:
                     row = [frame_index, float(frame_index) * seconds_per_frame, False, caption]
                     writer.writerow(row)
+                
+                print("Frame index: ", frame_index, " Caption: ", caption)
                 # elif frame_index in keyframes:
                 #     dropped_key_frames += 1
 
@@ -254,8 +256,10 @@ class ImageCaptioning:
                 self.video_runner_obj["logger"].info(f"Completed Writing Image Caption Pair to CSV")
                 
                 self.video_runner_obj["logger"].info(f"Uploading image caption pairs to server")
+                print(f"Uploading image caption pairs to server")
                 return
         else:
+            print("Image Captioning already done")
             self.video_runner_obj["logger"].info(f"Image Captioning already done")
             return
             

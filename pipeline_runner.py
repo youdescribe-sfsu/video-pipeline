@@ -33,6 +33,7 @@ class PipelineRunner:
             self.tasks = tasks
 
     def setup_logger(self,video_runner_obj):
+        os.makedirs(return_video_folder_name(video_runner_obj), exist_ok=True)
         log_file = f"{return_video_folder_name(video_runner_obj)}/pipeline.log"
         log_mode = 'a' if os.path.exists(log_file) else 'w'
         logger = logging.getLogger(f"PipelineLogger-{video_id}")
@@ -46,7 +47,7 @@ class PipelineRunner:
     @timeit
     def run_full_pipeline(self):
         ## Download video from YouTube
-        logger = self.setup_logger({
+        logger = self.setup_logger(video_runner_obj={
             "video_id": self.video_id,
             "video_start_time": self.video_start_time,
             "video_end_time": self.video_end_time,
@@ -58,7 +59,7 @@ class PipelineRunner:
             "video_id": self.video_id,
             "video_start_time": self.video_start_time,
             "video_end_time": self.video_end_time,
-            # "logger": logger
+            "logger": logger
         }
         
         

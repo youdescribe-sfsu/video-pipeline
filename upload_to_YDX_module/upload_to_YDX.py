@@ -61,7 +61,7 @@ class UploadToYDX:
     def upload_to_ydx(self):
         # save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         # if(save_file["UploadToYDX"]['started'] == 'done'):
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='UploadToYDX', task_status='started') == 'done':
+        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']") == 'done':
             ## Already uploaded to YDX
             self.video_runner_obj["logger"].info("Already uploaded to YDX")
             return

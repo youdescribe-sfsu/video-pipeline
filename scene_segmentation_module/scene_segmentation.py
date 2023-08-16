@@ -92,9 +92,10 @@ class SceneSegmentation:
         # save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         
         # if save_file['SceneSegmentation']['run_scene_segmentation'] == 1:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='SceneSegmentation', task_status='run_scene_segmentation') == 1:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['run_scene_segmentation']") == 1:
             ## Already processed
             self.video_runner_obj["logger"].info("Already processed")
+            print("Already processed")
             return
         
         
@@ -102,7 +103,7 @@ class SceneSegmentation:
         # save_file.setdefault("SceneSegmentation", {})["started"] = True
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['started']", value=True)
         # if(save_file['SceneSegmentation']['generate_average_output'] == 1):
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='SceneSegmentation', task_status='generate_average_output') == 1:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,  key="['SceneSegmentation']['generate_average_output']") == 1:
             self.video_runner_obj["logger"].info("Already processed")
         else:    
             generate_average_output(self.video_runner_obj)
@@ -124,4 +125,5 @@ class SceneSegmentation:
         # save_file['SceneSegmentation']['run_scene_segmentation'] = 1
         # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['run_scene_segmentation']", value=1)
+        print("Scene segmentation done")
         return

@@ -21,9 +21,10 @@ class CaptionRating:
         """
         # save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         # if save_file['CaptionRating']['started'] == 'done':
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='CaptionRating', task_status='started') == 'done':
+        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['started']") == 'done':
             ## Already processed
-            self.video_runner_obj["logger"].info("Already processed")
+            self.video_runner_obj["logger"].info("CaptionRating Already processed")
+            print("CaptionRating Already processed")
             return
         else:
             self.get_all_caption_rating()
@@ -72,13 +73,15 @@ class CaptionRating:
         # self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         
         # if self.save_file['CaptionRating']['get_all_caption_rating'] == 1:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='CaptionRating', task_status='get_all_caption_rating') == 1:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['get_all_caption_rating']") == 1:
             ## Already processed
             self.video_runner_obj["logger"].info("Already processed")
             return
 
         # processed_frame_indices = self.save_file.get('CaptionRating', {}).get('processed_frame_indices', [])
-        processed_frame_indices = read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='CaptionRating', task_status='processed_frame_indices')
+        processed_frame_indices = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['processed_frame_indices']")
+        if processed_frame_indices == None:
+            processed_frame_indices = []
         
         # Check if the output file exists, create it if not
         if not os.path.exists(output_csv_file):
@@ -102,6 +105,7 @@ class CaptionRating:
 
                     rating = self.get_caption_rating(image_data)
                     self.video_runner_obj["logger"].info(f"Rating for caption {image_data['caption']} is {rating}")
+                    print(f"Rating for caption {image_data['caption']} is {rating}")
 
                     row = [frame_index, image_data['frame_url'], image_data['caption'], rating]
                     csv_writer.writerow(row)
@@ -131,7 +135,7 @@ class CaptionRating:
         
         
         # if save_file['CaptionRating']['filter_captions'] == 1:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, task_name='CaptionRating', task_status='filter_captions') == 1:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['filter_captions']") == 1:
             ## Already processed
             self.video_runner_obj["logger"].info("Already processed")
             return
@@ -171,5 +175,6 @@ class CaptionRating:
         # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['filter_captions']", value=1)
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['started']", value='done')
+        print("Caption filtering complete for {}".format(self.video_runner_obj['video_id']))
         return
 
