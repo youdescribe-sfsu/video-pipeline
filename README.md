@@ -5,6 +5,7 @@
 
 This is a description of the YouDescribeX Pipeline, which includes the steps necessary to generate descriptions for videos using a variety of computer vision and natural language processing tools.
 
+<a href="#save-and-load-progress-mechanism"><font size="6">Jump to Save and Load Mechanism</font></a>
   
 
 ![Pipeline Graph](https://drive.google.com/uc?export=view&id=1WpUQ4XwMI56S2LMgypIC7QtzQFGKYZ60)
@@ -146,3 +147,39 @@ Run the Pipeline with the following code:
        end_time: end time of youtube video to cut in seconds
        upload_to_server: Pass this if you want to upload to YDX server
 
+## Save and Load Progress Mechanism
+### Overview
+In this project, we've implemented a save and load progress mechanism that allows us to track the progress of various tasks associated with video processing and analysis. This mechanism ensures that even if the program is interrupted or closed, we can resume from where we left off without losing any progress data. The progress data is stored in JSON format in separate files associated with each video.
+
+### How it Works
+We've defined a set of functions that handle the saving and loading of progress data, as well as updating specific values within the progress data.
+
+#### `load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None`
+This function loads progress data from a JSON file associated with a specific video. If the file doesn't exist, it starts with a default progress dictionary.
+
+#### `read_value_from_file(video_runner_obj: Dict[str, int], key: str) -> Dict or None`
+This function reads a specific value from the progress data stored in a JSON file based on the provided video runner object and key.
+
+#### `save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[str, int])`
+This function saves progress data to a JSON file associated with a specific video runner object.
+
+#### `save_value_to_file(video_runner_obj: Dict[str, int], key: str, value: Any) -> None`
+This function saves a new value associated with a specific key to the progress data stored in a JSON file for the given video runner object.
+
+### Default Progress Data
+We've defined a default progress data dictionary named `DEFAULT_SAVE_PROGRESS`, which contains various keys and subkeys to track the progress of different tasks related to video analysis. This dictionary structure helps us organize and manage the progress information effectively.
+
+### Usage
+Here's how you can utilize the save and load progress mechanism in your code:
+
+1. **Loading Progress Data**
+   To load progress data associated with a specific video, use the `load_progress_from_file(video_runner_obj)` function. It returns the loaded progress dictionary or the default progress data if the file doesn't exist.
+
+2. **Reading Specific Values**
+   If you want to retrieve a specific value from the progress data, use the `read_value_from_file(video_runner_obj, key)` function. Provide the video runner object and the key corresponding to the value you're interested in.
+
+3. **Saving Progress Data**
+   To save progress data back to the file, use the `save_progress_to_file(video_runner_obj, progress_data)` function. Provide the video runner object and the updated progress data dictionary.
+
+4. **Saving Specific Values**
+   If you need to update a specific value in the progress data and save it back to the file, use the `save_value_to_file(video_runner_obj, key, value)` function. Provide the video runner object, the key, and the new value you want to associate with the key.
