@@ -4,18 +4,23 @@
 ## USER_ID
 ## AI_USER_ID
 
-## SAMPLE DATA
-
+##############################################################################################################
+############################################## SAMPLE DATA ##################################################
+##############################################################################################################
 # {
 #     "youtube_id": {
-#     "ceb2":[
-#         "65c433f7-ceb2-495d-ae01-994388ce56f5"
-#     ],
-# "ceb4":["65c433f7-ceb2-495d-ae01-994388ce56f5"],
-# }
-#         
-#     
-    
+#         "video123": {
+#             "ai_user_123": [
+#                 "user123",
+#                 "user456"
+#             ]
+#         },
+#         "video456": {
+#             "ai_user_789": [
+#                 "user789"
+#             ]
+#         }
+#     }
 # }
 ##############################################################################################################
  
@@ -59,10 +64,10 @@ def load_pipeline_progress_from_file() -> Union[PIPELINE_SAVE_DATA_TYPE, None]:
                 with open(progress_file, 'r') as progress_file_obj:
                     loaded_progress = json.load(progress_file_obj)
             else:
-                return None
+                return loaded_progress
     except Exception as e:
         print(f"Error loading progress from file: {e}")
-        return None
+        return loaded_progress
 
     return loaded_progress
 
@@ -86,5 +91,7 @@ def save_pipeline_progress_to_file(progress_data: PIPELINE_SAVE_DATA_TYPE):
         with progress_lock:
             with open(progress_file, 'w') as progress_file_obj:
                 json.dump(progress_data, progress_file_obj)
+                return
     except Exception as e:
         print(f"Error saving progress to file: {e}")
+        return
