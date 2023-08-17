@@ -61,7 +61,7 @@ class PipelineRunner:
         os.makedirs(return_video_folder_name(video_runner_obj), exist_ok=True)
         log_file = f"{return_video_folder_name(video_runner_obj)}/pipeline.log"
         log_mode = "a" if os.path.exists(log_file) else "w"
-        logger = logging.getLogger(f"PipelineLogger-{video_id}")
+        logger = logging.getLogger(f"PipelineLogger-{video_runner_obj['video_id']}")
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         file_handler = logging.FileHandler(log_file, mode=log_mode)
