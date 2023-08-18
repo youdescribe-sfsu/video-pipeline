@@ -1,5 +1,5 @@
 import csv
-from utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, return_video_folder_name,return_int_if_possible
+from ..utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, return_video_folder_name,return_int_if_possible
 from numpy import dot
 from numpy.linalg import norm
 import warnings

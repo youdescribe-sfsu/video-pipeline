@@ -4,8 +4,8 @@ import shutil
 
 import requests
 
-from utils_module.timeit_decorator import timeit
-from utils_module.utils import (CAPTIONS_CSV,
+from ..utils_module.timeit_decorator import timeit
+from ..utils_module.utils import (CAPTIONS_CSV,
                    FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
                    KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
                    TIMESTAMP_SELECTOR, load_progress_from_file, read_value_from_file, return_video_folder_name,

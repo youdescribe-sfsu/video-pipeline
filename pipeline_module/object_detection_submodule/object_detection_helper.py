@@ -3,8 +3,8 @@
 import requests
 import os
 import csv
-from utils_module.utils import load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OBJECTS_CSV, save_progress_to_file, save_value_to_file
-from utils_module.timeit_decorator import timeit
+from ..utils_module.utils import load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OBJECTS_CSV, save_progress_to_file, save_value_to_file
+from ..utils_module.timeit_decorator import timeit
 
 YOLOv3_tiny = 8080
 YOLOv3_Openimages = 8083
@@ -12,66 +12,54 @@ YOLOv3_9000 = 8084
 
 import json
 
-def get_object_from_YOLO(filename, threshold, service=YOLOv3_tiny,logger=None):
+def get_object_from_YOLO(filename, threshold, service='YOLOv3_tiny', logger=None):
     """
     Use remote image object detection service provided by Andrew
     """
-    # page = 
+    # Get environment variables
     token = os.getenv('ANDREW_YOLO_TOKEN')
-    
+    yolo_port = os.getenv('YOLO_PORT') or '8081'
+        
     fileBuffer = open(filename, 'rb')
     multipart_form_data = {
         'token': ('', str(token)),
         'threshold': ('', str(threshold)),
         'img_file': (os.path.basename(filename), fileBuffer)
     }
-    # headers = {'token':token}
-    page='http://localhost:{}/upload'.format(os.getenv('YOLO_PORT') or 8081)
+    
+    print("filename :: ",filename)
+    
+    page = f'http://localhost:{yolo_port}/upload'
+    
+    return_val = None
 
-    # print('\n=====================')
-    # print("page",page)
-    # print("page ==",page)
-    # print(headers)
-    # print('=====================')
     if logger:
         logger.info(f"Running object detection for {filename}")
-        # logger.info(f"page: {page}")
-        # logger.info(f"headers: {headers}")
-        # logger.info(f"multipart_form_data: {multipart_form_data}")
         logger.info(f"=========================")
-    
+
     try:
         response = requests.post(page, files=multipart_form_data)
-        fileBuffer.close()
-        print("=====in Object Detection=====")
-        if logger:
-            logger.info("========================")
-            logger.info(f"response length: {len(response.text)}")
+        
+
         if response.status_code != 200:
             print("Server returned status {}.".format(response.status_code))
             if logger:
                 logger.info(f"Server returned status {response.status_code}")
-            return []
-        print(f"response length: {len(response.text)}")
+            return_val = []
 
-        # Changes made here
+        # print("TEXT :: ",response.text)
         results = eval(response.text)
         response.close()
-        return results
+        return_val = results
 
-    except:
-        response = requests.post(page, files=multipart_form_data)
-        if response.status_code != 200:
-            print("Server returned status {}.".format(response.status_code))
-            logger.info(f"response length: {len(response.text)}")
-            return []
-        logger.info(f"response: {response.text}")
-        print(f"response length: {len(response.text)}")
-
-        # Changes made here
-        results = eval(response.text)
-        response.close()
-        return results
+    except Exception as e:
+        print("get_object_from_YOLO Error :", e)
+        if logger:
+            logger.error(f"Exception: {e}")
+        return_val = []
+        
+    fileBuffer.close()
+    return return_val
 
 
 def detect_objects(video_files_path, threshold,video_runner_obj, service=YOLOv3_tiny, logging=False, logger=None):

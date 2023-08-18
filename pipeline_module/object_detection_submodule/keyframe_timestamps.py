@@ -9,9 +9,9 @@ Date: August 12, 2023
 # Optimize keyframe selection based on object detection results
 
 import csv
-from utils_module.utils import returnVideoFramesFolder,returnVideoFolderName
-from utils_module.timeit_decorator import timeit
-from utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV,KEYFRAMES_CSV
+from ..utils_module.utils import returnVideoFramesFolder,returnVideoFolderName
+from ..utils_module.timeit_decorator import timeit
+from ..utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV,KEYFRAMES_CSV
 
 @timeit
 def keyframes_from_object_tracking(video_id, target_keyframes_per_second=1):

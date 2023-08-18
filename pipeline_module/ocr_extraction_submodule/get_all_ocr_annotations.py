@@ -7,8 +7,8 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
 # Imports the Google Cloud client library
 from google.cloud import vision
 from google.cloud.vision_v1 import types
-from utils_module.utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR, save_progress_to_file, save_value_to_file
-from utils_module.timeit_decorator import timeit
+from ..utils_module.utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR, save_progress_to_file, save_value_to_file
+from ..utils_module.timeit_decorator import timeit
 from google.cloud.vision_v1 import AnnotateImageResponse
 import json
 from typing import Dict

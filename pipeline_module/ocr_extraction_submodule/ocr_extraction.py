@@ -1,10 +1,10 @@
-from ocr_extraction_submodule.get_all_ocr_annotations import get_all_ocr_annotations
-from ocr_extraction_submodule.get_all_ocr import get_all_ocr
-from ocr_extraction_submodule.filter_ocr import filter_ocr, filter_ocr_agreement, filter_ocr_remove_similarity
-from ocr_extraction_submodule.detect_watermark import detect_watermark
+from .get_all_ocr_annotations import get_all_ocr_annotations
+from .get_all_ocr import get_all_ocr
+from .filter_ocr import filter_ocr, filter_ocr_agreement, filter_ocr_remove_similarity
+from .detect_watermark import detect_watermark
 from typing import Dict
 
-from utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
+from ..utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
 
 class OcrExtraction:
     def __init__(self, video_runner_obj: Dict[str, int]):

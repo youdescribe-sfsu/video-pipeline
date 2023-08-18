@@ -1,5 +1,5 @@
-from text_summarization_submodule.text_summarization_helper import text_summarization_csv
-from utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
+from .text_summarization_helper import text_summarization_csv
+from ..utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
 
 class TextSummarization:
     def __init__(self, video_runner_obj):

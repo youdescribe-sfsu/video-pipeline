@@ -1,8 +1,8 @@
 import csv
-from utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, returnVideoFolderName
+from ..utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, returnVideoFolderName
 from numpy import dot
 from numpy.linalg import norm
-from utils_module.utils import returnIntIfPossible
+from ..utils_module.utils import returnIntIfPossible
 import warnings
 warnings.filterwarnings("error")
 

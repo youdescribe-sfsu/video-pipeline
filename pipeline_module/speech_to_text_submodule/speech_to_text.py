@@ -1,13 +1,13 @@
-from utils_module.utils import TRANSCRIPTS, load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
+from ..utils_module.utils import TRANSCRIPTS, load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
 import os
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tts_cloud_key.json"
 import audio_metadata
 from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import storage
-from utils_module.timeit_decorator import timeit
+from ..utils_module.timeit_decorator import timeit
 from typing import Dict
-from utils_module.utils import return_audio_file_name,return_video_folder_name
+from ..utils_module.utils import return_audio_file_name,return_video_folder_name
 
 ## Make Speech to Text Module
 class SpeechToText:

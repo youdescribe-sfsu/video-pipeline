@@ -1,7 +1,7 @@
-from object_detection_submodule.object_detection_helper import object_detection_to_csv
+from .object_detection_helper import object_detection_to_csv
 from typing import Dict
 
-from utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
+from ..utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
 class ObjectDetection:
     def __init__(self, video_runner_obj: Dict[str, int]):
         """

@@ -19,9 +19,9 @@ import pandas as pd
 import requests
 import sys
 from nltk.translate.bleu_score import sentence_bleu
-from utils_module.utils import return_video_folder_name,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
+from ..utils_module.utils import return_video_folder_name,SCENE_SEGMENTED_FILE_CSV,SUMMARIZED_SCENES
 import os
-from utils_module.timeit_decorator import timeit
+from ..utils_module.timeit_decorator import timeit
 
 from nltk.translate.bleu_score import SmoothingFunction
 

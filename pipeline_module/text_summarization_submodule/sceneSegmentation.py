@@ -1,5 +1,5 @@
 import csv
-from utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, returnVideoFolderName
+from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, returnVideoFolderName
 
 
 columns = {

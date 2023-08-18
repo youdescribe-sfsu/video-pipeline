@@ -1,4 +1,4 @@
-from utils_module.utils import return_video_folder_name,OCR_TEXT_ANNOTATIONS_FILE_NAME,COUNT_VERTICE
+from ..utils_module.utils import return_video_folder_name,OCR_TEXT_ANNOTATIONS_FILE_NAME,COUNT_VERTICE
 import csv 
 import json
 

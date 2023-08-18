@@ -1,6 +1,6 @@
 import csv
-from utils_module.utils import OCR_TEXT_ANNOTATIONS_FILE_NAME,return_video_folder_name,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
-from utils_module.timeit_decorator import timeit
+from ..utils_module.utils import OCR_TEXT_ANNOTATIONS_FILE_NAME,return_video_folder_name,OCR_TEXT_CSV_FILE_NAME,COUNT_VERTICE,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR
+from ..utils_module.timeit_decorator import timeit
 import json
 
 

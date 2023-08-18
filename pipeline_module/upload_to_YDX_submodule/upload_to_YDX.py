@@ -1,6 +1,6 @@
 import json
 import requests
-from utils_module.utils import (
+from ..utils_module.utils import (
     # load_progress_from_file,
     read_value_from_file,
     return_video_folder_name,

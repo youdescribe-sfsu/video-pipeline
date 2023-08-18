@@ -1,6 +1,6 @@
 import csv
-from utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, load_progress_from_file, read_value_from_file, return_video_folder_name, save_progress_to_file, save_value_to_file
-from scene_segmentation_submodule.generate_average_output import generate_average_output
+from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, load_progress_from_file, read_value_from_file, return_video_folder_name, save_progress_to_file, save_value_to_file
+from .generate_average_output import generate_average_output
 
 class SceneSegmentation:
     def __init__(self, video_runner_obj):

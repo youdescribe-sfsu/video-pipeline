@@ -8,8 +8,8 @@ It is kept for reference purposes or potential future use.
 Date: August 12, 2023
 """
 import csv
-from utils_module.utils import returnVideoFolderName,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV
-from utils_module.timeit_decorator import timeit
+from ..utils_module.utils import returnVideoFolderName,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV
+from ..utils_module.timeit_decorator import timeit
 
 @timeit
 def combine_captions_objects(video_id):

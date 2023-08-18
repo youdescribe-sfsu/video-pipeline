@@ -1,14 +1,15 @@
 import logging
-from generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from utils_module.utils import (
-    load_progress_from_file,
-)
+
+from web_server_utils import load_pipeline_progress_from_file
+from ..generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
 
 def run_generate_ydx_caption(video_id, aiUserId):
-    generate_YDX_caption = GenerateYDXCaption({
+    video_runner_obj={
         "video_id": video_id,
-    })
-    save_data = load_progress_from_file()
+        "logger": logging.getLogger(f"PipelineLogger")
+    }
+    generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
+    save_data = load_pipeline_progress_from_file()
     if save_data is None:
         print("run_generate_ydx_caption :: No data found")
         logging.info("run_generate_ydx_caption :: No data found")

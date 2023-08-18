@@ -1,4 +1,4 @@
-from utils_module.utils import CAPTION_SCORE, load_progress_from_file, read_value_from_file, return_video_folder_name,CAPTION_IMAGE_PAIR,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV, save_progress_to_file, save_value_to_file
+from ..utils_module.utils import CAPTION_SCORE, load_progress_from_file, read_value_from_file, return_video_folder_name,CAPTION_IMAGE_PAIR,OBJECTS_CSV,CAPTIONS_CSV,CAPTIONS_AND_OBJECTS_CSV, save_progress_to_file, save_value_to_file
 import csv
 import requests
 import os

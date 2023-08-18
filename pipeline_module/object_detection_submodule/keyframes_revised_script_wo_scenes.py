@@ -13,7 +13,7 @@ Date: August 12, 2023
 # Inserting the extracted keyframes in db (replace csv file path and video id)
 import requests
 import pandas as pd
-from utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
+from ..utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
 
 
 df = pd.read_csv("./qN8DRJ8OMcA_data.csv")

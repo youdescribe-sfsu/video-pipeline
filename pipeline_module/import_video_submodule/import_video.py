@@ -1,8 +1,8 @@
 from logging import Logger
-from utils_module.timeit_decorator import timeit
+from pipeline_module.utils_module.timeit_decorator import timeit
 import json
 import yt_dlp as ydl
-from utils_module.utils import load_progress_from_file, read_value_from_file, return_video_download_location, return_video_folder_name, save_progress_to_file, save_value_to_file
+from ..utils_module.utils import load_progress_from_file, read_value_from_file, return_video_download_location, return_video_folder_name, save_progress_to_file, save_value_to_file
 from datetime import timedelta
 import ffmpeg
 import os

@@ -13,9 +13,9 @@ Date: August 12, 2023
 import requests
 import os
 import csv
-from utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
-from utils_module.utils import returnVideoFramesFolder,returnVideoFolderName
-from utils_module.timeit_decorator import timeit
+from ..utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,CAPTIONS_CSV,TIMESTAMP_SELECTOR,IS_KEYFRAME_SELECTOR,KEYFRAME_CAPTION_SELECTOR
+from ..utils_module.utils import returnVideoFramesFolder,returnVideoFolderName
+from ..utils_module.timeit_decorator import timeit
 
 def get_caption(filename):
 	"""

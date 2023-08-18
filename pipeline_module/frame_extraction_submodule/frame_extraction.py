@@ -1,5 +1,5 @@
-from utils_module.timeit_decorator import timeit
-from utils_module.utils import read_value_from_file, return_video_download_location,  return_video_frames_folder,load_progress_from_file, return_video_progress_file, save_progress_to_file, save_value_to_file
+from ..utils_module.timeit_decorator import timeit
+from ..utils_module.utils import read_value_from_file, return_video_download_location,  return_video_frames_folder,load_progress_from_file, return_video_progress_file, save_progress_to_file, save_value_to_file
 import cv2
 import os
 import json

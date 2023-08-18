@@ -1,8 +1,8 @@
 # Process the raw OCR into more useful output
 import csv
 from requests.api import request
-from utils_module.utils import OCR_HEADERS, return_video_folder_name,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR,OCR_TEXT_SELECTOR,TIMESTAMP_SELECTOR,FRAME_INDEX_SELECTOR
-from utils_module.timeit_decorator import timeit
+from ..utils_module.utils import OCR_HEADERS, return_video_folder_name,OCR_TEXT_CSV_FILE_NAME,OCR_FILTER_CSV_FILE_NAME,OCR_FILTER_CSV_2_FILE_NAME,OCR_FILTER_REMOVE_SIMILAR,OCR_TEXT_SELECTOR,TIMESTAMP_SELECTOR,FRAME_INDEX_SELECTOR
+from ..utils_module.timeit_decorator import timeit
 
 
 def levenshtein_dist(source, target, subcost=1.0, delcost=1.0):
