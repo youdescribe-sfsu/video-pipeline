@@ -14,3 +14,4 @@ audio_metadata
 ffmpeg-python
 python-dotenv
 web.py
+numba

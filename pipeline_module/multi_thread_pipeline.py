@@ -56,7 +56,7 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
 
     def run_frame_extraction():
         # Extract frames using the FrameExtraction operation
-        frame_extraction.extract_frames()
+        frame_extraction.extract_frames_parallel()
 
     def run_audio_and_speech():
         # Extract audio using the ExtractAudio operation
