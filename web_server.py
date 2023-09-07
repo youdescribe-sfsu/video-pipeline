@@ -6,6 +6,7 @@ import requests
 import web
 import json
 from pipeline_module.pipeline_runner import run_pipeline
+from pipeline_module.generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -62,9 +63,12 @@ class PostHandler:
         try:
             data = web.data()
             data_json = json.loads(data)
-            print("data_json",data_json)
+            # print("data_json",data_json)
             # data_json = data_json.get("body",{})
             logger = setup_logger()
+            logger.info("data_json :: {}".format(str(data_json)))
+            logger.info("youtube_id :: {}".format(str(data_json.get("youtube_id", None))))
+
 
             if data_json.get("youtube_id") is None:
                 logger.info("You need to provide a youtube_id")
@@ -86,65 +90,142 @@ class PostHandler:
             )
 
             save_data = load_pipeline_progress_from_file()
-
-            if data_json["youtube_id"] in save_data.keys() and AI_USER_ID in save_data[data_json['youtube_id']].keys():
-                ## Already in progress
-                if AI_USER_ID not in [entry['AI_USER_ID'] for entry in save_data[data_json['youtube_id']][AI_USER_ID]]:
-                    save_data[data_json["youtube_id"]][AI_USER_ID].append(
-                        {
-                            "USER_ID": user_id,
+            youtube_id = data_json["youtube_id"]
+            if youtube_id in save_data.keys():
+                if "data" in save_data[youtube_id]:
+                    if AI_USER_ID in save_data[youtube_id]["data"]:
+                        # Entry already in progress, check if AI_USER_ID exists
+                        if not any(entry['AI_USER_ID'] == AI_USER_ID for entry in save_data[youtube_id]["data"][AI_USER_ID]):
+                            save_data[youtube_id]["data"][AI_USER_ID].append({
+                                "USER_ID": data_json["USER_ID"],
+                                "AI_USER_ID": AI_USER_ID,
+                                "ydx_server": data_json["ydx_server"],
+                                "ydx_app_host": data_json["ydx_app_host"],
+                            })
+                            save_pipeline_progress_to_file(save_data)
+                            logger.info("Pipeline thread finished")
+                            print("You posted: {}".format(json.dumps(data_json)))
+                        else:
+                            print("In else of web_server.py :: line 105")
+                    else:
+                        # Initialize the data dictionary for AI_USER_ID
+                        save_data[youtube_id]["data"][AI_USER_ID] = [{
+                            "USER_ID": data_json["USER_ID"],
                             "AI_USER_ID": AI_USER_ID,
-                            "ydx_server": ydx_server,
-                            "ydx_app_host": ydx_app_host,
-                        }
-                    )
-                    save_pipeline_progress_to_file(progress_data=save_data)
-                    logger.info("Pipeline thread finished")
-                    return "You posted: {}".format(str(data_json))
+                            "ydx_server": data_json["ydx_server"],
+                            "ydx_app_host": data_json["ydx_app_host"],
+                        }]
+                        save_pipeline_progress_to_file(save_data)
                 else:
-                    print("in else of web_server.py :: line 105")
-
-            # Create a separate thread to run the pipeline in the background
-            logger.info("Starting pipeline thread")
-            
-            if data_json["youtube_id"] not in save_data:
-                save_data[data_json["youtube_id"]] = {}
-
-            save_data[data_json["youtube_id"]][AI_USER_ID] = [
-                {
-                    "USER_ID": user_id,
-                    "AI_USER_ID": AI_USER_ID,
-                    "ydx_server": ydx_server,
-                    "ydx_app_host": ydx_app_host,
+                    # Create a new entry for youtube_id
+                    save_data[youtube_id]["data"] = {
+                        AI_USER_ID: [{
+                            "USER_ID": data_json["USER_ID"],
+                            "AI_USER_ID": AI_USER_ID,
+                            "ydx_server": data_json["ydx_server"],
+                            "ydx_app_host": data_json["ydx_app_host"],
+                        }]
+                    }
+                    save_pipeline_progress_to_file(save_data)
+            else:
+                # Create a new entry for youtube_id
+                save_data[youtube_id] = {
+                    "data": {
+                        AI_USER_ID: [{
+                            "USER_ID": data_json["USER_ID"],
+                            "AI_USER_ID": AI_USER_ID,
+                            "ydx_server": data_json["ydx_server"],
+                            "ydx_app_host": data_json["ydx_app_host"],
+                            "status": "in_progress"
+                        }]
+                    },
+                    "status": "in_progress"
                 }
-            ]
-            save_pipeline_progress_to_file(progress_data=save_data)
+                save_pipeline_progress_to_file(save_data)
+                logger.info("Starting pipeline thread")
 
-            pipeline_thread = threading.Thread(
-                target=self.run_pipeline_background,
-                args=(self.on_pipeline_completed,),  # Pass the callback function as a tuple
-                kwargs={
-                    "video_id": data_json["youtube_id"],
-                    "video_start_time": data_json.get("video_start_time", None),
-                    "video_end_time": data_json.get("video_end_time", None),
-                    "upload_to_server": data_json.get("upload_to_server", True),
-                    "multi_thread": data_json.get("multi_thread", False),
-                    "tasks": data_json.get("tasks", None),
-                    "ydx_server": ydx_server,
-                    "ydx_app_host": ydx_app_host,
-                    "user_id": user_id,
-                    "aiUserId": AI_USER_ID,
-                },
-            )
-            logger.info("Starting pipeline thread")
-            pipeline_thread.start()
+                pipeline_thread = threading.Thread(
+                    target=self.run_pipeline_background,
+                    args=(self.on_pipeline_completed,),  # Pass the callback function as a tuple
+                    kwargs={
+                        "video_id": data_json["youtube_id"],
+                        "video_start_time": data_json.get("video_start_time", None),
+                        "video_end_time": data_json.get("video_end_time", None),
+                        "upload_to_server": data_json.get("upload_to_server", True),
+                        "multi_thread": data_json.get("multi_thread", False),
+                        "tasks": data_json.get("tasks", None),
+                        "ydx_server": ydx_server,
+                        "ydx_app_host": ydx_app_host,
+                        "user_id": user_id,
+                        "aiUserId": AI_USER_ID,
+                    },
+                )
+                logger.info("Starting pipeline thread")
+                pipeline_thread.start()
 
-            # Wait for the pipeline_thread to finish using join()
-            logger.info("Pipeline thread finished")
+                # Wait for the pipeline_thread to finish using join()
+                logger.info("Pipeline thread finished")
         except Exception as e:
             print(f"Error Running Pipeline : {e}")
         return "You posted: {}".format(str(data_json))
 
 
 if __name__ == "__main__":
+    save_data = load_pipeline_progress_from_file()
+    for video_id in save_data.keys():
+        video_data = save_data[video_id]
+        
+        # Check if the status for the current video ID is "in_progress"
+        if video_data["status"] == "done":
+            print(f"Processing video ID: {video_id}")
+
+            # Iterate through the AI users' data for the current video ID
+            for ai_user_id, objects in video_data["data"].items():
+                video_runner_obj={
+                    "video_id": video_id,
+                    "logger": logging.getLogger(__name__)
+                }
+                generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
+                for obj in objects:
+                    # Check if the status for the current object is "in_progress"
+                    if obj["status"] == "in_progress":
+                        # Your code to process this object goes here
+                        print(f"Processing object for AI user {ai_user_id}")
+                        generate_YDX_caption.generateYDXCaption(
+                            ydx_server=obj.get("ydx_server", None),
+                            ydx_app_host=obj.get("ydx_app_host", None),
+                            userId=obj.get("USER_ID", None),
+                            aiUserId=obj.get("AI_USER_ID", None),
+                            logger=logging.getLogger(__name__),
+                        )
+                        
+                        # Mark the object as "done"
+                        obj["status"] = "done"
+
+            # Optionally, update the JSON data if needed
+            
+        else:
+            posthandler = PostHandler()
+            ## select first AI user id
+            AI_USER_ID = list(video_data["data"].keys())[0]
+            
+            pipeline_thread = threading.Thread(
+                    target=posthandler.run_pipeline_background,
+                    args=(posthandler.on_pipeline_completed,),  # Pass the callback function as a tuple
+                    kwargs={
+                        "video_id": video_id,
+                        "video_start_time": None,
+                        "video_end_time":None,
+                        "upload_to_server": True,
+                        "multi_thread": False,
+                        "tasks": None,
+                        "ydx_server": video_data['data'][AI_USER_ID][0]['ydx_server'],
+                        "ydx_app_host": video_data['data'][AI_USER_ID][0]['ydx_app_host'],
+                        "user_id": video_data['data'][AI_USER_ID][0]['USER_ID'],
+                        "aiUserId": AI_USER_ID,
+                    },
+                )
+            logging.getLogger("__name__").info("Starting pipeline thread")
+            pipeline_thread.start()
+    
     app.run()

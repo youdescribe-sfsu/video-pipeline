@@ -78,6 +78,7 @@ class PipelineRunner:
                 "video_id": self.video_id,
                 "video_start_time": self.video_start_time,
                 "video_end_time": self.video_end_time,
+                "ydx_server": self.ydx_server
             }
         )
         logger.info(f"Processing video: {self.video_id}")
@@ -87,6 +88,7 @@ class PipelineRunner:
             "video_start_time": self.video_start_time,
             "video_end_time": self.video_end_time,
             "logger": logger,
+            "ydx_server": self.ydx_server
         }
 
         progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
@@ -151,7 +153,8 @@ class PipelineRunner:
             #     userId=self.userId,
             #     aiUserId=self.aiUserId,
             # )
-            run_generate_ydx_caption(self.video_id, self.aiUserId)
+            run_generate_ydx_caption(self.video_id, self.aiUserId, logger=logger)
+            
 
     def run_multi_thread_pipeline(self):
         logger = self.setup_logger(

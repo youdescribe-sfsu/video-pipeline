@@ -1,4 +1,5 @@
 import json
+from logging import Logger
 import os
 from typing import Dict
 import requests
@@ -7,7 +8,7 @@ class GenerateYDXCaption:
     def __init__(self, video_runner_obj: Dict[str, int]):
         self.video_runner_obj = video_runner_obj
     
-    def generateYDXCaption(self,ydx_server=None,aiUserId=None,userId=None,ydx_app_host=None):
+    def generateYDXCaption(self,ydx_server=None,aiUserId=None,userId=None,ydx_app_host=None,logger:Logger=None):
         
         
         if(ydx_server == None):
@@ -40,20 +41,16 @@ class GenerateYDXCaption:
         #     ydx_server = 'http://3.101.130.10:4000'
         url = '{}/api/create-user-links/generate-audio-desc-gpu'.format(ydx_server)
         headers = {"Content-Type": "application/json; charset=utf-8"}
-        self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
+        logger.info("===== UPLOADING DATA to {} =====".format(url))
         response = requests.post(url, data=json.dumps(data), headers=headers)
-        self.video_runner_obj["logger"].info("===== RESPONSE =====")
-        self.video_runner_obj["logger"].info(response.text)
+        logger.info("===== RESPONSE =====")
+        logger.info(response.text)
         data = response.json()
         if(response.status_code == 200):
             print("Success in generating YDX Caption")
-            self.video_runner_obj["logger"].info("Success")
-            self.video_runner_obj["logger"].info(data)
-            # requests.get(data['url'])
+            logger.info("Success")
+            logger.info(data)
         else:
-            self.video_runner_obj["logger"].info("Failure in generating YDX Caption")
-            self.video_runner_obj["logger"].info(data.get('message'))
-            print("Failure in generating YDX Caption")
-            print(data.get('message'))
-        
+            logger.info("Failure in generating YDX Caption")
+            logger.info(data.get('message'))
         return

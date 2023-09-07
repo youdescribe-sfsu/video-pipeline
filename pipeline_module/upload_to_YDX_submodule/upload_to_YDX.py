@@ -175,30 +175,31 @@ class UploadToYDX:
             return_video_folder_name(self.video_runner_obj) + "/" + "final_data.json", mode="w"
         ) as f:
             f.write(json.dumps(data, indent=4))
-        if(self.upload_to_server):
+        if self.upload_to_server:
             print("===== UPLOADING DATA =====")
-            # send data to wherever db is
-            
-            # ydx_server = os.getenv("YDX_WEB_SERVER")
-            if ydx_server == None:
+            # send data to wherever the database is
+
+            ydx_server = self.video_runner_obj.get('ydx_server')
+            if ydx_server is None:
                 ydx_server = os.getenv("YDX_WEB_SERVER")
             url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
             headers = {"Content-Type": "application/json; charset=utf-8"}
             self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
+            
             try:
                 r = requests.post(url, data=json.dumps(data), headers=headers)
                 print("===== RESPONSE =====")
                 print(r.text)
+                print(r.status_code)
                 self.video_runner_obj["logger"].info("===== RESPONSE =====")
                 self.video_runner_obj["logger"].info(r.text)
                 r.close()
-            except:
-                r = requests.post(url, data=json.dumps(data), headers=headers)
-                self.video_runner_obj["logger"].info("===== RESPONSE =====")
-                self.video_runner_obj["logger"].info(r.text)
-                print(r.text)
-                r.close()
-        # save_file["UploadToYDX"]['started'] = 'done'
-        # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
+                
+                # Save the completion status only if the request was successful
+                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
+            except Exception as e:
+                print("Error during request:", str(e))
+                self.video_runner_obj["logger"].error("Error during request: %s", str(e))
+                # You may want to handle the exception or log the error as needed
+
         return

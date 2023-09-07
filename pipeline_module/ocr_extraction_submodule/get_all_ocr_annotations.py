@@ -125,44 +125,22 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 	video_runner_obj["logger"].info(f"Getting all OCR annotations for {video_runner_obj['video_id']}")
 	video_runner_obj["logger"].info(f"video_frames_folder={video_frames_folder}")
 
-	# video_name = video_name.split('/')[-1].split('.')[0]
- 	# Read data for the video
-	
-	# progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
-	# if progress_file['OCR']['started'] == False:
 	if read_value_from_file(video_runner_obj=video_runner_obj, key="['OCR']['started']") == False:
-		# progress_file['OCR']['started'] = True
 		save_value_to_file(video_runner_obj=video_runner_obj, key="['OCR']['started']", value=True)
-		# step = progress_file['video_common_values']['step']
+  
 		step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
-		# progress_file['OCR']['step'] = step
-		# num_frames = progress_file['video_common_values']['num_frames']
 		num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-		# progress_file['OCR']['num_frames'] = num_frames
-		# progress_file['OCR']['frames_per_second'] = progress_file['FrameExtraction']['actual_frames_per_second']
-		# frames_per_second = progress_file['video_common_values']['frames_per_second']
 		frames_per_second = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['frames_per_second']")
-		# progress_file['OCR']['frames_per_second'] = frames_per_second
 		start = 0
-		# progress_file['OCR']['start'] = start
-		# save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
+  
 		save_value_to_file(video_runner_obj=video_runner_obj, key="['OCR']['start']", value=start)
 
 	else:
-		# step = progress_file['video_common_values']['step']
 		step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
-		# num_frames = progress_file['video_common_values']['num_frames']
 		num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-		# frames_per_second = progress_file['video_common_values']['frames_per_second']
 		frames_per_second = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['frames_per_second']")
-		# start = progress_file['OCR']['start']
 		start = read_value_from_file(video_runner_obj=video_runner_obj, key="['OCR']['start']")
 		
-	# with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
-	# 	data = datafile.readline().split()
-	# 	step = int(data[0]) ## frames_per_extraction
-	# 	num_frames = int(data[1]) ## frame_count
-	# 	frames_per_second = float(data[2]) ## actual_frames_per_second
 	
 	# Calculate video fps and seconds per frame
 	video_fps = step * frames_per_second
@@ -170,20 +148,6 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
  
  	# Path to the csv file where OCR annotations will be written
 	outcsvpath = return_video_folder_name(video_runner_obj=video_runner_obj)+ "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
- 
-	#check if file already contains progress from last attempt
-	# if os.path.exists(outcsvpath) :
-	# 	if os.stat(outcsvpath).st_size > 32:
-	# 		with open(outcsvpath, 'r', newline='', encoding='utf-8') as file:
-	# 			lines = file.readlines()
-	# 			lines.reverse()
-	# 			i = 0
-	# 			last_line = lines[i].split(",")[0]
-	# 			while not last_line.isnumeric():
-	# 				i+= 1
-	# 				last_line = lines[i].split(",")[0]			
-	# 			start = int(last_line)+step
-	# 			file.close()
 
 	if start != 0:
 		mode = 'a'
