@@ -97,7 +97,7 @@ class PostHandler:
                         # Entry already in progress, check if AI_USER_ID exists
                         if not any(entry['AI_USER_ID'] == AI_USER_ID for entry in save_data[youtube_id]["data"][AI_USER_ID]):
                             save_data[youtube_id]["data"][AI_USER_ID].append({
-                                "USER_ID": data_json["USER_ID"],
+                                "USER_ID": data_json["user_id"],
                                 "AI_USER_ID": AI_USER_ID,
                                 "ydx_server": data_json["ydx_server"],
                                 "ydx_app_host": data_json["ydx_app_host"],
@@ -111,7 +111,7 @@ class PostHandler:
                     else:
                         # Initialize the data dictionary for AI_USER_ID
                         save_data[youtube_id]["data"][AI_USER_ID] = [{
-                            "USER_ID": data_json["USER_ID"],
+                            "USER_ID": data_json["user_id"],
                             "AI_USER_ID": AI_USER_ID,
                             "ydx_server": data_json["ydx_server"],
                             "ydx_app_host": data_json["ydx_app_host"],
@@ -121,7 +121,7 @@ class PostHandler:
                     # Create a new entry for youtube_id
                     save_data[youtube_id]["data"] = {
                         AI_USER_ID: [{
-                            "USER_ID": data_json["USER_ID"],
+                            "USER_ID": data_json["user_id"],
                             "AI_USER_ID": AI_USER_ID,
                             "ydx_server": data_json["ydx_server"],
                             "ydx_app_host": data_json["ydx_app_host"],
@@ -133,7 +133,7 @@ class PostHandler:
                 save_data[youtube_id] = {
                     "data": {
                         AI_USER_ID: [{
-                            "USER_ID": data_json["USER_ID"],
+                            "USER_ID": data_json["user_id"],
                             "AI_USER_ID": AI_USER_ID,
                             "ydx_server": data_json["ydx_server"],
                             "ydx_app_host": data_json["ydx_app_host"],
@@ -198,7 +198,7 @@ if __name__ == "__main__":
                         generate_YDX_caption.generateYDXCaption(
                             ydx_server=obj.get("ydx_server", None),
                             ydx_app_host=obj.get("ydx_app_host", None),
-                            userId=obj.get("USER_ID", None),
+                            userId=obj.get("user_id", None),
                             aiUserId=obj.get("AI_USER_ID", None),
                             logger=logger,
                         )
