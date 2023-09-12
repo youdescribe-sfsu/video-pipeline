@@ -1,5 +1,5 @@
 import csv
-from ..utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, returnVideoFolderName
+from ..utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, return_video_folder_name
 from numpy import dot
 from numpy.linalg import norm
 from ..utils_module.utils import returnIntIfPossible
@@ -15,8 +15,8 @@ def cosine_similarity(v1,v2):
 
 def generateOutputAvg(video_id):
     '''Generate output avg csv file for a video'''
-    captions_and_objects_csv = returnVideoFolderName(video_id)+'/'+CAPTIONS_AND_OBJECTS_CSV
-    output_avg_csv = returnVideoFolderName(video_id)+'/'+OUTPUT_AVG_CSV
+    captions_and_objects_csv = return_video_folder_name(video_id)+'/'+CAPTIONS_AND_OBJECTS_CSV
+    output_avg_csv = return_video_folder_name(video_id)+'/'+OUTPUT_AVG_CSV
     jsonArray = []
     with open(captions_and_objects_csv, 'r') as csvFile:
         csvReader = csv.DictReader(csvFile) 

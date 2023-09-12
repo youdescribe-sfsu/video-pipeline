@@ -106,6 +106,7 @@ class PostHandler:
                             logger.info("Pipeline thread finished")
                             print("You posted: {}".format(json.dumps(data_json)))
                         else:
+                            logger.info("In else of web_server.py :: line 105")
                             print("In else of web_server.py :: line 105")
                     else:
                         # Initialize the data dictionary for AI_USER_ID
@@ -166,37 +167,40 @@ class PostHandler:
                 # Wait for the pipeline_thread to finish using join()
                 logger.info("Pipeline thread finished")
         except Exception as e:
+            logger.info(f"Error Running Pipeline : {e}")
             print(f"Error Running Pipeline : {e}")
         return "You posted: {}".format(str(data_json))
 
 
 if __name__ == "__main__":
     save_data = load_pipeline_progress_from_file()
+    logger = setup_logger()
     for video_id in save_data.keys():
         video_data = save_data[video_id]
         
         # Check if the status for the current video ID is "in_progress"
         if video_data["status"] == "done":
             print(f"Processing video ID: {video_id}")
+            logger.info(f"Processing video ID: {video_id}")
 
             # Iterate through the AI users' data for the current video ID
             for ai_user_id, objects in video_data["data"].items():
                 video_runner_obj={
                     "video_id": video_id,
-                    "logger": logging.getLogger(__name__)
+                    "logger": logger,
                 }
                 generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
                 for obj in objects:
                     # Check if the status for the current object is "in_progress"
                     if obj["status"] == "in_progress":
                         # Your code to process this object goes here
-                        print(f"Processing object for AI user {ai_user_id}")
+                        logger.info(f"Processing object for AI user {ai_user_id}")
                         generate_YDX_caption.generateYDXCaption(
                             ydx_server=obj.get("ydx_server", None),
                             ydx_app_host=obj.get("ydx_app_host", None),
                             userId=obj.get("USER_ID", None),
                             aiUserId=obj.get("AI_USER_ID", None),
-                            logger=logging.getLogger(__name__),
+                            logger=logger,
                         )
                         
                         # Mark the object as "done"
@@ -225,7 +229,7 @@ if __name__ == "__main__":
                         "aiUserId": AI_USER_ID,
                     },
                 )
-            logging.getLogger("__name__").info("Starting pipeline thread")
+            logger.info("Starting pipeline thread")
             pipeline_thread.start()
     
     app.run()

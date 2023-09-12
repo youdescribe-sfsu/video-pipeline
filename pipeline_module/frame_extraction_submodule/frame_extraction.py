@@ -4,7 +4,7 @@ import cv2
 import os
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
-import numba
+# import numba
 
 class FrameExtraction:
     def __init__(self, video_runner_obj: Dict[str, int], frames_per_second: int):
@@ -115,7 +115,7 @@ class FrameExtraction:
 
         self.logger.info(f"Extracting frames from {self.video_runner_obj['video_id']} ({fps} fps, {num_frames} frames)...")
 
-        @numba.njit
+        # @numba.njit
         def process_frame(frame_count):
             status, frame = vid.read()
             if not status:
