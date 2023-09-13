@@ -21,7 +21,7 @@ from .utils_module.ydx_caption import run_generate_ydx_caption
 
 
 @timeit
-def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_to_server,logger,ydx_server=None,ydx_app_host=None,userId=None,aiUserId=None):
+def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_to_server,logger,ydx_server=None,ydx_app_host=None,userId=None,AI_USER_ID=None):
     ## Run the pipeline in parallel
     
     
@@ -146,7 +146,7 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
     upload_to_YDX = UploadToYDX(video_runner_obj,upload_to_server=upload_to_server)
     upload_to_YDX.upload_to_ydx()
     if(upload_to_server):
-        run_generate_ydx_caption(video_id, aiUserId)
+        run_generate_ydx_caption(video_id, AI_USER_ID)
     #     generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
     #     generate_YDX_caption.generateYDXCaption()
     

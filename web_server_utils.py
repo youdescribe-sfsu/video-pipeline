@@ -1,7 +1,7 @@
 
 
 ## Youtube_ID
-## USER_ID
+## user_id
 ## AI_USER_ID
 
 ##############################################################################################################
@@ -12,7 +12,7 @@
         "data": {
             "ai_user_123": [
                 {
-                    "USER_ID": "asdasdasd",
+                    "user_id": "asdasdasd",
                     "AI_USER_ID": "asdasd",
                     "ydx_server": "some_server",
                     "ydx_app_host": "some_host",

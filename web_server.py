@@ -97,7 +97,7 @@ class PostHandler:
                         # Entry already in progress, check if AI_USER_ID exists
                         if not any(entry['AI_USER_ID'] == AI_USER_ID for entry in save_data[youtube_id]["data"][AI_USER_ID]):
                             save_data[youtube_id]["data"][AI_USER_ID].append({
-                                "USER_ID": data_json["user_id"],
+                                "user_id": data_json["user_id"],
                                 "AI_USER_ID": AI_USER_ID,
                                 "ydx_server": data_json["ydx_server"],
                                 "ydx_app_host": data_json["ydx_app_host"],
@@ -111,7 +111,7 @@ class PostHandler:
                     else:
                         # Initialize the data dictionary for AI_USER_ID
                         save_data[youtube_id]["data"][AI_USER_ID] = [{
-                            "USER_ID": data_json["user_id"],
+                            "user_id": data_json["user_id"],
                             "AI_USER_ID": AI_USER_ID,
                             "ydx_server": data_json["ydx_server"],
                             "ydx_app_host": data_json["ydx_app_host"],
@@ -121,7 +121,7 @@ class PostHandler:
                     # Create a new entry for youtube_id
                     save_data[youtube_id]["data"] = {
                         AI_USER_ID: [{
-                            "USER_ID": data_json["user_id"],
+                            "user_id": data_json["user_id"],
                             "AI_USER_ID": AI_USER_ID,
                             "ydx_server": data_json["ydx_server"],
                             "ydx_app_host": data_json["ydx_app_host"],
@@ -133,7 +133,7 @@ class PostHandler:
                 save_data[youtube_id] = {
                     "data": {
                         AI_USER_ID: [{
-                            "USER_ID": data_json["user_id"],
+                            "user_id": data_json["user_id"],
                             "AI_USER_ID": AI_USER_ID,
                             "ydx_server": data_json["ydx_server"],
                             "ydx_app_host": data_json["ydx_app_host"],
@@ -158,7 +158,7 @@ class PostHandler:
                         "ydx_server": ydx_server,
                         "ydx_app_host": ydx_app_host,
                         "user_id": user_id,
-                        "aiUserId": AI_USER_ID,
+                        "AI_USER_ID": AI_USER_ID,
                     },
                 )
                 logger.info("Starting pipeline thread")
@@ -199,7 +199,7 @@ if __name__ == "__main__":
                             ydx_server=obj.get("ydx_server", None),
                             ydx_app_host=obj.get("ydx_app_host", None),
                             userId=obj.get("user_id", None),
-                            aiUserId=obj.get("AI_USER_ID", None),
+                            AI_USER_ID=obj.get("AI_USER_ID", None),
                             logger=logger,
                         )
                         
@@ -225,8 +225,8 @@ if __name__ == "__main__":
                         "tasks": None,
                         "ydx_server": video_data['data'][AI_USER_ID][0]['ydx_server'],
                         "ydx_app_host": video_data['data'][AI_USER_ID][0]['ydx_app_host'],
-                        "user_id": video_data['data'][AI_USER_ID][0]['USER_ID'],
-                        "aiUserId": AI_USER_ID,
+                        "user_id": video_data['data'][AI_USER_ID][0]['user_id'],
+                        "AI_USER_ID": AI_USER_ID,
                     },
                 )
             logger.info("Starting pipeline thread")

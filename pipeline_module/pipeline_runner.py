@@ -42,7 +42,7 @@ class PipelineRunner:
         ydx_server=None,
         ydx_app_host=None,
         userId=None,
-        aiUserId=None,
+        AI_USER_ID=None,
     ):
         self.video_id = video_id
         self.video_start_time = video_start_time
@@ -56,7 +56,7 @@ class PipelineRunner:
         self.ydx_server = ydx_server
         self.ydx_app_host = ydx_app_host
         self.userId = userId
-        self.aiUserId = aiUserId
+        self.AI_USER_ID = AI_USER_ID
 
     def setup_logger(self, video_runner_obj):
         os.makedirs(return_video_folder_name(video_runner_obj), exist_ok=True)
@@ -151,9 +151,9 @@ class PipelineRunner:
             #     ydx_server=self.ydx_server,
             #     ydx_app_host=self.ydx_app_host,
             #     userId=self.userId,
-            #     aiUserId=self.aiUserId,
+            #     AI_USER_ID=self.AI_USER_ID,
             # )
-            run_generate_ydx_caption(self.video_id, self.aiUserId, logger=logger)
+            run_generate_ydx_caption(self.video_id, self.AI_USER_ID, logger=logger)
             
 
     def run_multi_thread_pipeline(self):
@@ -173,7 +173,7 @@ class PipelineRunner:
             ydx_server=self.ydx_server,
             ydx_app_host=self.ydx_app_host,
             userId=self.userId,
-            aiUserId=self.aiUserId,
+            AI_USER_ID=self.AI_USER_ID,
         )
         return
 
@@ -188,7 +188,7 @@ def run_pipeline(
     ydx_server=None,
     ydx_app_host=None,
     userId=None,
-    aiUserId=None,
+    AI_USER_ID=None,
 ):
     pipeline_runner = PipelineRunner(
         video_id=video_id,
@@ -199,7 +199,7 @@ def run_pipeline(
         ydx_server=ydx_server,
         ydx_app_host=ydx_app_host,
         userId=userId,
-        aiUserId=aiUserId,
+        AI_USER_ID=AI_USER_ID,
     )
     if multi_thread:
         pipeline_runner.run_multi_thread_pipeline()

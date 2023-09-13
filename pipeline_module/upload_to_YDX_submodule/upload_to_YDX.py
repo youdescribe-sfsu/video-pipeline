@@ -135,7 +135,7 @@ class UploadToYDX:
                     clip["text"].replace("\n", ".")
             except:
                 continue
-        aiUserId = os.getenv("YDX_AI_USER_ID")
+        AI_USER_ID = os.getenv("YDX_AI_USER_ID")
         ##TODO Check and remove this if not required
         audio_clips.sort(key=lambda x: float(x["start_time"]))
         # for audio_clip in audio_clips:
@@ -163,7 +163,7 @@ class UploadToYDX:
             "video_name": metadata["title"],
             "dialogue_timestamps": dialogue_timestamps,
             # AI USER ID
-            "aiUserId": aiUserId,
+            "AI_USER_ID": AI_USER_ID,
         }
         print("===== UPLOADING DATA =====")
         print(data)
