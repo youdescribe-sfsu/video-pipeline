@@ -25,6 +25,14 @@ class GenerateYDXCaption:
             ydx_app_host = os.getenv('YDX_APP_HOST')
         
         
+        print(" OBJEct :: ", str({
+            ydx_server,
+            AI_USER_ID,
+            userId,
+            ydx_app_host,
+        }))
+        
+        
         # userId = os.getenv('YDX_USER_ID')
         # AI_USER_ID = os.getenv('YDX_AI_USER_ID')
         # if(userId == None):
@@ -34,7 +42,7 @@ class GenerateYDXCaption:
         "youtubeVideoId" : self.video_runner_obj.get("video_id"),
         "ydx_app_host" : ydx_app_host,
         # Change AI ID to the ID of the AI you want to use
-        "AI_USER_ID": AI_USER_ID
+        "aiUserId": AI_USER_ID
         }
         # ydx_server = os.getenv('YDX_WEB_SERVER')
         # if(ydx_server == None):
@@ -42,6 +50,7 @@ class GenerateYDXCaption:
         url = '{}/api/create-user-links/generate-audio-desc-gpu'.format(ydx_server)
         headers = {"Content-Type": "application/json; charset=utf-8"}
         logger.info("===== UPLOADING DATA to {} =====".format(url))
+        logger.info("===== UPLOADING DATA {} =====".format(str(data)))
         response = requests.post(url, data=json.dumps(data), headers=headers)
         logger.info("===== RESPONSE =====")
         logger.info(response.text)
