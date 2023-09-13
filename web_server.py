@@ -23,7 +23,7 @@ app = web.application(urls, globals())
 def setup_logger():
     # Get the current date
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    log_file = f"pipeline_api_{current_date}.log"
+    log_file = f"pipeline_logs/pipeline_api_{current_date}.log"
     log_mode = "a" if os.path.exists(log_file) else "w"
     logger = logging.getLogger(f"PipelineLogger")
     logger.setLevel(logging.INFO)
