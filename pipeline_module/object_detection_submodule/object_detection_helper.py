@@ -52,13 +52,18 @@ def get_object_from_YOLO(filename, threshold, service='YOLOv3_tiny', logger=None
         response.close()
         return_val = results
 
-    except Exception as e:
-        print("get_object_from_YOLO Error :", e)
-        if logger:
-            logger.error(f"Exception: {e}")
-        return_val = []
+    except requests.exceptions.Timeout:
+            print("Request timed out")
+            raise Exception('Request timed out')
+            # Handle the timeout error here
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        raise Exception(f"Request error: {e}")
+    finally:
+        # Close the socket if it's still open
+        if fileBuffer is not None:
+            fileBuffer.close()
         
-    fileBuffer.close()
     return return_val
 
 

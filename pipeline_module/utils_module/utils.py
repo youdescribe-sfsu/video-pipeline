@@ -68,13 +68,13 @@ class PipelineTask(Enum):
 import os
 from typing import Dict,Union
 
-def return_video_folder_name(video_runner_obj: Dict[str, int]) -> str:
+def return_video_folder_name(video_runner_obj: Dict[str, int|str]) -> str:
     """
     Returns the folder name for a video.
 
     Parameters:
     video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
-        The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
+        The keys are "video_id", "video_start_time", "video_end_time", and "AI_USER_ID and their values.
 
     Returns:
     str: The folder name for the video.
@@ -83,17 +83,24 @@ def return_video_folder_name(video_runner_obj: Dict[str, int]) -> str:
     video_start_time = video_runner_obj.get("video_start_time",None)
     video_end_time = video_runner_obj.get("video_end_time",None)
     CURRENT_ENV = os.environ.get("CURRENT_ENV", "production")
+    AI_USER_ID = video_runner_obj.get("AI_USER_ID", None)
+    return_string = ""
 
     if video_start_time is not None and video_end_time is not None:
         if CURRENT_ENV == "development":
-            return f"{video_id}_files/part_start_{video_start_time}_{video_end_time}"
+            return_string =  f"{video_id}_files/part_start_{video_start_time}_{video_end_time}"
         else:
-            return f"/home/datasets/pipeline/{video_id}_files/part_start_{video_start_time}_end_{video_end_time}_files"
+            return_string =  f"/home/datasets/pipeline/{video_id}_files/part_start_{video_start_time}_end_{video_end_time}_files"
 
     if CURRENT_ENV == "development":
-        return f"{video_id}_files"
+        return_string = f"{video_id}_files"
     else:
-        return f"/home/datasets/pipeline/{video_id}_files"
+        return_string = f"/home/datasets/pipeline/{video_id}_files"
+    
+    if AI_USER_ID is not None:
+        return_string = f"{return_string}_{AI_USER_ID}"
+    
+    return return_string
 
 def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     """

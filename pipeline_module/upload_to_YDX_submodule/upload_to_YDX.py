@@ -163,7 +163,7 @@ class UploadToYDX:
             "video_name": metadata["title"],
             "dialogue_timestamps": dialogue_timestamps,
             # AI USER ID
-            "AI_USER_ID": AI_USER_ID,
+            "aiUserId": AI_USER_ID,
         }
         print("===== UPLOADING DATA =====")
         print(data)

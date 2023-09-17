@@ -45,15 +45,21 @@ class ImageCaptioning:
             
             self.video_runner_obj["logger"].info(f"Running image captioning for {filename}")
             self.video_runner_obj["logger"].info(f"multipart_form_data: {multipart_form_data}")
+            print("file :: ",page)
             
-            response = requests.post(page, files=multipart_form_data)
+            response = requests.post(page, files=multipart_form_data,timeout=10)
             if response.status_code == 200:
                 json_obj = response.json()
                 caption_img = json_obj['caption']
             else:
                 self.video_runner_obj["logger"].info(f"Server returned status {response.status_code}")
+        except requests.exceptions.Timeout:
+            print("Request timed out")
+            raise Exception('Request timed out')
+            # Handle the timeout error here
         except requests.exceptions.RequestException as e:
-            self.video_runner_obj["logger"].info(f"Exception occurred during the request: {str(e)}")
+            print(f"Request error: {e}")
+            raise Exception(f"Request error: {e}")
         finally:
             # Close the socket if it's still open
             if fileBuffer is not None:
@@ -101,13 +107,16 @@ class ImageCaptioning:
         frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['video_common_values']['frames_per_second']")
         
         ## Get this from first column of Keyframe.csv
-        # frames_to_process = list(range(last_processed_frame + step, num_frames, step))
         with open(video_folder_path + '/'+ KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
             ## Get all values of first column
             reader = csv.reader(incsvfile)
             header = next(reader) # skip header
             keyframes = [int(row[0]) for row in reader]
-        frames_to_process = keyframes
+        
+        num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['video_common_values']['num_frames']")
+        frames_to_process = list(range(last_processed_frame + step, num_frames, step))
+        # frames_to_process = keyframes
+        all_keyframes = keyframes
         
         ## Remove all frames that have already been processed
         frames_to_process = [frame for frame in frames_to_process if frame > last_processed_frame]
@@ -154,7 +163,7 @@ class ImageCaptioning:
                 caption = self.get_caption(frame_filename)
 
                 if type(caption) == str:
-                    row = [frame_index, float(frame_index) * seconds_per_frame, False, caption]
+                    row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in all_keyframes, caption]
                     writer.writerow(row)
                 
                 print("Frame index: ", frame_index, " Caption: ", caption)

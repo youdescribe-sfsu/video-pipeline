@@ -1,22 +1,21 @@
 import csv
 from ..utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, return_video_folder_name,return_int_if_possible
-from numpy import dot
-from numpy.linalg import norm
 import warnings
 warnings.filterwarnings("error")
 
+import numpy as np
 
-def cosine_similarity(v1,v2):
+def cosine_similarity(v1, v2):
     "compute cosine similarity of v1 to v2: (v1 dot v2)/{||v1||*||v2||)"
     try:
-        return dot(v1, v2)/(norm(v1,ord=2)*norm(v2,ord=2))
+        return np.dot(v1, v2) / (np.linalg.norm(v1, ord=2) * np.linalg.norm(v2, ord=2))
     except RuntimeWarning:
         return "NaN"
 
-def generate_average_output(video_runner_obj):
+def generate_average_output(video_id):
     '''Generate output avg csv file for a video'''
-    captions_and_objects_csv = return_video_folder_name(video_runner_obj)+'/'+CAPTIONS_AND_OBJECTS_CSV
-    output_avg_csv = return_video_folder_name(video_runner_obj)+'/'+OUTPUT_AVG_CSV
+    captions_and_objects_csv = return_video_folder_name(video_id)+'/'+CAPTIONS_AND_OBJECTS_CSV
+    output_avg_csv = return_video_folder_name(video_id)+'/'+OUTPUT_AVG_CSV
     jsonArray = []
     with open(captions_and_objects_csv, 'r') as csvFile:
         csvReader = csv.DictReader(csvFile) 
@@ -61,7 +60,7 @@ def generate_average_output(video_runner_obj):
             writer = csv.writer(csvFile)
             writer.writerow(['frame','timestamp','Line1','Line2','Similarity','avgone','avgtwo','iskeyFrame','description'])
             writer.writerows(data)
-            print("Output avg csv file generated for video: ", video_runner_obj['video_id'])
+            print("Output avg csv file generated for video: ", video_id)
                 
 if __name__ == "__main__":
     generate_average_output('upSnt11tngE')

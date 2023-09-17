@@ -1,7 +1,7 @@
 import csv
 from ..utils_module.utils import load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name, save_progress_to_file, save_value_to_file
 from ..utils_module.timeit_decorator import timeit
-from ..utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV,KEYFRAMES_CSV
+from ..utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS,KEYFRAMES_CSV,TIMESTAMP_SELECTOR,OBJECTS_CSV
 
 
 class KeyframeSelection:

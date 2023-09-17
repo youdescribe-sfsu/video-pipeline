@@ -88,7 +88,8 @@ class PipelineRunner:
             "video_start_time": self.video_start_time,
             "video_end_time": self.video_end_time,
             "logger": logger,
-            "ydx_server": self.ydx_server
+            "ydx_server": self.ydx_server,
+            "AI_USER_ID": self.AI_USER_ID,
         }
 
         progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
@@ -227,3 +228,4 @@ if __name__ == "__main__":
 
     # python pipeline_runner.py --video_id c1ROUg6rOGs --start_time 6 --end_time 11
     # python pipeline_runner.py --video_id uqOtCbvFUZA > uqOtCbvFUZA.log
+    # python pipeline_runner.py --video_id RhYgGTH2gCk
