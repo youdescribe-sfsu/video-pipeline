@@ -68,7 +68,7 @@ class PipelineTask(Enum):
 import os
 from typing import Dict,Union
 
-def return_video_folder_name(video_runner_obj: Dict[str, int|str]) -> str:
+def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
     Returns the folder name for a video.
 
