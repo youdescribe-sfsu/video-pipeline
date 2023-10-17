@@ -122,6 +122,12 @@ class CaptionRating:
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['get_all_caption_rating']", value=1)
         return
         
+    def is_float(self,value):
+        try:
+            float(value)
+            return True
+        except ValueError:
+            return False
     
     def filter_captions(self):
         """
@@ -144,7 +150,7 @@ class CaptionRating:
         caption_filter_csv = return_video_folder_name(self.video_runner_obj)+'/'+CAPTION_SCORE
         with open(caption_filter_csv, newline='', encoding='utf-8') as caption_filter_file:
             data = list(csv.DictReader(caption_filter_file))
-            filtered_list = [x['frame_index'] for x in data if float(x['rating']) > float(os.getenv('CAPTION_RATING_THRESHOLD'))]
+            filtered_list = [x['frame_index'] for x in data if 'rating' in x and self.is_float(x['rating']) and float(x['rating']) > float(os.getenv('CAPTION_RATING_THRESHOLD'))]
 
         objcsvpath = return_video_folder_name(self.video_runner_obj)+'/'+OBJECTS_CSV
         with open(objcsvpath, newline='', encoding='utf-8') as objcsvfile:
