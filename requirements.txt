@@ -15,3 +15,7 @@ ffmpeg-python
 python-dotenv
 web.py
 numba
+fastapi
+uvicorn
+tinydb
+cuttlepool
