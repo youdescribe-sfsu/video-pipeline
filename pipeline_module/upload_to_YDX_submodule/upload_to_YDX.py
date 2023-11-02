@@ -58,7 +58,7 @@ class UploadToYDX:
         else:
             return (False, "")
 
-    def upload_to_ydx(self,ydx_server=None):
+    def upload_to_ydx(self,ydx_server=None,AI_USER_ID=os.getenv("YDX_AI_USER_ID")):
         # save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
         # if(save_file["UploadToYDX"]['started'] == 'done'):
         if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']") == 'done':
@@ -135,7 +135,7 @@ class UploadToYDX:
                     clip["text"].replace("\n", ".")
             except:
                 continue
-        AI_USER_ID = os.getenv("YDX_AI_USER_ID")
+        # AI_USER_ID = os.getenv("YDX_AI_USER_ID")
         ##TODO Check and remove this if not required
         audio_clips.sort(key=lambda x: float(x["start_time"]))
         # for audio_clip in audio_clips:

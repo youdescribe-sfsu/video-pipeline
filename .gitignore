@@ -11,4 +11,5 @@ package-lock.json
 **/.idea
 **/.venv
 venv
-pipeline_logs/
+pipeline_logs
+pipeline_data.db
