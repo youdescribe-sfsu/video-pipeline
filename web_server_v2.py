@@ -143,6 +143,16 @@ async def generate_ai_caption(post_data: WebServerRequest):
         return "error"
     
 
+
+## Get Process to stop all tasks
+@app.get("/stop_all_tasks")
+async def stop_all_tasks():
+    for task in asyncio.Task.all_tasks():
+        web_server_logger.info("Cancelling task :: {}".format(str(task)))
+        task.cancel()
+    return "All tasks stopped"
+
+
 if __name__ == "__main__":
     uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8086,reload=True)
     
