@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
+load_dotenv()
 import queue
 from contextlib import asynccontextmanager
 
@@ -8,10 +10,16 @@ from pipeline_module.pipeline_runner import run_pipeline
 from web_server_module.web_server_database import create_database, get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id, get_pending_jobs_with_youtube_ids, update_ai_user_data, update_status,process_incoming_data,StatusEnum
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import web_server_logger
-from dotenv import load_dotenv
 import asyncio
-load_dotenv()
+from fastapi.encoders import jsonable_encoder
 task_queue = queue.Queue()
+import signal
+import json
+running_tasks = []
+async def cleanup_tasks():
+    for task in running_tasks:
+        task.cancel()
+    await asyncio.gather(*running_tasks, return_exceptions=True)
 
 
 # Function to update the queue with new requests every 30 minutes
@@ -85,23 +93,28 @@ async def lifespan(app: FastAPI):
     create_database()
     asyncio.create_task(update_queue_periodically())
     asyncio.create_task(process_queue())
-    yield
-    for task in asyncio.Task.all_tasks():
-        web_server_logger.info("Cancelling task :: {}".format(str(task)))
-        task.cancel()
+    signal.signal(signal.SIGINT, lambda s, f: asyncio.create_task(cleanup_tasks()))
+    try:
+        yield
+    finally:
+        await cleanup_tasks()
+    # for task in asyncio.Task.all_tasks():
+    #     web_server_logger.info("Cancelling task :: {}".format(str(task)))
+    #     task.cancel()
 
 app = FastAPI(lifespan=lifespan)
 
-@app.post("/generate_ai_caption",response_model=str)
+@app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
-        data_json = post_data.model_dump()
-        
-        user_id = data_json.get("user_id")
-        ydx_server = data_json.get("ydx_server", None)
-        ydx_app_host = data_json.get("ydx_app_host", None)
-        ai_user_id = data_json.get("AI_USER_ID", None)
-        youtube_id = data_json.get("youtube_id", None)
+        data_json = json.loads(post_data.model_dump_json())
+        print("data_json :: {}".format((data_json)))
+
+        user_id = data_json['user_id']
+        ydx_server = data_json['ydx_server']
+        ydx_app_host = data_json['ydx_app_host']
+        ai_user_id = data_json['AI_USER_ID']
+        youtube_id = data_json['youtube_id']
         
         
         web_server_logger.info("data_json :: {}".format(str(data_json)))
@@ -112,12 +125,23 @@ async def generate_ai_caption(post_data: WebServerRequest):
                 user_id, youtube_id
             )
         )
+        print(
+            "User ID: {} called for youtube video :: {}".format(
+                user_id, youtube_id
+            )
+        )
         process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
+        task_queue.put((youtube_id, ai_user_id))
+        
+        return "You posted: {}".format(str(data_json))
         
         
     except Exception as e:
+        print(e)
+        print("Exception :: {}".format(str(e)))
         web_server_logger.error("Exception :: {}".format(str(e)))
+        return "error"
     
 
 if __name__ == "__main__":
-    uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8000,reload=True)
+    uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8086,reload=True)
