@@ -1,10 +1,7 @@
-from tinydb import TinyDB, Query
 from .web_server_utils import return_pipeline_save_file_folder
 import sqlite3
 import sqlite3
-from cuttlepool import CuttlePool
 from enum import Enum
-import json
 from .custom_logger import web_server_logger
 # Define an Enum for the status options
 class StatusEnum(str, Enum):
@@ -28,22 +25,6 @@ class SQLiteConnection:
             self.connection.close()
     def return_connection(self):
         return self.connection
-
-
-class SQLitePool(CuttlePool):
-    def normalize_resource(self, resource):
-        resource.row_factory = None
-
-    def ping(self, resource):
-        try:
-            with resource:
-                # Use a context manager to ensure the connection is properly closed
-                cursor = resource.cursor()
-                cursor.execute('SELECT 1')
-                result = cursor.fetchall()
-                return (1,) in result
-        except sqlite3.Error:
-            return False
 
 connection = SQLiteConnection(return_pipeline_save_file_folder())
 connection.connection.execute('PRAGMA autocommit = ON')

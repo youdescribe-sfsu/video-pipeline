@@ -17,5 +17,3 @@ web.py
 numba
 fastapi
 uvicorn
-tinydb
-cuttlepool
