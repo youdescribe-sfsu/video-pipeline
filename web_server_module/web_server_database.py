@@ -11,7 +11,7 @@ class StatusEnum(str, Enum):
 class SQLiteConnection:
     def __init__(self, database):
         self.database = database
-        self.connection = sqlite3.connect(self.database,isolation_level=None)
+        self.connection = sqlite3.connect(self.database,isolation_level=None,check_same_thread=False)
         self.connection.row_factory = self.row_to_dict
 
     def row_to_dict(self,cursor: sqlite3.Cursor, row: sqlite3.Row) -> dict:
@@ -194,7 +194,7 @@ def update_status(youtube_id, ai_user_id, status):
         
         
 
-def update_ai_user_data(youtube_id, ai_user_id, status):
+def update_ai_user_data(youtube_id, ai_user_id,user_id, status):
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
@@ -202,8 +202,8 @@ def update_ai_user_data(youtube_id, ai_user_id, status):
             cursor.execute('''
                 UPDATE ai_user_data
                 SET status = ?
-                WHERE youtube_id = ? AND ai_user_id = ?
-            ''', (status, youtube_id, ai_user_id,))
+                WHERE youtube_id = ? AND ai_user_id = ? AND user_id = ?
+            ''', (status, youtube_id, ai_user_id,user_id,))
     except sqlite3.Error as e:
         print("Error updating status:", e)
         web_server_logger.error("Error updating status:", e)
