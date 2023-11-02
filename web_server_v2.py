@@ -145,3 +145,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
 if __name__ == "__main__":
     uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8086,reload=True)
+    
+    ## To Kill
+    # ps aux | grep web_server_v2:app
+    # kill -s KILL -- PID
