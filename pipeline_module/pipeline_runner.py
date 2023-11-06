@@ -145,7 +145,7 @@ class PipelineRunner:
         upload_to_YDX = UploadToYDX(
             video_runner_obj, upload_to_server=self.upload_to_server
         )
-        upload_to_YDX.upload_to_ydx(ydx_server=self.ydx_server)
+        upload_to_YDX.upload_to_ydx(ydx_server=self.ydx_server,AI_USER_ID=self.AI_USER_ID)
         if self.upload_to_server:
             # generate_YDX_caption = GenerateYDXCaption(video_runner_obj)
             # generate_YDX_caption.generateYDXCaption(

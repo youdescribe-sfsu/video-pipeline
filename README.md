@@ -183,3 +183,35 @@ Here's how you can utilize the save and load progress mechanism in your code:
 
 4. **Saving Specific Values**
    If you need to update a specific value in the progress data and save it back to the file, use the `save_value_to_file(video_runner_obj, key, value)` function. Provide the video runner object, the key, and the new value you want to associate with the key.
+
+### Database Usage for Task Tracking
+
+The YouDescribeX Pipeline utilizes a SQLite database to track the progress of tasks. This helps manage multiple video processing tasks and ensures that task progress is saved, even if the program is interrupted or closed.
+
+#### Database Structure
+
+The database comprises two tables:
+
+1. **youtube_data:**
+   - Stores YouTube ID, AI user ID, and task status.
+
+2. **ai_user_data:**
+   - Stores additional information for each task, including user ID, YouTube ID, AI user ID, YDX server, YDX app host, and status.
+
+#### Functions:
+
+1. **Create the Database**
+   - `create_database()`: Creates the SQLite database and necessary tables if they don't exist.
+
+2. **Adding New Tasks**
+   - `process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)`: Adds a new task to the database.
+   - If the YouTube ID and AI user ID combination already exists, a new row is added to the `ai_user_data` table.
+
+3. **Updating Task Status**
+   - `update_status(youtube_id, ai_user_id, status)`: Updates the task status in the `youtube_data` table.
+   - `update_ai_user_data(youtube_id, ai_user_id, user_id, status)`: Updates the task status in the `ai_user_data` table.
+
+4. **Retrieving Task Information**
+   - `get_pending_jobs_with_youtube_ids()`: Retrieves YouTube ID and AI user ID of tasks in progress.
+   - `get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)`: Retrieves all data for a specific YouTube ID and AI user ID.
+   - `get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id)`: Retrieves the YDX server and YDX app host for a specific YouTube ID and AI user ID.
