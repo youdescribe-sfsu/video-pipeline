@@ -1,215 +1,138 @@
-
-
-import os
-import threading
-import json
-from fastapi import FastAPI
 from dotenv import load_dotenv
-from pipeline_module.pipeline_runner import run_pipeline
-from pipeline_module.generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from web_server_module.web_server_utils import load_pipeline_progress_from_file, save_pipeline_progress_to_file
-from web_server_module.custom_logger import web_server_logger as logger
-from contextlib import asynccontextmanager
-
 load_dotenv()
+from fastapi import FastAPI
+import queue
+from contextlib import asynccontextmanager
+from threading import Thread,Event
+import uvicorn
+from pipeline_module.generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
+from pipeline_module.pipeline_runner import run_pipeline
+from web_server_module.web_server_database import create_database, get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id, get_pending_jobs_with_youtube_ids, update_ai_user_data, update_status,process_incoming_data,StatusEnum
+from web_server_module.web_server_types import WebServerRequest
+from web_server_module.custom_logger import web_server_logger
+import asyncio
+import json
+import time
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-    # Load the ML model
+stop_event= Event()
+task_queue = queue.Queue()
+running_tasks = []
+async def cleanup_tasks():
+    for task in running_tasks:
+        task.cancel()
+    await asyncio.gather(*running_tasks, return_exceptions=True)
+
+
+def update_queue_periodically():
+    while True:
+        pending_jobs_with_youtube_ids = get_pending_jobs_with_youtube_ids()
+        for data in pending_jobs_with_youtube_ids:
+            print("Adding youtube_id: {}, ai_user_id: {} to queue".format(data['youtube_id'], data['ai_user_id']))
+            web_server_logger.info("Adding youtube_id: {}, ai_user_id: {} to queue".format(data['youtube_id'], data['ai_user_id']))
+            task_queue.put((data['youtube_id'], data['ai_user_id']))
+        time.sleep(1800)  # 30 minutes
+
+def process_queue():
+    web_server_logger.info("Starting to process queue")
+    while True:
+        if not task_queue.empty():
+            youtube_id, ai_user_id = task_queue.get()
+            ydx_server, ydx_app_host = get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id)
+            print("Processing request for youtube_id: {}, ai_user_id: {}".format(youtube_id, ai_user_id))
+            web_server_logger.info("Processing request for youtube_id: {}, ai_user_id: {}".format(youtube_id, ai_user_id))
+            run_pipeline(
+                video_id=youtube_id,
+                video_end_time=None,
+                video_start_time=None,
+                upload_to_server=False,
+                multi_thread=False,
+                tasks=None,
+                ydx_server=ydx_server,
+                ydx_app_host=ydx_app_host,
+                userId=None,
+                AI_USER_ID=ai_user_id,
+            )
+            update_status(youtube_id, ai_user_id, StatusEnum.done.value)
+            
+            video_runner_obj = {
+                "video_id": youtube_id,
+                "logger": web_server_logger
+            }
+            generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
+            user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
+
+            for data in user_data:
+                generate_YDX_caption.generateYDXCaption(
+                    ydx_server=data.get("ydx_server", None),
+                    ydx_app_host=data.get("ydx_app_host", None),
+                    userId=data.get("user_id", None),
+                    AI_USER_ID=data.get("ai_user_id", None),
+                    logger=web_server_logger,
+                )
+                update_ai_user_data(
+                    youtube_id=youtube_id,
+                    ai_user_id=ai_user_id,
+                    user_id=data.get("user_id", None),
+                    status=StatusEnum.done.value,
+                )
+                print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
+        else:
+            web_server_logger.info("Queue is empty")
+            time.sleep(60)  # Check every minute
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     
+    create_database()
+    thread_update_queue = Thread(target=update_queue_periodically)
+    thread_update_queue.daemon = True
+    thread_update_queue.start()
+    
+    thread_process_queue = Thread(target=process_queue)
+    thread_process_queue.daemon = True
+    thread_process_queue.start()
+    yield
 
-
-# app = FastAPI(lifespan=lifespan)
-
-
-app = FastAPI()
-
-class PostHandler:
-    @staticmethod
-    def run_pipeline_background(user_id):
-        # Extract the user-specific arguments for the callback
-
-        run_pipeline(**kwargs)
-        # Add any code you want to execute after run_pipeline has finished
-        logger.info("run_pipeline_background finished.")
-        print("run_pipeline_background finished.")
-        # Call the callback function
-        PostHandler.on_pipeline_completed(user_id)
-
-    @staticmethod
-    def on_pipeline_completed(user_id):
-        logger.info("Pipeline completed.")
-        print("User ID: {}".format(user_id))
-        logger.info("User ID: {}".format(user_id))
-        # Code to trigger the function outside the PostHandler class
-        logger.info("Triggering function outside the PostHandler class.")
-        print("Triggering function outside the PostHandler class.")
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/generate_ai_caption")
-async def generate_ai_caption(data_json: dict):
+async def generate_ai_caption(post_data: WebServerRequest):
     try:
+        data_json = json.loads(post_data.model_dump_json())
+        print("data_json :: {}".format((data_json)))
 
-        logger.info("data_json :: {}".format(str(data_json)))
-        logger.info("youtube_id :: {}".format(str(data_json.get("youtube_id", None))))
-
-        if data_json.get("youtube_id") is None:
-            logger.info("You need to provide a youtube_id")
-            return "You need to provide a youtube_id"
-
-        user_id = data_json.get("user_id")
-        ydx_server = data_json.get("ydx_server", None)
-        ydx_app_host = data_json.get("ydx_app_host", None)
-        AI_USER_ID = data_json.get("AI_USER_ID", None)
-
-        logger.info(
+        user_id = data_json['user_id']
+        ydx_server = data_json['ydx_server']
+        ydx_app_host = data_json['ydx_app_host']
+        ai_user_id = data_json['AI_USER_ID']
+        youtube_id = data_json['youtube_id']
+        
+        
+        web_server_logger.info("data_json :: {}".format(str(data_json)))
+        web_server_logger.info("youtube_id :: {}".format(str(youtube_id)))
+        
+        web_server_logger.info(
             "User ID: {} called for youtube video :: {}".format(
-                user_id, data_json["youtube_id"]
+                user_id, youtube_id
             )
         )
-
-        save_data = load_pipeline_progress_from_file()
-        youtube_id = data_json["youtube_id"]
-
-        if youtube_id in save_data.keys():
-            if "data" in save_data[youtube_id]:
-                if AI_USER_ID in save_data[youtube_id]["data"]:
-                    # Entry already in progress, check if AI_USER_ID exists
-                    if not any(entry['AI_USER_ID'] == AI_USER_ID for entry in save_data[youtube_id]["data"][AI_USER_ID]):
-                        save_data[youtube_id]["data"][AI_USER_ID].append({
-                            "user_id": data_json["user_id"],
-                            "AI_USER_ID": AI_USER_ID,
-                            "ydx_server": data_json["ydx_server"],
-                            "ydx_app_host": data_json["ydx_app_host"],
-                        })
-                        save_pipeline_progress_to_file(save_data)
-                        logger.info("Pipeline thread finished")
-                        print("You posted: {}".format(json.dumps(data_json)))
-                    else:
-                        logger.info("In else of web_server.py :: line 105")
-                        print("In else of web_server.py :: line 105")
-                else:
-                    # Initialize the data dictionary for AI_USER_ID
-                    save_data[youtube_id]["data"][AI_USER_ID] = [{
-                        "user_id": data_json["user_id"],
-                        "AI_USER_ID": AI_USER_ID,
-                        "ydx_server": data_json["ydx_server"],
-                        "ydx_app_host": data_json["ydx_app_host"],
-                    }]
-                    save_pipeline_progress_to_file(save_data)
-            else:
-                # Create a new entry for youtube_id
-                save_data[youtube_id]["data"] = {
-                    AI_USER_ID: [{
-                        "user_id": data_json["user_id"],
-                        "AI_USER_ID": AI_USER_ID,
-                        "ydx_server": data_json["ydx_server"],
-                        "ydx_app_host": data_json["ydx_app_host"],
-                    }]
-                }
-                save_pipeline_progress_to_file(save_data)
-        else:
-            # Create a new entry for youtube_id
-            save_data[youtube_id] = {
-                "data": {
-                    AI_USER_ID: [{
-                        "user_id": data_json["user_id"],
-                        "AI_USER_ID": AI_USER_ID,
-                        "ydx_server": data_json["ydx_server"],
-                        "ydx_app_host": data_json["ydx_app_host"],
-                        "status": "in_progress"
-                    }]
-                },
-                "status": "in_progress"
-            }
-            save_pipeline_progress_to_file(save_data)
-            logger.info("Starting pipeline thread")
-
-            pipeline_thread = threading.Thread(
-                target=PostHandler.run_pipeline_background,
-                args=(user_id,),  # Pass the user_id as an argument
-                kwargs={
-                    "video_id": data_json["youtube_id"],
-                    "video_start_time": data_json.get("video_start_time", None),
-                    "video_end_time": data_json.get("video_end_time", None),
-                    "upload_to_server": data_json.get("upload_to_server", True),
-                    "multi_thread": data_json.get("multi_thread", False),
-                    "tasks": data_json.get("tasks", None),
-                    "ydx_server": ydx_server,
-                    "ydx_app_host": ydx_app_host,
-                    "user_id": user_id,
-                    "AI_USER_ID": AI_USER_ID,
-                },
+        print(
+            "User ID: {} called for youtube video :: {}".format(
+                user_id, youtube_id
             )
-            logger.info("Starting pipeline thread")
-            pipeline_thread.start()
-
+        )
+        process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
+        task_queue.put((youtube_id, ai_user_id))
+        
         return "You posted: {}".format(str(data_json))
+        
+        
     except Exception as e:
-        logger.info(f"Error Running Pipeline : {e}")
-        print(f"Error Running Pipeline : {e}")
-        return f"Error Running Pipeline : {e}"
+        print(e)
+        print("Exception :: {}".format(str(e)))
+        web_server_logger.error("Exception :: {}".format(str(e)))
+        return "error"
+    
 
 if __name__ == "__main__":
-    save_data = load_pipeline_progress_from_file()
-
-    for video_id in save_data.keys():
-        video_data = save_data[video_id]
-
-        # Check if the status for the current video ID is "done"
-        if video_data["status"] == "done":
-            print(f"Processing video ID: {video_id}")
-            logger.info(f"Processing video ID: {video_id}")
-
-            # Iterate through the AI users' data for the current video ID
-            for ai_user_id, objects in video_data["data"].items():
-                video_runner_obj = {
-                    "video_id": video_id,
-                    "logger": logger,
-                }
-                generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
-                for obj in objects:
-                    # Check if the status for the current object is "in_progress"
-                    if obj["status"] == "in_progress":
-                        # Your code to process this object goes here
-                        logger.info(f"Processing object for AI user {ai_user_id}")
-                        generate_YDX_caption.generateYDXCaption(
-                            ydx_server=obj.get("ydx_server", None),
-                            ydx_app_host=obj.get("ydx_app_host", None),
-                            userId=obj.get("user_id", None),
-                            AI_USER_ID=obj.get("AI_USER_ID", None),
-                            logger=logger,
-                        )
-
-                        # Mark the object as "done"
-                        obj["status"] = "done"
-
-            # Optionally, update the JSON data if needed
-
-        else:
-            posthandler = PostHandler()
-            ## select first AI user id
-            AI_USER_ID = list(video_data["data"].keys())[0]
-
-            pipeline_thread = threading.Thread(
-                target=posthandler.run_pipeline_background,
-                args=(AI_USER_ID,),  # Pass the AI_USER_ID as an argument
-                kwargs={
-                    "video_id": video_id,
-                    "video_start_time": None,
-                    "video_end_time": None,
-                    "upload_to_server": True,
-                    "multi_thread": False,
-                    "tasks": None,
-                    "ydx_server": video_data['data'][AI_USER_ID][0]['ydx_server'],
-                    "ydx_app_host": video_data['data'][AI_USER_ID][0]['ydx_app_host'],
-                    "user_id": video_data['data'][AI_USER_ID][0]['user_id'],
-                    "AI_USER_ID": AI_USER_ID,
-                },
-            )
-            logger.info("Starting pipeline thread")
-            pipeline_thread.start()
-
-    # import uvicorn
-
-    # # Use uvicorn to run the FastAPI app
-    # uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8086,reload=True)
