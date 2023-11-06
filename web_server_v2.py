@@ -78,7 +78,7 @@ def process_queue():
                 print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
         else:
             web_server_logger.info("Queue is empty")
-            time.sleep(900)  # Check every 15 minutes
+            time.sleep(6)  # Check every minute
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -91,14 +91,7 @@ async def lifespan(app: FastAPI):
     thread_process_queue = Thread(target=process_queue)
     thread_process_queue.daemon = True
     thread_process_queue.start()
-    # signal.signal(signal.SIGINT, lambda s, f: asyncio.create_task(cleanup_tasks()))
-    try:
-        yield
-    finally:
-        thread_process_queue
-    # for task in asyncio.Task.all_tasks():
-    #     web_server_logger.info("Cancelling task :: {}".format(str(task)))
-    #     task.cancel()
+    yield
 
 app = FastAPI(lifespan=lifespan)
 
@@ -141,25 +134,5 @@ async def generate_ai_caption(post_data: WebServerRequest):
         return "error"
     
 
-
-## Get Process to stop all tasks
-@app.get("/stop_all_tasks")
-async def stop_all_tasks():
-    for task in asyncio.Task.all_tasks():
-        web_server_logger.info("Cancelling task :: {}".format(str(task)))
-        task.cancel()
-    return "All tasks stopped"
-
-## Curl command to test stop all tasks
-# curl -X GET "http://localhost:8086/stop_all_tasks" -H  "accept: application/json"
-
-
 if __name__ == "__main__":
     uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8086,reload=True)
-    
-    ## To Kill
-    # ps aux | grep web_server_v2:app
-    # kill -s KILL -- PID
-    
-    ## To Run
-    # uvicorn web_server_v2:app --host 0.0.0.0 --port 8086

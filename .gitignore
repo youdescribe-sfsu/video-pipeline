@@ -1,6 +1,7 @@
 node_modules/
 **_frames/
 **_files/
+**_files_*/
 .env
 tts_cloud_key.json
 .DS_Store

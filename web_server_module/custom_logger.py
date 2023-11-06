@@ -1,10 +1,7 @@
 import datetime
 import logging
-from logging.handlers import BaseRotatingHandler
-
-import time
-
 from logging.handlers import TimedRotatingFileHandler
+import os
 
 def create_daily_rotating_log(path):
     """
@@ -17,13 +14,17 @@ def create_daily_rotating_log(path):
     handler = TimedRotatingFileHandler(path, when="MIDNIGHT", interval=1, backupCount=5)
     return handler
 
+# Define the path to the log file relative to the parent directory
+log_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'pipeline_logs')
 
-#----------------------------------------------------------------------
+if not os.path.exists(log_directory):
+    os.makedirs(log_directory)
 
+log_filename = os.path.join(log_directory, 'pipeline_{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d")))
 
-log_filename = 'pipeline_logs/pipeline_{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d"))
 web_server_logger = logging.getLogger('my_logger')
 web_server_logger.setLevel(logging.INFO)
+
 log_handler = create_daily_rotating_log(log_filename)
 web_server_logger.addHandler(log_handler)
 
