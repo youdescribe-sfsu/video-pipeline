@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
-from fastapi import FastAPI
+from fastapi import FastAPI,status
 import queue
 from contextlib import asynccontextmanager
 from threading import Thread,Event
@@ -125,14 +125,23 @@ async def generate_ai_caption(post_data: WebServerRequest):
         task_queue.put((youtube_id, ai_user_id))
         
         return "You posted: {}".format(str(data_json))
-        
-        
     except Exception as e:
         print(e)
         print("Exception :: {}".format(str(e)))
         web_server_logger.error("Exception :: {}".format(str(e)))
         return "error"
+
+@app.get("/health_check")
+async def health_check():
+    try:
+        return {"message": "OK"}, status.HTTP_200_OK
+    except Exception as e:
+        print("Exception :: {}".format(str(e)))
+        web_server_logger.error("Exception :: {}".format(str(e)))
+        return "error"
+        
+    
     
 
 if __name__ == "__main__":
-    uvicorn.run("web_server_v2:app", host="0.0.0.0", port=8086,reload=True)
+    uvicorn.run("web_server:app", host="0.0.0.0", port=8086,reload=True)
