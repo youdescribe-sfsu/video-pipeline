@@ -17,6 +17,7 @@ from ..utils_module.utils import (
 import os
 import csv
 import string
+from web_server_module.web_server_utils import return_all_user_data_for_youtube_id_ai_user_id
 
 
 class UploadToYDX:
@@ -175,31 +176,82 @@ class UploadToYDX:
             return_video_folder_name(self.video_runner_obj) + "/" + "final_data.json", mode="w"
         ) as f:
             f.write(json.dumps(data, indent=4))
-        if self.upload_to_server:
-            print("===== UPLOADING DATA =====")
-            # send data to wherever the database is
+        # if self.upload_to_server:
+        print("===== UPLOADING DATA =====")
+        # send data to wherever the database is
 
-            ydx_server = self.video_runner_obj.get('ydx_server')
-            if ydx_server is None:
-                ydx_server = os.getenv("YDX_WEB_SERVER")
-            url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
-            headers = {"Content-Type": "application/json; charset=utf-8"}
-            self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
+        ydx_server = self.video_runner_obj.get('ydx_server')
+        if ydx_server is None:
+            ydx_server = os.getenv("YDX_WEB_SERVER")
+        url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
+        headers = {"Content-Type": "application/json; charset=utf-8"}
+        self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
+        
+        try:
+            r = requests.post(url, data=json.dumps(data), headers=headers)
+            print("===== RESPONSE =====")
+            print(r.text)
             
-            try:
-                r = requests.post(url, data=json.dumps(data), headers=headers)
+            json_response = json.loads(r.text)
+            print("json_response",json_response)
+            r.close()
+            if(json_response['_id']):
+                print("===== RESPONSE =====")
+                print(json_response)
+                ## Get req
+                generateAudioClips = "{}/api/audio-clips/processAllClipsInDB/{}".format(ydx_server,json_response['_id'])
+                r = requests.get(generateAudioClips)
+                if(r.status_code == 200):
+                    self.video_runner_obj["logger"].info("Processed all clips in DB")
+                    self.video_runner_obj["logger"].info(r.text)
+                    data = return_all_user_data_for_youtube_id_ai_user_id(
+        ai_user_id=AI_USER_ID,
+        youtube_id=self.video_runner_obj['video_id']
+                    )
+                    if(len(data) == 0):
+                        print("No data found")
+                        return
+                        # exit()
+                    post_obj = {
+                        "youtube_id": "ALcL3MuU4xQ",
+                        "ai_user_id": "650506db3ff1c2140ea10ece",
+                        "ydx_app_host":data[0]['ydx_app_host'],
+                        "audio_description_id":json_response['_id']
+                    }
+                    user_ids = []
+                    for userData in data:
+                        user_ids.append(userData['user_id'])
+                        
+                    
+                    post_obj['user_ids'] = user_ids
+                    notifyEmails = "{}/api/utils/notify/aidescriptions".format(ydx_server)
+                    
+                    ## post request to notify emails
+                    r = requests.post(notifyEmails, data=json.dumps(post_obj), headers=headers)
+                    if(r.status_code == 200):
+                        self.video_runner_obj["logger"].info("Notified emails")
+                        self.video_runner_obj["logger"].info(r.text)
+                    else:
+                        self.video_runner_obj["logger"].error("Error notifying emails")
+                        self.video_runner_obj["logger"].error(r.text)
+                    
+                r.close()
                 print("===== RESPONSE =====")
                 print(r.text)
-                print(r.status_code)
-                self.video_runner_obj["logger"].info("===== RESPONSE =====")
-                self.video_runner_obj["logger"].info(r.text)
-                r.close()
                 
-                # Save the completion status only if the request was successful
-                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
-            except Exception as e:
-                print("Error during request:", str(e))
-                self.video_runner_obj["logger"].error("Error during request: %s", str(e))
-                # You may want to handle the exception or log the error as needed
+                
+            
+            
+            print(r.status_code)
+            self.video_runner_obj["logger"].info("===== RESPONSE =====")
+            self.video_runner_obj["logger"].info(r.text)
+            
+            
+            # Save the completion status only if the request was successful
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
+        except Exception as e:
+            print("Error during request:", str(e))
+            self.video_runner_obj["logger"].error("Error during request: %s", str(e))
+            # You may want to handle the exception or log the error as needed
 
         return

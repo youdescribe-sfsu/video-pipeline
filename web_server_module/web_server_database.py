@@ -208,3 +208,23 @@ def update_ai_user_data(youtube_id, ai_user_id,user_id, status):
         print("Error updating status:", e)
         web_server_logger.error("Error updating status:", e)
         
+        
+
+def return_all_user_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
+    try:
+        with connection.return_connection() as con:
+            cursor = con.cursor()
+
+            # Select the status for the specified YouTube ID
+            cursor.execute('''
+                SELECT * FROM ai_user_data
+                WHERE youtube_id = ? AND ai_user_id = ?
+            ''', (youtube_id,ai_user_id))
+            
+            status = cursor.fetchall()
+            return status
+    except sqlite3.Error as e:
+        print("Error getting status for YouTube ID:", e)
+        web_server_logger.error("Error getting status for YouTube ID:", e)
+        return None
+        
