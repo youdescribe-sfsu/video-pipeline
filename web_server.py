@@ -16,6 +16,7 @@ import time
 
 stop_event= Event()
 task_queue = queue.Queue()
+enqueued_tasks = set()
 running_tasks = []
 async def cleanup_tasks():
     for task in running_tasks:
@@ -23,14 +24,31 @@ async def cleanup_tasks():
     await asyncio.gather(*running_tasks, return_exceptions=True)
 
 
+
+
+def update_queue():
+    pending_jobs_with_youtube_ids = get_pending_jobs_with_youtube_ids()
+    for data in pending_jobs_with_youtube_ids:
+        youtube_id = data['youtube_id']
+        ai_user_id = data['ai_user_id']
+
+        # Check if the task already exists in the set of enqueued tasks
+        if (youtube_id, ai_user_id) not in enqueued_tasks:
+            print("Adding youtube_id: {}, ai_user_id: {} to queue".format(youtube_id, ai_user_id))
+            web_server_logger.info("Adding youtube_id: {}, ai_user_id: {} to queue".format(youtube_id, ai_user_id))
+            
+            # Enqueue the task
+            task_queue.put((youtube_id, ai_user_id))
+            
+            # Update the set of enqueued tasks
+            enqueued_tasks.add((youtube_id, ai_user_id))
+
+
 def update_queue_periodically():
     while True:
-        pending_jobs_with_youtube_ids = get_pending_jobs_with_youtube_ids()
-        for data in pending_jobs_with_youtube_ids:
-            print("Adding youtube_id: {}, ai_user_id: {} to queue".format(data['youtube_id'], data['ai_user_id']))
-            web_server_logger.info("Adding youtube_id: {}, ai_user_id: {} to queue".format(data['youtube_id'], data['ai_user_id']))
-            task_queue.put((data['youtube_id'], data['ai_user_id']))
-        time.sleep(1800)  # 30 minutes
+        update_queue()
+
+        time.sleep(60)  # 1 minute, adjust as needed
 
 def process_queue():
     web_server_logger.info("Starting to process queue")
@@ -78,12 +96,13 @@ def process_queue():
                 print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
         else:
             web_server_logger.info("Queue is empty")
-            time.sleep(60)  # Check every minute
+            time.sleep(30)  # Check every 30s if there is a new task in the queue
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     
     create_database()
+    update_queue()
     thread_update_queue = Thread(target=update_queue_periodically)
     thread_update_queue.daemon = True
     thread_update_queue.start()

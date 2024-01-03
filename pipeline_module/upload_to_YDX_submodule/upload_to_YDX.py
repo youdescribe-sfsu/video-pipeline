@@ -131,7 +131,8 @@ class UploadToYDX:
             try:
                 clip["start_time"] = str(float(clip["start_time"]) + 1)
                 if isinstance(clip["text"], list):
-                    clip["text"] = ("\n").join(clip["text"])
+                    ## Join all the text in the list as a single string with each line separated as a sentence
+                    clip["text"] = ". ".join(clip["text"])
                 else:
                     clip["text"].replace("\n", ".")
             except:
