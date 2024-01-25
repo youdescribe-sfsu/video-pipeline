@@ -59,8 +59,12 @@ class PipelineRunner:
         self.AI_USER_ID = AI_USER_ID
 
     def setup_logger(self, video_runner_obj):
-        os.makedirs(return_video_folder_name(video_runner_obj), exist_ok=True)
-        log_file = f"{return_video_folder_name(video_runner_obj)}/pipeline.log"
+        
+        pipeline_log_folder = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "pipeline_logs"
+        )
+        os.makedirs(pipeline_log_folder, exist_ok=True)
+        log_file = f"{pipeline_log_folder}/{video_runner_obj['video_id']}_{video_runner_obj['AI_USER_ID']}pipeline.log"
         log_mode = "a" if os.path.exists(log_file) else "w"
         logger = logging.getLogger(f"PipelineLogger-{video_runner_obj['video_id']}")
         logger.setLevel(logging.INFO)
@@ -78,7 +82,8 @@ class PipelineRunner:
                 "video_id": self.video_id,
                 "video_start_time": self.video_start_time,
                 "video_end_time": self.video_end_time,
-                "ydx_server": self.ydx_server
+                "ydx_server": self.ydx_server,
+                "AI_USER_ID": self.AI_USER_ID,
             }
         )
         logger.info(f"Processing video: {self.video_id}")
