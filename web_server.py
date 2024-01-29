@@ -72,21 +72,21 @@ def process_queue():
             )
             update_status(youtube_id, ai_user_id, StatusEnum.done.value)
             
-            video_runner_obj = {
-                "video_id": youtube_id,
-                "logger": web_server_logger
-            }
-            generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
+            # video_runner_obj = {
+            #     "video_id": youtube_id,
+            #     "logger": web_server_logger
+            # }
+            # generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
             user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
 
             for data in user_data:
-                generate_YDX_caption.generateYDXCaption(
-                    ydx_server=data.get("ydx_server", None),
-                    ydx_app_host=data.get("ydx_app_host", None),
-                    userId=data.get("user_id", None),
-                    AI_USER_ID=data.get("ai_user_id", None),
-                    logger=web_server_logger,
-                )
+                # generate_YDX_caption.generateYDXCaption(
+                #     ydx_server=data.get("ydx_server", None),
+                #     ydx_app_host=data.get("ydx_app_host", None),
+                #     userId=data.get("user_id", None),
+                #     AI_USER_ID=data.get("ai_user_id", None),
+                #     logger=web_server_logger,
+                # )
                 update_ai_user_data(
                     youtube_id=youtube_id,
                     ai_user_id=ai_user_id,

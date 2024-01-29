@@ -2,6 +2,8 @@
 from dotenv import load_dotenv
 import os
 import argparse
+
+from pipeline_module.types_submodule import VideoRunnerObj
 from .import_video_submodule.import_video import ImportVideo
 from .extract_audio_submodule.extract_audio import ExtractAudio
 from .speech_to_text_submodule.speech_to_text import SpeechToText
@@ -58,15 +60,15 @@ class PipelineRunner:
         self.userId = userId
         self.AI_USER_ID = AI_USER_ID
 
-    def setup_logger(self, video_runner_obj):
+    def setup_logger(self, video_id,ai_user_id) -> logging.Logger:
         
         pipeline_log_folder = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "pipeline_logs"
         )
         os.makedirs(pipeline_log_folder, exist_ok=True)
-        log_file = f"{pipeline_log_folder}/{video_runner_obj['video_id']}_{video_runner_obj['AI_USER_ID']}pipeline.log"
+        log_file = f"{pipeline_log_folder}/{video_id}_{ai_user_id}_pipeline.log"
         log_mode = "a" if os.path.exists(log_file) else "w"
-        logger = logging.getLogger(f"PipelineLogger-{video_runner_obj['video_id']}")
+        logger = logging.getLogger(f"PipelineLogger-{video_id}")
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         file_handler = logging.FileHandler(log_file, mode=log_mode)
@@ -78,24 +80,39 @@ class PipelineRunner:
     def run_full_pipeline(self):
         ## Download video from YouTube
         logger = self.setup_logger(
-            video_runner_obj={
-                "video_id": self.video_id,
-                "video_start_time": self.video_start_time,
-                "video_end_time": self.video_end_time,
-                "ydx_server": self.ydx_server,
-                "AI_USER_ID": self.AI_USER_ID,
-            }
+            ai_user_id=self.AI_USER_ID,
+            video_id=self.video_id,
         )
+        
+        video_runner_obj = VideoRunnerObj(
+            video_id=self.video_id,
+            video_start_time=self.video_start_time,
+            video_end_time=self.video_end_time,
+            ydx_server=self.ydx_server,
+            AI_USER_ID=self.AI_USER_ID,
+            logger=logger,
+        )
+        
+        
+        # logger = self.setup_logger(
+        #     video_runner_obj={
+        #         "video_id": self.video_id,
+        #         "video_start_time": self.video_start_time,
+        #         "video_end_time": self.video_end_time,
+        #         "ydx_server": self.ydx_server,
+        #         "AI_USER_ID": self.AI_USER_ID,
+        #     }
+        # )
         logger.info(f"Processing video: {self.video_id}")
 
-        video_runner_obj = {
-            "video_id": self.video_id,
-            "video_start_time": self.video_start_time,
-            "video_end_time": self.video_end_time,
-            "logger": logger,
-            "ydx_server": self.ydx_server,
-            "AI_USER_ID": self.AI_USER_ID,
-        }
+        # video_runner_obj = {
+        #     "video_id": self.video_id,
+        #     "video_start_time": self.video_start_time,
+        #     "video_end_time": self.video_end_time,
+        #     "logger": logger,
+        #     "ydx_server": self.ydx_server,
+        #     "AI_USER_ID": self.AI_USER_ID,
+        # }
 
         progress_file = load_progress_from_file(video_runner_obj=video_runner_obj)
         if progress_file is None:
