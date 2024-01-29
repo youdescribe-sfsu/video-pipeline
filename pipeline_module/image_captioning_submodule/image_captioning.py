@@ -41,6 +41,8 @@ class ImageCaptioning:
             multipart_form_data = {
                 'token': ('', str(token)),
                 'image': (os.path.basename(filename), fileBuffer),
+                'min_length':25,
+                'max_length':50
             }
             
             self.video_runner_obj["logger"].info(f"Running image captioning for {filename}")

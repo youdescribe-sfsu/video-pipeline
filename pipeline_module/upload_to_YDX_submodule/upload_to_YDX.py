@@ -190,15 +190,15 @@ class UploadToYDX:
         
         try:
             r = requests.post(url, data=json.dumps(data), headers=headers)
-            print("===== RESPONSE =====")
-            print(r.text)
+            self.video_runner_obj["logger"].info("===== RESPONSE =====")
+            self.video_runner_obj["logger"].info(r.text)
             
             json_response = json.loads(r.text)
-            print("json_response",json_response)
+            self.video_runner_obj["logger"].info("json_response",json_response)
             r.close()
             if(json_response['_id']):
-                print("===== RESPONSE =====")
-                print(json_response)
+                self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                self.video_runner_obj["logger"].info(json_response)
                 ## Get req
                 generateAudioClips = "{}/api/audio-clips/processAllClipsInDB/{}".format(ydx_server,json_response['_id'])
                 r = requests.get(generateAudioClips)
@@ -210,7 +210,7 @@ class UploadToYDX:
         youtube_id=self.video_runner_obj['video_id']
                     )
                     if(len(data) == 0):
-                        print("No data found")
+                        self.video_runner_obj["logger"].info("No data found")
                         return
                         # exit()
                     post_obj = {
@@ -237,13 +237,13 @@ class UploadToYDX:
                         self.video_runner_obj["logger"].error(r.text)
                     
                 r.close()
-                print("===== RESPONSE =====")
-                print(r.text)
+                self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                self.video_runner_obj["logger"].info(r.text)
                 
                 
             
             
-            print(r.status_code)
+            self.video_runner_obj["logger"].info(r.status_code)
             self.video_runner_obj["logger"].info("===== RESPONSE =====")
             self.video_runner_obj["logger"].info(r.text)
             
@@ -253,6 +253,19 @@ class UploadToYDX:
         except Exception as e:
             print("Error during request:", str(e))
             self.video_runner_obj["logger"].error("Error during request: %s", str(e))
+            notifyForError = "{}/api/utils/notify".format(ydx_server)
+            post_obj = {
+                "email": "vishalsharma1907@gmail.com",
+                "subject": "Error in generating YDX Caption",
+                "message": str(e)
+            }
+            r = requests.post(notifyForError, data=json.dumps(post_obj), headers=headers)
+            if(r.status_code == 200):
+                self.video_runner_obj["logger"].info("Notified emails")
+                self.video_runner_obj["logger"].info(r.text)
+            else:
+                self.video_runner_obj["logger"].error("Error notifying emails")
+                self.video_runner_obj["logger"].error(r.text)
             # You may want to handle the exception or log the error as needed
 
         return

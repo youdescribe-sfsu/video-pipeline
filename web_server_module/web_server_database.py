@@ -1,6 +1,5 @@
 from .web_server_utils import return_pipeline_save_file_folder
 import sqlite3
-import sqlite3
 from enum import Enum
 from .custom_logger import web_server_logger
 # Define an Enum for the status options
