@@ -217,3 +217,19 @@ class UploadToYDX:
         except Exception as e:
             print("Error during request:", str(e))
             self.video_runner_obj["logger"].error("Error during request: %s", str(e))
+            notifyForError = "{}/api/utils/notify".format(ydx_server)
+            post_obj = {
+                "email": "vishalsharma1907@gmail.com",
+                "subject": "Error in generating YDX Caption",
+                "message": str(e)
+            }
+            r = requests.post(notifyForError, data=json.dumps(post_obj), headers=headers)
+            if(r.status_code == 200):
+                self.video_runner_obj["logger"].info("Notified emails")
+                self.video_runner_obj["logger"].info(r.text)
+            else:
+                self.video_runner_obj["logger"].error("Error notifying emails")
+                self.video_runner_obj["logger"].error(r.text)
+            # You may want to handle the exception or log the error as needed
+
+        return
