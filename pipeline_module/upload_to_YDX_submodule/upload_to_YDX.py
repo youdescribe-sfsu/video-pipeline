@@ -207,7 +207,6 @@ class UploadToYDX:
                 r.close()
                 self.video_runner_obj["logger"].info("===== RESPONSE =====")
                 self.video_runner_obj["logger"].info(r.text)
-
             self.video_runner_obj["logger"].info(r.status_code)
             self.video_runner_obj["logger"].info("===== RESPONSE =====")
             self.video_runner_obj["logger"].info(r.text)
