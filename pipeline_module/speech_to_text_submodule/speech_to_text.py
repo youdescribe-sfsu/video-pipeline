@@ -1,13 +1,15 @@
-from ..utils_module.utils import TRANSCRIPTS, load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
+from pipeline_module.utils_module.utils import TRANSCRIPTS, load_progress_from_file, read_value_from_file, \
+    save_progress_to_file, save_value_to_file
 import os
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tts_cloud_key.json"
 import audio_metadata
 from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import storage
-from ..utils_module.timeit_decorator import timeit
+from pipeline_module.utils_module.timeit_decorator import timeit
 from typing import Dict
-from ..utils_module.utils import return_audio_file_name,return_video_folder_name
+from pipeline_module.utils_module.utils import return_audio_file_name, return_video_folder_name
+
 
 ## Make Speech to Text Module
 class SpeechToText:
@@ -30,7 +32,7 @@ class SpeechToText:
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
         # self.progress_file = load_progress_from_file(video_runner_obj)
-    
+
     @timeit
     def get_speech_from_audio(self):
         """
@@ -42,9 +44,9 @@ class SpeechToText:
         Returns:
             None.
         """
-        
+
         # self.progress_file = load_progress_from_file(self.video_runner_obj)
-        
+
         audio_file_name = return_audio_file_name(self.video_runner_obj)
         filepath = return_video_folder_name(self.video_runner_obj) + "/"
         file_name = filepath + audio_file_name
@@ -76,19 +78,21 @@ class SpeechToText:
         )
         # progress_file_new = load_progress_from_file(self.video_runner_obj)
         # if(progress_file_new['SpeechToText']['getting_speech_from_audio'] == 0):
-        if(read_value_from_file(video_runner_obj=self.video_runner_obj,key="['SpeechToText']['getting_speech_from_audio']") == 0):
+        if (read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                 key="['SpeechToText']['getting_speech_from_audio']") == 0):
             operation = client.long_running_recognize(config=config, audio=audio)
             response = operation.result(timeout=10000)
             response = type(response).to_json(response)
             with open(
-            return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
-        ) as outfile:
+                    return_video_folder_name(self.video_runner_obj) + "/" + TRANSCRIPTS, "w"
+            ) as outfile:
                 outfile.write(response)
                 # progress_file_new = load_progress_from_file(self.video_runner_obj)
                 # progress_file_new['SpeechToText']['getting_speech_from_audio'] = 1
                 # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=progress_file_new)
-                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SpeechToText']['getting_speech_from_audio']", value=1)
-        
+                save_value_to_file(video_runner_obj=self.video_runner_obj,
+                                   key="['SpeechToText']['getting_speech_from_audio']", value=1)
+
         self.logger.info(f"Deleting {destination_blob_name} from {bucket_name}")
         self.delete_blob(bucket_name, destination_blob_name)
         # progress_file_new = load_progress_from_file(self.video_runner_obj)
@@ -112,7 +116,7 @@ class SpeechToText:
         """
         # progress_file_new = load_progress_from_file(self.video_runner_obj)
         # if(progress_file_new['SpeechToText']['upload_blob']):
-        if(read_value_from_file(video_runner_obj=self.video_runner_obj,key="['SpeechToText']['upload_blob']")):
+        if (read_value_from_file(video_runner_obj=self.video_runner_obj, key="['SpeechToText']['upload_blob']")):
             ## Audio already uploaded, skipping step
             self.logger.info("Audio already uploaded, skipping step.")
             return
@@ -134,7 +138,7 @@ class SpeechToText:
         """
         # progress_file_new = load_progress_from_file(self.video_runner_obj)
         # if(progress_file_new['SpeechToText']['delete_blob']):
-        if(read_value_from_file(video_runner_obj=self.video_runner_obj,key="['SpeechToText']['delete_blob']")):
+        if (read_value_from_file(video_runner_obj=self.video_runner_obj, key="['SpeechToText']['delete_blob']")):
             ## Audio already deleted, skipping step
             self.logger.info("Audio already deleted, skipping step.")
             return

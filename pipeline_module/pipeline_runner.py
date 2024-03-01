@@ -2,20 +2,20 @@
 from dotenv import load_dotenv
 import os
 import argparse
-from .import_video_submodule.import_video import ImportVideo
-from .extract_audio_submodule.extract_audio import ExtractAudio
-from .speech_to_text_submodule.speech_to_text import SpeechToText
-from .frame_extraction_submodule.frame_extraction import FrameExtraction
-from .ocr_extraction_submodule.ocr_extraction import OcrExtraction
-from .object_detection_submodule.object_detection import ObjectDetection
-from .keyframe_selection_submodule.keyframe_selection import KeyframeSelection
-from .image_captioning_submodule.image_captioning import ImageCaptioning
-from .caption_rating_submodule.caption_rating import CaptionRating
-from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
-from .text_summarization_submodule.text_summary import TextSummarization
-from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
-from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from .utils_module.utils import (
+from import_video_submodule.import_video import ImportVideo
+from extract_audio_submodule.extract_audio import ExtractAudio
+from speech_to_text_submodule.speech_to_text import SpeechToText
+from frame_extraction_submodule.frame_extraction import FrameExtraction
+from ocr_extraction_submodule.ocr_extraction import OcrExtraction
+from object_detection_submodule.object_detection import ObjectDetection
+from keyframe_selection_submodule.keyframe_selection import KeyframeSelection
+from image_captioning_submodule.image_captioning import ImageCaptioning
+from caption_rating_submodule.caption_rating import CaptionRating
+from scene_segmentation_submodule.scene_segmentation import SceneSegmentation
+from text_summarization_submodule.text_summary import TextSummarization
+from upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
+from generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
+from utils_module.utils import (
     DEFAULT_SAVE_PROGRESS,
     PipelineTask,
     load_progress_from_file,

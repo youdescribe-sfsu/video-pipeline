@@ -1,7 +1,8 @@
 from logging import Logger
 import ffmpeg
 from typing import Dict
-from ..utils_module.utils import read_value_from_file, return_video_download_location, load_progress_from_file, save_progress_to_file, save_value_to_file
+from pipeline_module.utils_module.utils import read_value_from_file, return_video_download_location, \
+    load_progress_from_file, save_progress_to_file, save_value_to_file
 import os
 class ExtractAudio:
     def __init__(self, video_runner_obj: Dict[str, int]):
