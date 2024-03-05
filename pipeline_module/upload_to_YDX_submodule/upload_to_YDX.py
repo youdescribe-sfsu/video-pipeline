@@ -214,8 +214,8 @@ class UploadToYDX:
                         return
                         # exit()
                     post_obj = {
-                        "youtube_id": "ALcL3MuU4xQ",
-                        "ai_user_id": "650506db3ff1c2140ea10ece",
+                        "youtube_id": self.video_runner_obj['video_id'],
+                        "ai_user_id": AI_USER_ID,
                         "ydx_app_host":data[0]['ydx_app_host'],
                         "audio_description_id":json_response['_id']
                     }

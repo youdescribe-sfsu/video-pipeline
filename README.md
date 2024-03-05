@@ -138,7 +138,7 @@ Install dependencies :
 
 Run the Pipeline with the following code:
 
-    python pipeline_runner.py --video_id <INSERT_YT_VIDEO_ID>
+    python app.py --video_id <INSERT_YT_VIDEO_ID>
    
    You can pass additional Configs for testing:
    
@@ -146,6 +146,12 @@ Run the Pipeline with the following code:
 	   start_time : start time of youtube video to cut in seconds
        end_time: end time of youtube video to cut in seconds
        upload_to_server: Pass this if you want to upload to YDX server
+
+
+# Run the Web Server
+```
+uvicorn web_server:app --host 0.0.0.0 --port 8086
+```
 
 ## Save and Load Progress Mechanism
 ### Overview
