@@ -49,16 +49,21 @@ class CaptionRating:
             'img_url': image_data['frame_url'],
             'caption': image_data['caption']
         }
+        self.video_runner_obj["logger"].info("MultiformData == > ", str(multipart_form_data))
         page = 'http://localhost:{}/api'.format(os.getenv('CAPTION_RATING_SERVICE') or '8082')
+        self.video_runner_obj["logger"].info("Endpoint == > ", str(page))
         try:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
                 self.video_runner_obj["logger"].info("Server returned status {}.".format(response.status_code))
+                
+            print("Response == > ", response.text.lstrip("['").rstrip("']"))
             return response.text.lstrip("['").rstrip("']")
         except:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
                 self.video_runner_obj["logger"].info("Server returned status {}.".format(response.status_code))
+            print("Response == > ", response.text.lstrip("['").rstrip("']"))
             return response.text.lstrip("['").rstrip("']")
         
 
@@ -104,7 +109,7 @@ class CaptionRating:
                         continue  # Skip already processed frames
 
                     rating = self.get_caption_rating(image_data)
-                    self.video_runner_obj["logger"].info(f"Rating for caption {image_data['caption']} is {rating}")
+                    self.video_runner_obj["logger"].debug(f"Rating for caption {image_data['caption']} is {rating}")
                     print(f"Rating for caption {image_data['caption']} is {rating}")
 
                     row = [frame_index, image_data['frame_url'], image_data['caption'], rating]

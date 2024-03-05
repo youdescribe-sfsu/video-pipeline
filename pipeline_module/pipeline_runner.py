@@ -60,11 +60,14 @@ class PipelineRunner:
 
     def setup_logger(self, video_runner_obj):
         
-        pipeline_log_folder = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "pipeline_logs"
-        )
+        path = os.getcwd()
+        parent = os.path.abspath(os.path.join(path, os.pardir))
+        
+        
+        pipeline_log_folder =parent + "/pipeline_logs/videos"
         os.makedirs(pipeline_log_folder, exist_ok=True)
         log_file = f"{pipeline_log_folder}/{video_runner_obj['video_id']}_{video_runner_obj['AI_USER_ID']}pipeline.log"
+        
         log_mode = "a" if os.path.exists(log_file) else "w"
         logger = logging.getLogger(f"PipelineLogger-{video_runner_obj['video_id']}")
         logger.setLevel(logging.INFO)

@@ -61,8 +61,8 @@ class FrameExtraction:
             if frame_count % frames_per_extraction == 0:
                 frame_filename = "{}/frame_{}.jpg".format(vid_name, frame_count)
                 cv2.imwrite(frame_filename, frame)
-            self.logger.info(f"{frame_count * 100 // num_frames}% complete")
-            self.logger.info("\r{}% complete  ".format((frame_count * 100) // num_frames))
+            self.logger.debug(f"{frame_count * 100 // num_frames}% complete")
+            self.logger.debug("\r{}% complete  ".format((frame_count * 100) // num_frames))
             frame_count += 1
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']", value=frame_count)
 
@@ -123,8 +123,8 @@ class FrameExtraction:
             if frame_count % frames_per_extraction == 0:
                 frame_filename = "{}/frame_{}.jpg".format(vid_name, frame_count)
                 cv2.imwrite(frame_filename, frame)
-                self.logger.info(f"{frame_count * 100 // num_frames}% complete")
-                self.logger.info("\r{}% complete  ".format((frame_count * 100) // num_frames))
+                self.logger.debug(f"{frame_count * 100 // num_frames}% complete")
+                self.logger.debug("\r{}% complete  ".format((frame_count * 100) // num_frames))
                 save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']", value=frame_count)
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:

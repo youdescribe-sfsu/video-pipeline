@@ -61,7 +61,7 @@ def filter_ocr(video_runner_obj, window_width=10, threshold=0.5):
 				current_block = blocks[-1]
 			else:
 				current_block.append((row[0], row[1], text))
-			video_runner_obj["logger"].info(f"Building block table ... {100.0*float(i)/len(rows)}% complete")
+			video_runner_obj["logger"].debug(f"Building block table ... {100.0*float(i)/len(rows)}% complete")
 			print('\rBuilding block table ... {:.3}% complete     '.format(100.0*float(i)/len(rows)), end='')
 		print('\rBuilding block table ... 100% complete     ')
 		video_runner_obj["logger"].info(f"Building block table ... 100% complete")
@@ -129,7 +129,7 @@ def filter_ocr_agreement(video_runner_obj, window_width=10, threshold=0.5, low_t
 			else:
 				current_block.append((row[0], row[1], best_rel_dist, text))
 			print('\rBuilding block table ... {:.3}% complete     '.format(100.0*float(i)/len(rows)), end='')
-			video_runner_obj["logger"].info(f"Building block table ... {100.0*float(i)/len(rows)}% complete")
+			video_runner_obj["logger"].debug(f"Building block table ... {100.0*float(i)/len(rows)}% complete")
 		print('\rBuilding block table ... 100% complete     ')
 		video_runner_obj["logger"].info(f"Building block table ... 100% complete")
 		filtered_rows = []
