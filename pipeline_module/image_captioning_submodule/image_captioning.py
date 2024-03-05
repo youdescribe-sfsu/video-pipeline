@@ -187,10 +187,10 @@ class ImageCaptioning:
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['dropped_key_frames']", value=dropped_key_frames)
 
             # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=self.save_file)
-            self.video_runner_obj["logger"].info("============================================")
+            # self.video_runner_obj["logger"].info("============================================")
             # self.video_runner_obj["logger"].info('Dropped %d keyframes', dropped_key_frames)
             # self.video_runner_obj["logger"].info('Total keyframes: %d', len(keyframes))
-            self.video_runner_obj["logger"].info('============================================')
+            # self.video_runner_obj["logger"].info('============================================')
         return
     
     def filter_keyframes_from_caption(self):

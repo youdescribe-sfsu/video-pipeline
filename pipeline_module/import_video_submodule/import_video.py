@@ -58,8 +58,8 @@ class ImportVideo:
             start_time = timedelta(seconds=int(video_start_time))
             end_time = timedelta(seconds=int(video_end_time))
             
-            logger.info(f"start time: {start_time}")
-            logger.info(f"end time: {end_time}")
+            logger.debug(f"start time: {start_time}")
+            logger.debug(f"end time: {end_time}")
 
             # Trim video and audio based on start and end time
             input_stream = ffmpeg.input(return_video_download_location(self.video_runner_obj))
