@@ -68,6 +68,13 @@ class PipelineTask(Enum):
 import os
 from typing import Dict,Union
 
+def return_artifacts_root_folder(current_env):
+    if current_env == "development":
+        return "/home/datasets/pipeline-dev/"
+    else:
+        return "/home/datasets/pipeline/"
+    
+
 def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
     Returns the folder name for a video.
@@ -82,24 +89,19 @@ def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> st
     video_id = video_runner_obj.get("video_id")
     video_start_time = video_runner_obj.get("video_start_time",None)
     video_end_time = video_runner_obj.get("video_end_time",None)
+
     CURRENT_ENV = os.environ.get("CURRENT_ENV", "production")
     AI_USER_ID = video_runner_obj.get("AI_USER_ID", None)
     return_string = ""
 
     if video_start_time is not None and video_end_time is not None:
-        if CURRENT_ENV == "development":
-            return_string =  f"{video_id}_files/part_start_{video_start_time}_{video_end_time}"
-        else:
-            return_string =  f"/home/datasets/pipeline/{video_id}_files/part_start_{video_start_time}_end_{video_end_time}_files"
-
-    if CURRENT_ENV == "development":
-        return_string = f"{video_id}_files"
+        return_string = f"{return_artifacts_root_folder(CURRENT_ENV)}{video_id}_files/part_start_{video_start_time}_end_{video_end_time}"
     else:
-        return_string = f"/home/datasets/pipeline/{video_id}_files"
+        return_string = f"{return_artifacts_root_folder(CURRENT_ENV)}{video_id}_files"
     
     if AI_USER_ID is not None:
         return_string = f"{return_string}_{AI_USER_ID}"
-    
+
     return return_string
 
 def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:

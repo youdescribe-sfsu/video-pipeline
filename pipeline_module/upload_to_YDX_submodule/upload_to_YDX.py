@@ -177,95 +177,106 @@ class UploadToYDX:
             return_video_folder_name(self.video_runner_obj) + "/" + "final_data.json", mode="w"
         ) as f:
             f.write(json.dumps(data, indent=4))
-        # if self.upload_to_server:
-        print("===== UPLOADING DATA =====")
-        # send data to wherever the database is
+        if self.upload_to_server:
+            print("===== UPLOADING DATA =====")
+            # send data to wherever the database is
 
-        ydx_server = self.video_runner_obj.get('ydx_server')
-        if ydx_server is None:
-            ydx_server = os.getenv("YDX_WEB_SERVER")
-        url = "{}/api/audio-descriptions/newaidescription/".format(ydx_server)
-        headers = {"Content-Type": "application/json; charset=utf-8"}
-        self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
-        
-        try:
-            r = requests.post(url, data=json.dumps(data), headers=headers)
-            self.video_runner_obj["logger"].info("===== RESPONSE =====")
-            self.video_runner_obj["logger"].info(r.text)
+            ydx_server = self.video_runner_obj.get('ydx_server')
             
-            json_response = json.loads(r.text)
-            self.video_runner_obj["logger"].info("json_response",json_response)
-            r.close()
-            if(json_response['_id']):
-                self.video_runner_obj["logger"].info("===== RESPONSE =====")
-                self.video_runner_obj["logger"].info(json_response)
-                ## Get req
-                generateAudioClips = "{}/api/audio-clips/processAllClipsInDB/{}".format(ydx_server,json_response['_id'])
-                r = requests.get(generateAudioClips)
-                if(r.status_code == 200):
-                    self.video_runner_obj["logger"].info("Processed all clips in DB")
-                    self.video_runner_obj["logger"].info(r.text)
-                    data = return_all_user_data_for_youtube_id_ai_user_id(
-        ai_user_id=AI_USER_ID,
-        youtube_id=self.video_runner_obj['video_id']
-                    )
-                    if(len(data) == 0):
-                        self.video_runner_obj["logger"].info("No data found")
-                        return
-                        # exit()
-                    post_obj = {
-                        "youtube_id": self.video_runner_obj['video_id'],
-                        "ai_user_id": AI_USER_ID,
-                        "ydx_app_host":data[0]['ydx_app_host'],
-                        "audio_description_id":json_response['_id']
-                    }
-                    user_ids = []
-                    for userData in data:
-                        user_ids.append(userData['user_id'])
-                        
-                    
-                    post_obj['user_ids'] = user_ids
-                    notifyEmails = "{}/api/utils/notify/aidescriptions".format(ydx_server)
-                    
-                    ## post request to notify emails
-                    r = requests.post(notifyEmails, data=json.dumps(post_obj), headers=headers)
-                    if(r.status_code == 200):
-                        self.video_runner_obj["logger"].info("Notified emails")
-                        self.video_runner_obj["logger"].info(r.text)
-                    else:
-                        self.video_runner_obj["logger"].error("Error notifying emails")
-                        self.video_runner_obj["logger"].error(r.text)
-                    
+            if ydx_server is None:
+                ydx_server = os.getenv("YDX_WEB_SERVER")
+            
+            url = "{}/api/audio-descriptions/newaidescription/".format("https://ydx-dev-api.youdescribe.org")
+            headers = {"Content-Type": "application/json; charset=utf-8"}
+            
+            self.video_runner_obj["logger"].info("===== UPLOADING DATA to {} =====".format(url))
+            
+            try:
+                r = requests.post(url, data=json.dumps(data), headers=headers)
+                # self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                # self.video_runner_obj["logger"].info(r.text)
+                print("response")
+                print(r.status_code)
+                print(r.json())
+                json_response = json.loads(r.text)
+                self.video_runner_obj["logger"].info("json_response",json_response)
+                print(json_response)
                 r.close()
+                if(r.status_code != 500 and json_response['_id']):
+                    self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                    self.video_runner_obj["logger"].info(json_response)
+                    ## Get req
+                    generateAudioClips = "{}/api/audio-clips/processAllClipsInDB/{}".format("https://ydx-dev-api.youdescribe.org",json_response['_id'])
+                    print("========= generateAudioClips =======")
+                    print(generateAudioClips)
+                    r = requests.get(generateAudioClips)
+                    print("========= generateAudioClips response=======")
+                    print(r.status_code)
+                    print(r.text)
+                    if(r.status_code == 200):
+                        self.video_runner_obj["logger"].info("Processed all clips in DB")
+                        self.video_runner_obj["logger"].info(r.text)
+                        data = return_all_user_data_for_youtube_id_ai_user_id(
+            ai_user_id=AI_USER_ID,
+            youtube_id=self.video_runner_obj['video_id']
+                        )
+                        if(len(data) == 0):
+                            self.video_runner_obj["logger"].info("No data found")
+                            return
+                            # exit()
+                        post_obj = {
+                            "youtube_id": self.video_runner_obj['video_id'],
+                            "ai_user_id": AI_USER_ID,
+                            "ydx_app_host":data[0]['ydx_app_host'],
+                            "audio_description_id":json_response['_id']
+                        }
+                        user_ids = []
+                        for userData in data:
+                            user_ids.append(userData['user_id'])
+                            
+                        
+                        post_obj['user_ids'] = user_ids
+                        notifyEmails = "{}/api/utils/notify/aidescriptions".format(ydx_server)
+                        
+                        ## post request to notify emails
+                        r = requests.post(notifyEmails, data=json.dumps(post_obj), headers=headers)
+                        if(r.status_code == 200):
+                            self.video_runner_obj["logger"].info("Notified emails")
+                            self.video_runner_obj["logger"].info(r.text)
+                        else:
+                            self.video_runner_obj["logger"].error("Error notifying emails")
+                            self.video_runner_obj["logger"].error(r.text)
+                        
+                    r.close()
+                    self.video_runner_obj["logger"].info("===== RESPONSE =====")
+                    self.video_runner_obj["logger"].info(r.text)
+                    
+                    
+                
+                
+                self.video_runner_obj["logger"].info(r.status_code)
                 self.video_runner_obj["logger"].info("===== RESPONSE =====")
                 self.video_runner_obj["logger"].info(r.text)
                 
                 
-            
-            
-            self.video_runner_obj["logger"].info(r.status_code)
-            self.video_runner_obj["logger"].info("===== RESPONSE =====")
-            self.video_runner_obj["logger"].info(r.text)
-            
-            
-            # Save the completion status only if the request was successful
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
-        except Exception as e:
-            print("Error during request:", str(e))
-            self.video_runner_obj["logger"].error("Error during request: %s", str(e))
-            notifyForError = "{}/api/utils/notify".format(ydx_server)
-            post_obj = {
-                "email": "vishalsharma1907@gmail.com",
-                "subject": "Error in generating YDX Caption",
-                "message": str(e)
-            }
-            r = requests.post(notifyForError, data=json.dumps(post_obj), headers=headers)
-            if(r.status_code == 200):
-                self.video_runner_obj["logger"].info("Notified emails")
-                self.video_runner_obj["logger"].info(r.text)
-            else:
-                self.video_runner_obj["logger"].error("Error notifying emails")
-                self.video_runner_obj["logger"].error(r.text)
+                # Save the completion status only if the request was successful
+                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
+            except Exception as e:
+                print("Error during request:", str(e))
+                self.video_runner_obj["logger"].error("Error during request: %s", str(e))
+                notifyForError = "{}/api/utils/notify".format(ydx_server)
+                post_obj = {
+                    "email": "vishalsharma1907@gmail.com",
+                    "subject": "Error in generating YDX Caption",
+                    "message": str(e)
+                }
+                r = requests.post(notifyForError, data=json.dumps(post_obj), headers=headers)
+                if(r.status_code == 200):
+                    self.video_runner_obj["logger"].info("Notified emails")
+                    self.video_runner_obj["logger"].info(r.text)
+                else:
+                    self.video_runner_obj["logger"].error("Error notifying emails")
+                    self.video_runner_obj["logger"].error(r.text)
             # You may want to handle the exception or log the error as needed
 
         return
