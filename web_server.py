@@ -95,7 +95,7 @@ def process_queue():
                 )
                 print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
         else:
-            web_server_logger.info("Queue is empty")
+            print("Queue is empty")
             time.sleep(30)  # Check every 30s if there is a new task in the queue
 
 @asynccontextmanager

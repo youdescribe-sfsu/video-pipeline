@@ -49,9 +49,10 @@ class CaptionRating:
             'img_url': image_data['frame_url'],
             'caption': image_data['caption']
         }
-        self.video_runner_obj["logger"].info("MultiformData == > ", str(multipart_form_data))
+        self.video_runner_obj["logger"].info("MultiformData == > ", (multipart_form_data))
         page = 'http://localhost:{}/api'.format(os.getenv('CAPTION_RATING_SERVICE') or '8082')
-        self.video_runner_obj["logger"].info("Endpoint == > ", str(page))
+        # print(page)
+        # self.video_runner_obj["logger"].info("Endpoint == > ", (page))
         try:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
