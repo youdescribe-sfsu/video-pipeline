@@ -62,7 +62,7 @@ def process_queue():
                 video_id=youtube_id,
                 video_end_time=None,
                 video_start_time=None,
-                upload_to_server=False,
+                upload_to_server=True,
                 multi_thread=False,
                 tasks=None,
                 ydx_server=ydx_server,
