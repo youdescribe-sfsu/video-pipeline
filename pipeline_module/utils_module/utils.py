@@ -18,6 +18,8 @@ TRANSCRIPTS = 'transcripts.json'
 DIALOGS = 'dialogs.json'
 VICR_CSV = 'vicr.csv'
 COUNT_VERTICE = 'count_vertice.json'
+PROD_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-dev/'
+DEV_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset/'
 
 ## OCR CSV HEADERS
 
@@ -70,9 +72,9 @@ from typing import Dict,Union
 
 def return_artifacts_root_folder(current_env):
     if current_env == "development":
-        return "/home/datasets/pipeline-dev/"
+        return DEV_ARTIFACTS_ROOT_FOLDER
     else:
-        return "/home/datasets/pipeline/"
+        return PROD_ARTIFACTS_ROOT_FOLDER
     
 
 def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:
