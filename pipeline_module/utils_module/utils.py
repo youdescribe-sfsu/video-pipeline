@@ -70,9 +70,9 @@ from typing import Dict,Union
 
 def return_artifacts_root_folder(current_env):
     if current_env == "development":
-        return "/home/datasets/pipeline-dev/"
+        return "/home/datasets/aiAudioDescriptionDataset-dev/"
     else:
-        return "/home/datasets/pipeline/"
+        return "/home/datasets/aiAudioDescriptionDataset/"
     
 
 def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:
