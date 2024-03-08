@@ -18,8 +18,8 @@ TRANSCRIPTS = 'transcripts.json'
 DIALOGS = 'dialogs.json'
 VICR_CSV = 'vicr.csv'
 COUNT_VERTICE = 'count_vertice.json'
-PROD_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-dev/'
-DEV_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset/'
+PROD_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-prod/'
+DEV_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-dev/'
 
 ## OCR CSV HEADERS
 
