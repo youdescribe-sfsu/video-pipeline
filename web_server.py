@@ -62,7 +62,7 @@ def process_queue():
                 video_id=youtube_id,
                 video_end_time=None,
                 video_start_time=None,
-                upload_to_server=False,
+                upload_to_server=True,
                 multi_thread=False,
                 tasks=None,
                 ydx_server=ydx_server,
@@ -95,7 +95,7 @@ def process_queue():
                 )
                 print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
         else:
-            web_server_logger.info("Queue is empty")
+            print("Queue is empty")
             time.sleep(30)  # Check every 30s if there is a new task in the queue
 
 @asynccontextmanager
@@ -157,7 +157,7 @@ async def health_check():
     except Exception as e:
         print("Exception :: {}".format(str(e)))
         web_server_logger.error("Exception :: {}".format(str(e)))
-        return "error"
+        return "error", status.HTTP_500_INTERNAL_SERVER_ERROR
         
     
     

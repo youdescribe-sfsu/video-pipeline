@@ -162,18 +162,18 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 				writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
 			for frame_index in range(start, num_frames, step):				
 				frame_filename = '{}/frame_{}.jpg'.format(video_frames_folder, frame_index)
-				video_runner_obj["logger"].info(f"Frame Index: {frame_index}")
+				video_runner_obj["logger"].debug(f"Frame Index: {frame_index}")
 				texts = detect_text(frame_filename)
 				if len(texts) > 0:
 					try:
 						new_row = [frame_index, float(frame_index)*seconds_per_frame, json.dumps(texts)]
-						video_runner_obj["logger"].info(f"Timestamp: {float(frame_index)*seconds_per_frame}")
-						video_runner_obj["logger"].info(f"Frame Index : {frame_index}")
+						video_runner_obj["logger"].debug(f"Timestamp: {float(frame_index)*seconds_per_frame}")
+						video_runner_obj["logger"].debug(f"Frame Index : {frame_index}")
 						writer.writerow(new_row)
 						outcsvfile.flush()
 					except Exception as e:
 						print(e)
-						video_runner_obj["logger"].info(f"Error writing to file")
+						video_runner_obj["logger"].debug(f"Error writing to file")
 				# progress_file['OCR']['start'] = frame_index
 				# save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_file)
 				save_value_to_file(video_runner_obj=video_runner_obj, key="['OCR']['start']", value=frame_index)

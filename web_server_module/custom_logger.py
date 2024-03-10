@@ -3,7 +3,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
 
-def create_daily_rotating_log(path):
+def create_daily_rotating_log(path)->TimedRotatingFileHandler:
     """
     Creates a daily rotating log
     """
