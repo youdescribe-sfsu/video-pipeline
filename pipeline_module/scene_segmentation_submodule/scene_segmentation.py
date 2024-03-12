@@ -1,4 +1,5 @@
 import csv
+import json
 from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, load_progress_from_file, read_value_from_file, return_video_folder_name, save_progress_to_file, save_value_to_file
 from .generate_average_output import generate_average_output
 
@@ -85,6 +86,8 @@ class SceneSegmentation:
                     firstSkip = True
 
         return data
+    
+    
 
     def run_scene_segmentation(self):
         """Segment the video into scenes based on the average of the scene and the average of the shot."""
@@ -116,7 +119,23 @@ class SceneSegmentation:
             return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
         )
         list_new = self.parse_CSV_file(outputavgFile)
-        data = self.get_segmented_data(10, 0.75, list_new)
+        
+        metadata = {}
+
+        with open(return_video_folder_name(self.video_runner_obj) + "/metadata.json", "r") as f:
+            metadata = json.load(f)
+            
+        video_time = metadata['duration']
+        ## Threshold is an inverse of similarity
+        ## Increase threshold to increase the number of scenes
+        ## Total time of the video, and there needs to be a scene every 60-90 seconds
+        
+        optimal_threshold = self.incremental_search_for_optimal_threshold(0.75, 1.0, video_time, list_new)
+        
+        print("Optimal threshold: ", optimal_threshold)
+        # print("Optimal scene time limit: ", optimal_scene_time_limit)
+        
+        data = self.get_segmented_data(10, optimal_threshold, list_new)
         with open(sceneSegmentedFile, "w") as csvFile:
             writer = csv.writer(csvFile)
             writer.writerow(self.columns.values())
@@ -127,3 +146,21 @@ class SceneSegmentation:
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['run_scene_segmentation']", value=1)
         print("Scene segmentation done")
         return
+
+
+
+    def incremental_search_for_optimal_threshold(self, low, high, video_duration, list_new):
+        increment = 0.05
+        ## 25 seconds per scene
+        optimal_number_of_scenes = video_duration // 25
+                
+        # Use a for loop for better readability
+        for threshold in range(int(low * 100), int(high * 100) + 1, int(increment * 100)):
+            threshold /= 100  # Convert back to float for calculations
+            data = self.get_segmented_data(10, threshold, list_new)
+            
+            if len(data) >= optimal_number_of_scenes:
+                return threshold
+        
+        # Return high if no threshold found
+        return high
