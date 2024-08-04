@@ -266,7 +266,7 @@ class UploadToYDX:
                 self.video_runner_obj["logger"].error("Error during request: %s", str(e))
                 notifyForError = "{}/api/utils/notify".format(ydx_server)
                 post_obj = {
-                    "email": "vishalsharma1907@gmail.com",
+                    "email": "smirani1@mail.sfsu.edu",
                     "subject": "Error in generating YDX Caption",
                     "message": str(e)
                 }
