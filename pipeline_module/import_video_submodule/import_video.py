@@ -42,8 +42,11 @@ class ImportVideo:
                 return
             
             ydl_opts = {'outtmpl': return_video_download_location(self.video_runner_obj), "format": "best" }
-            vid = YoutubeDL(ydl_opts).extract_info(
-                url='https://www.youtube.com/watch?v=' + video_id, download=True)
+            try:
+                vid = YoutubeDL(ydl_opts).extract_info(url='https://www.youtube.com/watch?v=' + video_id, download=True)
+            except Exception as e:
+                logger.error(f"Failed to download video: {e}")
+                return
 
             # Get Video Duration
             duration = vid.get('duration')
