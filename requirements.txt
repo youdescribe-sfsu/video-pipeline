@@ -77,4 +77,3 @@ wrapt==1.15.0
 yt-dlp
 zipp==3.16.2
 openai
-python-dotenv
