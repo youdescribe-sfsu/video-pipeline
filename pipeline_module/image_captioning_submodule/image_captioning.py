@@ -1,7 +1,9 @@
 import csv
 import os
 import shutil
-
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
 import requests
 
 from ..utils_module.timeit_decorator import timeit
@@ -14,61 +16,50 @@ import json
 import socket
 class ImageCaptioning:
     def __init__(self, video_runner_obj):
-        """
-        Initialize ImportVideo object.
-        
-        Parameters:
-        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
-            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
-        """
         self.video_runner_obj = video_runner_obj
-        # self.save_file = load_progress_from_file(video_runner_obj=self.video_runner_obj)
-        pass
-    
-
+        load_dotenv()
+        self.client = OpenAI(
+            organization=os.getenv("ORGANIZATION_ID"),
+            api_key=os.getenv("OPENAI_API_KEY"),
+        )
 
     def get_caption(self, filename):
         """
-        Gets a caption from the server given an image filename
+        Gets a caption for an image using GPT-4 Vision API
         """
-        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8085')
-        token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
-        
-        caption_img = ""
-        fileBuffer = None
         try:
-            fileBuffer = open(filename, 'rb')
-            multipart_form_data = {
-                'token': ('', str(token)),
-                'image': (os.path.basename(filename), fileBuffer),
-                'min_length':25,
-                'max_length':50
-            }
+            with open(filename, "rb") as image_file:
+                image_url = f"data:image/jpeg;base64,{base64.b64encode(image_file.read()).decode('utf-8')}"
             
-            self.video_runner_obj["logger"].info(f"Running image captioning for {filename}")
-            self.video_runner_obj["logger"].info(f"multipart_form_data: {multipart_form_data}")
-            print("file :: ",page)
-            
-            response = requests.post(page, files=multipart_form_data,timeout=10)
-            if response.status_code == 200:
-                json_obj = response.json()
-                caption_img = json_obj['caption']
-            else:
-                self.video_runner_obj["logger"].info(f"Server returned status {response.status_code}")
-        except requests.exceptions.Timeout:
-            print("Request timed out")
-            raise Exception('Request timed out')
-            # Handle the timeout error here
-        except requests.exceptions.RequestException as e:
-            print(f"Request error: {e}")
-            raise Exception(f"Request error: {e}")
-        finally:
-            # Close the socket if it's still open
-            if fileBuffer is not None:
-                fileBuffer.close()
-        
-        self.video_runner_obj["logger"].info(f"caption: {caption_img}")
-        return caption_img.strip()
+            response = self.client.chat.completions.create(
+                model="gpt-4-vision-preview",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert image describer for visually impaired users. Provide detailed, concise, and relevant descriptions of images, focusing on key elements, colors, spatial relationships, and any text visible in the image."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Please describe this image in detail for a visually impaired person."},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": image_url
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=300
+            )
+
+            caption = response.choices[0].message.content.strip()
+            self.video_runner_obj["logger"].info(f"caption: {caption}")
+            return caption
+        except Exception as e:
+            self.video_runner_obj["logger"].error(f"Error in get_caption: {str(e)}")
+            return None
 
 
     
@@ -156,19 +147,19 @@ class ImageCaptioning:
         # except ValueError:
         #     index_start_value = 0
         with open(outcsvpath, mode, newline='', encoding='utf-8') as outcsvfile:
-            writer = csv.writer(outcsvfile)
-            if last_processed_frame == 0:
-                writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR], KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR], KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
+        writer = csv.writer(outcsvfile)
+        if last_processed_frame == 0:
+            writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR], KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR], KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
 
-            for frame_index in frames_to_process:
-                frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
-                caption = self.get_caption(frame_filename)
+        for frame_index in frames_to_process:
+            frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
+            caption = self.get_caption(frame_filename)
 
-                if type(caption) == str:
-                    row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in all_keyframes, caption]
-                    writer.writerow(row)
-                
-                print("Frame index: ", frame_index, " Caption: ", caption)
+            if caption:
+                row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in all_keyframes, caption]
+                writer.writerow(row)
+            
+            print("Frame index: ", frame_index, " Caption: ", caption)
                 # elif frame_index in keyframes:
                 #     dropped_key_frames += 1
 
