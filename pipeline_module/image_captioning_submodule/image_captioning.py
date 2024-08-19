@@ -147,19 +147,19 @@ class ImageCaptioning:
         # except ValueError:
         #     index_start_value = 0
         with open(outcsvpath, mode, newline='', encoding='utf-8') as outcsvfile:
-        writer = csv.writer(outcsvfile)
-        if last_processed_frame == 0:
-            writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR], KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR], KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
+            writer = csv.writer(outcsvfile)
+            if last_processed_frame == 0:
+                writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR], KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR], KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
 
-        for frame_index in frames_to_process:
-            frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
-            caption = self.get_caption(frame_filename)
+            for frame_index in frames_to_process:
+                frame_filename = '{}/frame_{}.jpg'.format(video_frames_path, frame_index)
+                caption = self.get_caption(frame_filename)
 
-            if caption:
-                row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in all_keyframes, caption]
-                writer.writerow(row)
-            
-            print("Frame index: ", frame_index, " Caption: ", caption)
+                if caption:
+                    row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in all_keyframes, caption]
+                    writer.writerow(row)
+                
+                print("Frame index: ", frame_index, " Caption: ", caption)
                 # elif frame_index in keyframes:
                 #     dropped_key_frames += 1
 
