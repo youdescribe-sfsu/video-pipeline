@@ -13,7 +13,7 @@ from .keyframe_selection_submodule.keyframe_selection import KeyframeSelection
 from .image_captioning_submodule.image_captioning import ImageCaptioning
 from .caption_rating_submodule.caption_rating import CaptionRating
 from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
-from .text_summarization_submodule.text_summary import TextSummarization
+from .text_summarization_submodule.text_summary import TextSummaryCoordinator
 from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
 from .utils_module.utils import DEFAULT_SAVE_PROGRESS, load_progress_from_file, save_progress_to_file
@@ -140,7 +140,7 @@ def run_pipeline_multi_thread(video_id, video_start_time, video_end_time,upload_
     scene_segmentation.run_scene_segmentation()
     ## Text summarization
     ## Check for better summarization with GPT-3/3.5
-    text_summarization = TextSummarization(video_runner_obj)
+    text_summarization = TextSummaryCoordinator(video_runner_obj)
     text_summarization.generate_text_summary()
     ## Upload to YDX
     upload_to_YDX = UploadToYDX(video_runner_obj,upload_to_server=upload_to_server)
