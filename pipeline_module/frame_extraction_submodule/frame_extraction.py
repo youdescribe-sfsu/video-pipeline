@@ -1,145 +1,166 @@
-from ..utils_module.timeit_decorator import timeit
-from ..utils_module.utils import read_value_from_file, return_video_download_location,  return_video_frames_folder, save_value_to_file
 import cv2
 import os
-from typing import Dict
-from concurrent.futures import ThreadPoolExecutor
-# import numba
+import numpy as np
+from typing import Dict, List, Tuple
+from ..utils_module.utils import read_value_from_file, return_video_download_location, return_video_frames_folder, \
+    save_value_to_file
+from ..utils_module.timeit_decorator import timeit
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 class FrameExtraction:
-    def __init__(self, video_runner_obj: Dict[str, int], frames_per_second: int):
+    def __init__(self, video_runner_obj: Dict[str, int], default_fps: int = 3):
         self.video_runner_obj = video_runner_obj
-        self.frames_per_second = frames_per_second
+        self.default_fps = default_fps
         self.logger = video_runner_obj.get("logger")
+        self.video_path = return_video_download_location(self.video_runner_obj)
+        self.frames_folder = return_video_frames_folder(self.video_runner_obj)
 
-    def extract_frames(self, logging=False):
-        vid_name = return_video_frames_folder(self.video_runner_obj)
-        
-        if(read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['started']") == 'done'):
-            self.logger.info("Frames already extracted, skipping step.")
-            return
-
-        if not os.path.exists(vid_name):
-            try:
-                os.mkdir(vid_name)
-            except OSError:
-                self.logger.error("Cannot create directory for frames")
-                return
-        video_location = return_video_download_location(self.video_runner_obj)
-        vid = cv2.VideoCapture(video_location)
-            
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['started']"):
-            fps = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['fps']")
-            frames_per_extraction = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['frames_per_extraction']")
-            num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['num_frames']")
-            actual_frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['actual_frames_per_second']")
-        else:
-            fps = round(vid.get(cv2.CAP_PROP_FPS))
-            frames_per_extraction = round(fps / self.frames_per_second)
-            num_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
-            actual_frames_per_second = fps / frames_per_extraction
-            
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']", value=True)
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['fps']", value=fps)
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['frames_per_extraction']", value=frames_per_extraction)
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['num_frames']", value=num_frames)
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['actual_frames_per_second']", value=actual_frames_per_second)
-
-        last_extracted_frame = read_value_from_file(video_runner_obj=self.video_runner_obj,key="['FrameExtraction']['extract_frames']")
-        if last_extracted_frame >= num_frames:
-            self.logger.info("Frames already extracted, skipping step.")
-            return
-
-        self.logger.info(f"Extracting frames from {self.video_runner_obj['video_id']} ({fps} fps, {num_frames} frames)...")
-
-        frame_count = last_extracted_frame
-        while frame_count < num_frames:
-            status, frame = vid.read()
-            if not status:
-                self.logger.error("Error extracting frame {}.".format(frame_count))
-                break
-            if frame_count % frames_per_extraction == 0:
-                frame_filename = "{}/frame_{}.jpg".format(vid_name, frame_count)
-                cv2.imwrite(frame_filename, frame)
-            self.logger.info(f"{frame_count * 100 // num_frames}% complete")
-            self.logger.info("\r{}% complete  ".format((frame_count * 100) // num_frames))
-            frame_count += 1
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']", value=frame_count)
-
-        # if logging:
-        self.logger.info("\r100% complete   ")
-
-        vid.release()
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=frames_per_extraction)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']", value=num_frames)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']", value=actual_frames_per_second)
-        
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']", value=frame_count)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']", value='done')
-
-        self.logger.info("Extraction complete.")
-        return
-    
-    
-    def extract_frames_parallel(self, num_workers=4):
-        vid_name = return_video_frames_folder(self.video_runner_obj)
-
+    @timeit
+    def extract_frames(self) -> bool:
         if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']") == 'done':
             self.logger.info("Frames already extracted, skipping step.")
-            return
+            return True
 
-        if not os.path.exists(vid_name):
-            try:
-                os.mkdir(vid_name)
-            except OSError:
-                self.logger.error("Cannot create directory for frames")
-                return
+        if not os.path.exists(self.frames_folder):
+            os.makedirs(self.frames_folder)
 
-        video_location = return_video_download_location(self.video_runner_obj)
-        vid = cv2.VideoCapture(video_location)
-        fps = round(vid.get(cv2.CAP_PROP_FPS))
-        frames_per_extraction = round(fps / self.frames_per_second)
-        num_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
-        actual_frames_per_second = fps / frames_per_extraction
+        try:
+            vid = cv2.VideoCapture(self.video_path)
+            if not vid.isOpened():
+                raise IOError(f"Error opening video file: {self.video_path}")
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']", value=True)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['fps']", value=fps)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['frames_per_extraction']", value=frames_per_extraction)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['num_frames']", value=num_frames)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['actual_frames_per_second']", value=actual_frames_per_second)
+            total_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
+            video_fps = vid.get(cv2.CAP_PROP_FPS)
+            duration = total_frames / video_fps
 
-        last_extracted_frame = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']")
-        if last_extracted_frame >= num_frames:
-            self.logger.info("Frames already extracted, skipping step.")
-            return
+            adaptive_fps = self.calculate_adaptive_fps(duration)
+            frames_to_extract = int(duration * adaptive_fps)
 
-        self.logger.info(f"Extracting frames from {self.video_runner_obj['video_id']} ({fps} fps, {num_frames} frames)...")
+            self.logger.info(f"Extracting frames at {adaptive_fps} fps")
+            self.logger.info(f"Total frames to extract: {frames_to_extract}")
 
-        # @numba.njit
-        def process_frame(frame_count):
-            status, frame = vid.read()
-            if not status:
-                return
-            if frame_count % frames_per_extraction == 0:
-                frame_filename = "{}/frame_{}.jpg".format(vid_name, frame_count)
-                cv2.imwrite(frame_filename, frame)
-                self.logger.info(f"{frame_count * 100 // num_frames}% complete")
-                self.logger.info("\r{}% complete  ".format((frame_count * 100) // num_frames))
-                save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']", value=frame_count)
+            frame_indices = np.linspace(0, total_frames - 1, frames_to_extract, dtype=int)
 
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            frame_indices = range(last_extracted_frame, num_frames, frames_per_extraction)
-            executor.map(process_frame, frame_indices)
+            with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+                future_to_frame = {executor.submit(self.process_frame, vid, frame_idx): frame_idx for frame_idx in
+                                   frame_indices}
+                for future in as_completed(future_to_frame):
+                    frame_idx = future_to_frame[future]
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        self.logger.error(f"Frame {frame_idx} generated an exception: {exc}")
+                    else:
+                        self.logger.info(f"Processed frame {frame_idx}")
 
-        self.logger.info("\r100% complete   ")
+            vid.release()
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']",
+                               value='done')
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['adaptive_fps']",
+                               value=adaptive_fps)
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['frames_extracted']",
+                               value=frames_to_extract)
+
+            self.logger.info("Frame extraction completed successfully.")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error in frame extraction: {str(e)}")
+            return False
+
+    def process_frame(self, vid: cv2.VideoCapture, frame_idx: int) -> None:
+        vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = vid.read()
+        if ret:
+            frame_filename = os.path.join(self.frames_folder, f"frame_{frame_idx}.jpg")
+            cv2.imwrite(frame_filename, frame)
+        else:
+            self.logger.warning(f"Failed to read frame {frame_idx}")
+
+    def calculate_adaptive_fps(self, duration: float) -> float:
+        if duration <= 60:  # For videos up to 1 minute
+            return max(self.default_fps, 1)
+        elif duration <= 300:  # For videos up to 5 minutes
+            return max(self.default_fps - 1, 1)
+        elif duration <= 900:  # For videos up to 15 minutes
+            return max(self.default_fps - 2, 1)
+        else:  # For videos longer than 15 minutes
+            return max(1, min(self.default_fps - 3, duration / 300))
+
+    def detect_scene_changes(self, threshold: float = 30.0) -> List[int]:
+        scene_changes = []
+        previous_frame = None
+
+        vid = cv2.VideoCapture(self.video_path)
+
+        while True:
+            ret, frame = vid.read()
+            if not ret:
+                break
+
+            if previous_frame is not None:
+                diff = cv2.absdiff(previous_frame, frame)
+                non_zero_count = np.count_nonzero(diff)
+                if non_zero_count > threshold * frame.size / 100:
+                    scene_changes.append(int(vid.get(cv2.CAP_PROP_POS_FRAMES)))
+
+            previous_frame = frame
 
         vid.release()
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=frames_per_extraction)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']", value=num_frames)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']", value=actual_frames_per_second)
+        return scene_changes
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['extract_frames']", value=num_frames)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']", value='done')
+    def extract_keyframes(self, scene_changes: List[int]) -> None:
+        vid = cv2.VideoCapture(self.video_path)
 
-        self.logger.info("Extraction complete.")
-        return
+        for frame_idx in scene_changes:
+            vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = vid.read()
+            if ret:
+                frame_filename = os.path.join(self.frames_folder, f"keyframe_{frame_idx}.jpg")
+                cv2.imwrite(frame_filename, frame)
+            else:
+                self.logger.warning(f"Failed to read keyframe {frame_idx}")
+
+        vid.release()
+
+    @timeit
+    def extract_frames_with_scene_detection(self) -> bool:
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                key="['FrameExtraction']['scene_detection_done']") == 'done':
+            self.logger.info("Scene detection and keyframe extraction already completed, skipping step.")
+            return True
+
+        try:
+            self.logger.info("Starting scene detection")
+            scene_changes = self.detect_scene_changes()
+            self.logger.info(f"Detected {len(scene_changes)} scene changes")
+
+            self.logger.info("Extracting keyframes")
+            self.extract_keyframes(scene_changes)
+
+            save_value_to_file(video_runner_obj=self.video_runner_obj,
+                               key="['FrameExtraction']['scene_detection_done']", value='done')
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['scene_changes']",
+                               value=scene_changes)
+
+            self.logger.info("Scene detection and keyframe extraction completed successfully.")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error in scene detection and keyframe extraction: {str(e)}")
+            return False
+
+
+if __name__ == "__main__":
+    # For testing purposes
+    video_runner_obj = {
+        "video_id": "test_video",
+        "logger": print  # Use print as a simple logger for testing
+    }
+    frame_extractor = FrameExtraction(video_runner_obj)
+    success = frame_extractor.extract_frames()
+    print(f"Frame extraction {'succeeded' if success else 'failed'}")
+
+    scene_detection_success = frame_extractor.extract_frames_with_scene_detection()
+    print(f"Scene detection and keyframe extraction {'succeeded' if scene_detection_success else 'failed'}")
