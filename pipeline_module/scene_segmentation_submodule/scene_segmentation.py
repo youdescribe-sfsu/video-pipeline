@@ -5,6 +5,8 @@ from typing import Dict, Any, List, Tuple
 from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, read_value_from_file, \
     return_video_folder_name, save_value_to_file
 from ..utils_module.timeit_decorator import timeit
+from sklearn.cluster import KMeans
+from scipy.signal import find_peaks
 
 
 class SceneSegmentation:
@@ -16,135 +18,145 @@ class SceneSegmentation:
             "end_time": "end_time",
             "description": "description",
         }
-
-    def average_check(self, averageone: float, averagetwo: float, threshold: float) -> bool:
-        return averageone < threshold and averagetwo < threshold
-
-    def parse_CSV_file(self, csvPath: str) -> List[List[Any]]:
-        with open(csvPath, "r") as csvFile:
-            reader = csv.reader(csvFile)
-            headers = next(reader)
-            list_new = []
-            for row in reader:
-                temp = []
-                for idx, value in enumerate(row):
-                    if value == "":
-                        temp.append(0.0)
-                    elif idx == 4:
-                        temp.append(float(value) if value != "SKIP" else value)
-                    elif idx in [7, 8]:
-                        temp.append(value)
-                    else:
-                        temp.append(float(value))
-                list_new.append(temp)
-        return list_new
-
-    def get_segmented_data(self, scene_time_limit: float, threshold: float, list_new: List[List[Any]]) -> List[
-        List[Any]]:
-        scenesegments = []
-        currentSceneTimeStamp = 0
-        firstSkip = False
-        skiptimestamp = None
-        description = ""
-        data = []
-
-        for i, row in enumerate(list_new):
-            if row[7] == "True":
-                description = description + "\n" + row[8]
-
-            if row[4] != "SKIP" and float(row[4]) < threshold:
-                if self.average_check(row[5], row[6], threshold) and row[1] - currentSceneTimeStamp > scene_time_limit:
-                    scenesegments.append(row[1])
-                    data.append([currentSceneTimeStamp, row[1], description])
-                    description = ""
-                    currentSceneTimeStamp = row[1]
-
-            if row[4] != "SKIP" and firstSkip:
-                if row[1] - skiptimestamp >= scene_time_limit:
-                    scenesegments.append(row[1])
-                    data.append([currentSceneTimeStamp, row[1], description])
-                    description = " "
-                    currentSceneTimeStamp = row[1]
-                firstSkip = False
-            if row[4] == "SKIP":
-                if not firstSkip:
-                    skiptimestamp = row[1]
-                    firstSkip = True
-
-        return data
+        self.min_scene_duration = 3  # minimum scene duration in seconds
+        self.max_scenes = 50  # maximum number of scenes to detect
 
     @timeit
-    def run_scene_segmentation(self) -> None:
+    def run_scene_segmentation(self) -> bool:
         self.logger.info("Running scene segmentation")
 
         if read_value_from_file(video_runner_obj=self.video_runner_obj,
                                 key="['SceneSegmentation']['run_scene_segmentation']") == 1:
             self.logger.info("Scene segmentation already processed")
-            return
+            return True
 
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['started']", value=True)
 
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['SceneSegmentation']['generate_average_output']") != 1:
-            self.generate_average_output()
+        try:
+            frame_data = self.load_frame_data()
+            scene_boundaries = self.detect_scene_boundaries(frame_data)
+            scenes = self.generate_scenes(frame_data, scene_boundaries)
+            self.save_scenes(scenes)
+
             save_value_to_file(video_runner_obj=self.video_runner_obj,
-                               key="['SceneSegmentation']['generate_average_output']", value=1)
+                               key="['SceneSegmentation']['run_scene_segmentation']", value=1)
+            self.logger.info("Scene segmentation completed")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error in scene segmentation: {str(e)}")
+            return False
 
-        outputavgFile = return_video_folder_name(self.video_runner_obj) + "/" + OUTPUT_AVG_CSV
-        sceneSegmentedFile = return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
-
-        list_new = self.parse_CSV_file(outputavgFile)
-        data = self.get_segmented_data(10, 0.75, list_new)
-
-        with open(sceneSegmentedFile, "w", newline='') as csvFile:
-            writer = csv.writer(csvFile)
-            writer.writerow(self.columns.values())
-            writer.writerows(data)
-
-        self.logger.info(f"Writing scene segmentation results to {sceneSegmentedFile}")
-        save_value_to_file(video_runner_obj=self.video_runner_obj,
-                           key="['SceneSegmentation']['run_scene_segmentation']", value=1)
-        self.logger.info("Scene segmentation completed")
-
-    def generate_average_output(self) -> None:
-        captions_and_objects_csv = return_video_folder_name(self.video_runner_obj) + '/' + 'captions_and_objects.csv'
+    def load_frame_data(self) -> List[Dict[str, Any]]:
         output_avg_csv = return_video_folder_name(self.video_runner_obj) + '/' + OUTPUT_AVG_CSV
+        frame_data = []
 
-        with open(captions_and_objects_csv, 'r') as csvFile:
-            csvReader = csv.DictReader(csvFile)
-            jsonArray = list(csvReader)
+        with open(output_avg_csv, 'r') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                frame_data.append({
+                    'frame': int(row['frame']),
+                    'timestamp': float(row['timestamp']),
+                    'similarity': float(row['Similarity']) if row['Similarity'] != 'SKIP' else np.nan,
+                    'description': row['description']
+                })
 
-        isKeyFrame = [row['Is Keyframe'] for row in jsonArray]
-        description = [row['Caption'] for row in jsonArray]
-        frame_index = [int(float(row['Frame Index'])) for row in jsonArray]
-        timestamp = [float(row['Timestamp']) for row in jsonArray]
+        return frame_data
 
-        list_data = []
-        for row in jsonArray:
-            temp = [float(row.get(key, 0)) if row.get(key) != '' else 0.0 for key in row.keys() if
-                    key not in ['Frame Index', 'Timestamp', 'Is Keyframe', 'Caption']]
-            list_data.append(temp)
+    def detect_scene_boundaries(self, frame_data: List[Dict[str, Any]]) -> List[int]:
+        similarities = [frame['similarity'] for frame in frame_data]
+        similarities = np.array(similarities)
+        similarities[np.isnan(similarities)] = np.nanmean(similarities)  # Replace NaNs with mean
 
-        data = []
-        for idx in range(2, len(list_data) - 1):
-            s = np.dot(list_data[idx], list_data[idx + 1]) / (
-                        np.linalg.norm(list_data[idx]) * np.linalg.norm(list_data[idx + 1]))
-            a1 = np.dot(list_data[idx - 1], list_data[idx + 2]) / (
-                        np.linalg.norm(list_data[idx - 1]) * np.linalg.norm(list_data[idx + 2])) if idx < len(
-                list_data) - 3 else 0.0
-            a2 = np.dot(list_data[idx - 2], list_data[idx + 3]) / (
-                        np.linalg.norm(list_data[idx - 2]) * np.linalg.norm(list_data[idx + 3])) if idx < len(
-                list_data) - 3 else 0.0
-            s = "SKIP" if np.isnan(s) else s
-            data.append([frame_index[idx], timestamp[idx], idx, idx + 1, s, a1, a2, isKeyFrame[idx], description[idx]])
+        # Use both threshold-based and peak detection methods
+        threshold_boundaries = self.threshold_based_detection(similarities)
+        peak_boundaries = self.peak_based_detection(similarities)
 
-        with open(output_avg_csv, 'w', newline='') as csvFile:
-            writer = csv.writer(csvFile)
-            writer.writerow(
-                ['frame', 'timestamp', 'Line1', 'Line2', 'Similarity', 'avgone', 'avgtwo', 'iskeyFrame', 'description'])
-            writer.writerows(data)
+        # Combine and sort the boundaries
+        all_boundaries = sorted(set(threshold_boundaries + peak_boundaries))
 
-        self.logger.info(f"Generated average output CSV: {output_avg_csv}")
+        # Filter out boundaries that are too close to each other
+        filtered_boundaries = self.filter_boundaries(all_boundaries, frame_data)
+
+        return filtered_boundaries
+
+    def threshold_based_detection(self, similarities: np.ndarray) -> List[int]:
+        threshold = np.mean(similarities) - np.std(similarities)
+        return [i for i in range(1, len(similarities)) if similarities[i] < threshold]
+
+    def peak_based_detection(self, similarities: np.ndarray) -> List[int]:
+        # Invert similarities for peak detection (low similarity = scene change)
+        inverted_similarities = np.max(similarities) - similarities
+        peaks, _ = find_peaks(inverted_similarities, distance=self.min_scene_duration * 30)  # Assuming 30 fps
+        return list(peaks)
+
+    def filter_boundaries(self, boundaries: List[int], frame_data: List[Dict[str, Any]]) -> List[int]:
+        filtered = [0]  # Always include the start of the video
+        for b in boundaries:
+            if (frame_data[b]['timestamp'] - frame_data[filtered[-1]]['timestamp']) >= self.min_scene_duration:
+                filtered.append(b)
+            if len(filtered) >= self.max_scenes:
+                break
+        return filtered
+
+    def generate_scenes(self, frame_data: List[Dict[str, Any]], scene_boundaries: List[int]) -> List[Dict[str, Any]]:
+        scenes = []
+        for i in range(len(scene_boundaries) - 1):
+            start = scene_boundaries[i]
+            end = scene_boundaries[i + 1]
+            scene = {
+                'start_time': frame_data[start]['timestamp'],
+                'end_time': frame_data[end]['timestamp'],
+                'description': self.summarize_scene_description(frame_data[start:end])
+            }
+            scenes.append(scene)
+
+        # Add the last scene
+        if scene_boundaries:
+            last_start = scene_boundaries[-1]
+            scenes.append({
+                'start_time': frame_data[last_start]['timestamp'],
+                'end_time': frame_data[-1]['timestamp'],
+                'description': self.summarize_scene_description(frame_data[last_start:])
+            })
+
+        return scenes
+
+    def summarize_scene_description(self, scene_frames: List[Dict[str, Any]]) -> str:
+        descriptions = [frame['description'] for frame in scene_frames if frame['description']]
+        if not descriptions:
+            return "No description available"
+
+        # Use K-means clustering to group similar descriptions
+        vectorizer = self.get_vectorizer()
+        vectors = vectorizer.fit_transform(descriptions)
+
+        n_clusters = min(3, len(descriptions))
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        kmeans.fit(vectors)
+
+        cluster_centers = kmeans.cluster_centers_
+        closest_descriptions = []
+
+        for center in cluster_centers:
+            distances = np.linalg.norm(vectors - center, axis=1)
+            closest_idx = np.argmin(distances)
+            closest_descriptions.append(descriptions[closest_idx])
+
+        return " ".join(closest_descriptions)
+
+    def get_vectorizer(self):
+        # You can replace this with a more sophisticated vectorizer if needed
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        return TfidfVectorizer(stop_words='english')
+
+    def save_scenes(self, scenes: List[Dict[str, Any]]) -> None:
+        scene_segmented_file = return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
+        with open(scene_segmented_file, "w", newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=self.columns.values())
+            writer.writeheader()
+            writer.writerows(scenes)
+
+        self.logger.info(f"Scene segmentation results saved to {scene_segmented_file}")
 
 
 if __name__ == "__main__":
@@ -154,4 +166,5 @@ if __name__ == "__main__":
         "logger": print  # Use print as a simple logger for testing
     }
     scene_segmentation = SceneSegmentation(video_runner_obj)
-    scene_segmentation.run_scene_segmentation()
+    success = scene_segmentation.run_scene_segmentation()
+    print(f"Scene segmentation {'succeeded' if success else 'failed'}")
