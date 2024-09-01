@@ -11,12 +11,13 @@ from ..utils_module.utils import (
     SUMMARIZED_SCENES
 )
 from ..utils_module.timeit_decorator import timeit
-
+from transformers import pipeline
 
 class TextSummarization:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
+        self.summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 
     def calculate_bleu_score(self, data: Dict[str, Any]) -> float:
         method1 = SmoothingFunction().method1
@@ -69,12 +70,16 @@ class TextSummarization:
 
         return best_sentence
 
+    def summarize_text(self, text: str, max_length: int = 130, min_length: int = 30) -> str:
+        summary = self.summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
+        return summary[0]['summary_text']
+
     @timeit
-    def generate_text_summary(self) -> None:
+    def generate_text_summary(self) -> bool:
         if read_value_from_file(video_runner_obj=self.video_runner_obj,
                                 key="['TextSummarization']['started']") == 'done':
             self.logger.info("Text summarization already processed")
-            return
+            return True
 
         try:
             self.logger.info("Starting text summarization")
@@ -100,10 +105,13 @@ class TextSummarization:
                     best_sentence = self.select_best_sentence(sentences, group)
                     summarized_description.append(best_sentence)
 
+                full_description = ' '.join(summarized_description)
+                summarized_text = self.summarize_text(full_description)
+
                 summarized_scenes.append({
                     'start_time': scene['start_time'],
                     'end_time': scene['end_time'],
-                    'text': ' '.join(summarized_description)
+                    'text': summarized_text
                 })
 
             output_file = return_video_folder_name(self.video_runner_obj) + "/" + SUMMARIZED_SCENES
@@ -113,11 +121,11 @@ class TextSummarization:
             self.logger.info(f"Text summarization completed. Output saved to {output_file}")
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['TextSummarization']['started']",
                                value='done')
+            return True
 
         except Exception as e:
             self.logger.error(f"Error in text summarization: {str(e)}")
-            raise
-
+            return False
 
 if __name__ == "__main__":
     # For testing purposes
@@ -126,4 +134,5 @@ if __name__ == "__main__":
         "logger": print  # Use print as a simple logger for testing
     }
     text_summarization = TextSummarization(video_runner_obj)
-    text_summarization.generate_text_summary()
+    success = text_summarization.generate_text_summary()
+    print(f"Text summarization {'succeeded' if success else 'failed'}")
