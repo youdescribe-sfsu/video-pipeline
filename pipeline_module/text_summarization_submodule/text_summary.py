@@ -1,4 +1,4 @@
-from .text_summarization_helper import text_summarization_csv
+from .text_summarization_helper import generate_text_summary
 from ..utils_module.utils import load_progress_from_file, read_value_from_file, save_progress_to_file, save_value_to_file
 
 class TextSummarization:
@@ -14,7 +14,7 @@ class TextSummarization:
             print("Already processed")
             self.video_runner_obj["logger"].info("Already processed")
             return
-        text_summarization_csv(self.video_runner_obj)
+        generate_text_summary(self.video_runner_obj)
         # save_file['TextSummarization']['started'] = 'done'
         # save_progress_to_file(video_runner_obj=self.video_runner_obj, progress_data=save_file)
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['TextSummarization']['started']", value='done')
