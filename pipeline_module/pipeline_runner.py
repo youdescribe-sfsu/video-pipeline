@@ -16,7 +16,7 @@ from .keyframe_selection_submodule.keyframe_selection import KeyframeSelection
 from .image_captioning_submodule.image_captioning import ImageCaptioning
 from .caption_rating_submodule.caption_rating import CaptionRating
 from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
-from .text_summarization_submodule.text_summary import TextSummarization
+from .text_summarization_submodule.text_summary import TextSummaryCoordinator
 from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
 from .utils_module.utils import PipelineTask, load_progress_from_file, save_progress_to_file
@@ -120,7 +120,7 @@ class PipelineRunner:
         return scene_segmentation.run_scene_segmentation()
 
     def run_text_summarization(self) -> None:
-        text_summarization = TextSummarization({"video_id": self.video_id, "logger": self.logger})
+        text_summarization = ({"video_id": self.video_id, "logger": self.logger})
         return text_summarization.generate_text_summary()
 
     def run_upload_to_ydx(self) -> None:
