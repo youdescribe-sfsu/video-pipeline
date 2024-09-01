@@ -1,10 +1,7 @@
-from dotenv import load_dotenv
-import os
-import argparse
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from typing import List, Dict, Any
-import traceback
+from typing import List, Dict, Any, Optional
+import os
+from dotenv import load_dotenv
 
 from .import_video_submodule.import_video import ImportVideo
 from .extract_audio_submodule.extract_audio import ExtractAudio
@@ -19,21 +16,24 @@ from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
 from .text_summarization_submodule.text_summary import TextSummaryCoordinator
 from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from .utils_module.utils import PipelineTask, load_progress_from_file, save_progress_to_file
-
+from .utils_module.utils import (
+    load_progress_from_file,
+    save_progress_to_file,
+    PipelineTask,
+)
 
 class PipelineRunner:
     def __init__(
-            self,
-            video_id: str,
-            video_start_time: str,
-            video_end_time: str,
-            upload_to_server: bool,
-            tasks: List[str] = None,
-            ydx_server: str = None,
-            ydx_app_host: str = None,
-            userId: str = None,
-            AI_USER_ID: str = None,
+        self,
+        video_id: str,
+        video_start_time: Optional[str],
+        video_end_time: Optional[str],
+        upload_to_server: bool,
+        tasks: Optional[List[str]] = None,
+        ydx_server: Optional[str] = None,
+        ydx_app_host: Optional[str] = None,
+        userId: Optional[str] = None,
+        AI_USER_ID: Optional[str] = None,
     ):
         self.video_id = video_id
         self.video_start_time = video_start_time
@@ -71,8 +71,7 @@ class PipelineRunner:
             self.logger.info(f"Completed task: {task}")
             return result
         except Exception as e:
-            self.logger.error(f"Error in task {task}: {str(e)}")
-            self.logger.error(traceback.format_exc())
+            self.logger.error(f"Error in task {task}: {str(e)}", exc_info=True)
             self.progress[task] = "failed"
             self.save_progress()
             raise
@@ -90,8 +89,10 @@ class PipelineRunner:
         return speech_to_text.get_speech_from_audio()
 
     def run_frame_extraction(self) -> None:
-        frame_extraction = FrameExtraction({"video_id": self.video_id, "logger": self.logger},
-                                           int(os.environ.get("FRAME_EXTRACTION_RATE", 3)))
+        frame_extraction = FrameExtraction(
+            {"video_id": self.video_id, "logger": self.logger},
+            int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
+        )
         return frame_extraction.extract_frames()
 
     def run_ocr_extraction(self) -> None:
@@ -120,7 +121,7 @@ class PipelineRunner:
         return scene_segmentation.run_scene_segmentation()
 
     def run_text_summarization(self) -> None:
-        text_summarization = ({"video_id": self.video_id, "logger": self.logger})
+        text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger})
         return text_summarization.generate_text_summary()
 
     def run_upload_to_ydx(self) -> None:
@@ -143,41 +144,24 @@ class PipelineRunner:
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
 
         try:
-            with ThreadPoolExecutor() as executor:
-                # Run initial tasks sequentially
-                self.run_task("import_video")
-                self.run_task("extract_audio")
-                self.run_task("speech_to_text")
-
-                # Run frame extraction and OCR in parallel
-                frame_future = executor.submit(self.run_task, "frame_extraction")
-                ocr_future = executor.submit(self.run_task, "ocr_extraction")
-                frame_future.result()
-                ocr_future.result()
-
-                # Run remaining tasks
-                for task in self.tasks:
-                    if task not in ["import_video", "extract_audio", "speech_to_text", "frame_extraction",
-                                    "ocr_extraction"]:
-                        self.run_task(task)
+            for task in self.tasks:
+                self.run_task(task)
 
             self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
         except Exception as e:
-            self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}")
-            self.logger.error(traceback.format_exc())
+            self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}", exc_info=True)
             # Implement error handling and user notification here
 
-
 def run_pipeline(
-        video_id: str,
-        video_start_time: str,
-        video_end_time: str,
-        upload_to_server: bool = False,
-        tasks: List[str] = None,
-        ydx_server: str = None,
-        ydx_app_host: str = None,
-        userId: str = None,
-        AI_USER_ID: str = None,
+    video_id: str,
+    video_start_time: Optional[str],
+    video_end_time: Optional[str],
+    upload_to_server: bool = False,
+    tasks: Optional[List[str]] = None,
+    ydx_server: Optional[str] = None,
+    ydx_app_host: Optional[str] = None,
+    userId: Optional[str] = None,
+    AI_USER_ID: Optional[str] = None,
 ) -> None:
     pipeline_runner = PipelineRunner(
         video_id=video_id,
@@ -192,9 +176,10 @@ def run_pipeline(
     )
     pipeline_runner.run_pipeline()
 
-
 if __name__ == "__main__":
     load_dotenv()
+    import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--video_id", help="Video Id", type=str)
     parser.add_argument("--upload_to_server", help="Upload To YDX Server", action="store_true")
