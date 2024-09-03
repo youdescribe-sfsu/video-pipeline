@@ -35,6 +35,7 @@ class PipelineRunner:
         userId: Optional[str] = None,
         AI_USER_ID: Optional[str] = None,
     ):
+        print(f"Initializing PipelineRunner for video_id: {video_id}")
         self.video_id = video_id
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
@@ -46,31 +47,42 @@ class PipelineRunner:
         self.AI_USER_ID = AI_USER_ID
         self.logger = self.setup_logger()
         self.progress = self.load_progress()
+        print("PipelineRunner initialization complete")
 
     def setup_logger(self) -> logging.Logger:
+        print("Setting up logger")
         logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
         logger.setLevel(logging.INFO)
         handler = logging.FileHandler(f"pipeline_logs/{self.video_id}_{self.AI_USER_ID}pipeline.log")
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+        print("Logger setup complete")
         return logger
 
     def load_progress(self) -> Dict[str, Any]:
-        return load_progress_from_file({"video_id": self.video_id}) or {}
+        print("Loading progress")
+        progress = load_progress_from_file({"video_id": self.video_id}) or {}
+        print(f"Loaded progress: {progress}")
+        return progress
 
     def save_progress(self):
+        print("Saving progress")
         save_progress_to_file({"video_id": self.video_id}, self.progress)
+        print("Progress saved")
 
     def run_task(self, task: str, *args, **kwargs) -> Any:
+        print(f"Attempting to run task: {task}")
         try:
             self.logger.info(f"Starting task: {task}")
             result = getattr(self, f"run_{task}")(*args, **kwargs)
             self.progress[task] = "completed"
             self.save_progress()
             self.logger.info(f"Completed task: {task}")
+            print(f"Task {task} completed successfully")
             return result
         except Exception as e:
+            print(f"Error occurred in task {task}: {str(e)}")
             self.logger.error(f"Error in task {task}: {str(e)}", exc_info=True)
             self.progress[task] = "failed"
             self.save_progress()
@@ -146,25 +158,29 @@ class PipelineRunner:
 
         try:
             for task in self.tasks:
-                print(f"Running Task - {task}")
+                print(f"Preparing to run task: {task}")
                 self.run_task(task)
+                print(f"Finished running task: {task}")
 
+            print("All tasks completed successfully")
             self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
         except Exception as e:
+            print(f"Pipeline failed for video {self.video_id}: {str(e)}")
             self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}", exc_info=True)
             # Implement error handling and user notification here
 
 def run_pipeline(
-    video_id: str,
-    video_start_time: Optional[str],
-    video_end_time: Optional[str],
-    upload_to_server: bool = False,
-    tasks: Optional[List[str]] = None,
-    ydx_server: Optional[str] = None,
-    ydx_app_host: Optional[str] = None,
-    userId: Optional[str] = None,
-    AI_USER_ID: Optional[str] = None,
+        video_id: str,
+        video_start_time: Optional[str],
+        video_end_time: Optional[str],
+        upload_to_server: bool = False,
+        tasks: Optional[List[str]] = None,
+        ydx_server: Optional[str] = None,
+        ydx_app_host: Optional[str] = None,
+        userId: Optional[str] = None,
+        AI_USER_ID: Optional[str] = None,
 ) -> None:
+    print(f"Starting run_pipeline function for video_id: {video_id}")
     pipeline_runner = PipelineRunner(
         video_id=video_id,
         video_start_time=video_start_time,
@@ -176,10 +192,12 @@ def run_pipeline(
         userId=userId,
         AI_USER_ID=AI_USER_ID,
     )
-    print("INSIDE RUN PIPELINE FUNCTION")
+    print("PipelineRunner instance created, starting full pipeline")
     pipeline_runner.run_full_pipeline()
+    print("Full pipeline execution completed")
 
 if __name__ == "__main__":
+    print("Entering main block")
     load_dotenv()
     import argparse
 
@@ -190,9 +208,13 @@ if __name__ == "__main__":
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
     args = parser.parse_args()
 
+    print(
+        f"Parsed arguments: video_id={args.video_id}, upload_to_server={args.upload_to_server}, start_time={args.start_time}, end_time={args.end_time}")
+
     run_pipeline(
         video_id=args.video_id,
         video_start_time=args.start_time,
         video_end_time=args.end_time,
         upload_to_server=args.upload_to_server
     )
+    print("Pipeline execution completed, exiting main block")
