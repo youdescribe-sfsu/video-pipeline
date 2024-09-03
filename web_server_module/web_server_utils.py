@@ -16,6 +16,6 @@ def return_pipeline_save_file_folder() -> str:
     CURRENT_ENV = os.environ.get("CURRENT_ENV", "development")
 
     if CURRENT_ENV == "development":
-        return "pipeline_data.db"  # Placeholder for development folder
+         return "/home/datasets/aiAudioDescriptionDataset-dev/aiAudioDescriptions_database.db"  # Placeholder for development folder
     else:
-        return "/home/datasets/pipeline/pipeline_data.db"
+        return "/home/datasets/aiAudioDescriptionDataset-prod/aiAudioDescriptions_database.db"
