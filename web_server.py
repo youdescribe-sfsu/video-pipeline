@@ -152,9 +152,9 @@ async def generate_ai_caption(post_data: WebServerRequest):
                 user_id, youtube_id
             )
         )
-        web_server_logger.info(f"Attempting to process incoming data for youtube_id: {youtube_id}")
+        print(f"Attempting to process incoming data for youtube_id: {youtube_id}")
         process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
-        web_server_logger.info(f"Finished processing incoming data for youtube_id: {youtube_id}")
+        print(f"Finished processing incoming data for youtube_id: {youtube_id}")
         task_queue.put((youtube_id, ai_user_id))
         
         return "You posted: {}".format(str(data_json))

@@ -147,7 +147,7 @@ def get_status_for_youtube_id(youtube_id,ai_user_id):
 
 
 def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id):
-    web_server_logger.info(f"Starting process_incoming_data for youtube_id: {youtube_id}")
+    print(f"Starting process_incoming_data for youtube_id: {youtube_id}")
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
@@ -171,7 +171,7 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
                     (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
 
         con.commit()
-        web_server_logger.info(f"Successfully processed incoming data for youtube_id: {youtube_id}")
+        print(f"Successfully processed incoming data for youtube_id: {youtube_id}")
     except sqlite3.Error as e:
         web_server_logger.error(f"SQLite error in process_incoming_data: {str(e)}")
         raise
