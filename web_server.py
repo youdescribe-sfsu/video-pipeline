@@ -152,15 +152,19 @@ async def generate_ai_caption(post_data: WebServerRequest):
                 user_id, youtube_id
             )
         )
+        web_server_logger.info(f"Attempting to process incoming data for youtube_id: {youtube_id}")
         process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
+        web_server_logger.info(f"Finished processing incoming data for youtube_id: {youtube_id}")
         task_queue.put((youtube_id, ai_user_id))
         
         return "You posted: {}".format(str(data_json))
+
     except Exception as e:
-        print(e)
-        print("Exception :: {}".format(str(e)))
-        web_server_logger.error("Exception :: {}".format(str(e)))
-        return "error"
+        print(f"Exception in generate_ai_caption: {str(e)}")
+        print(f"Exception traceback: {traceback.format_exc()}")
+        web_server_logger.error(f"Exception in generate_ai_caption: {str(e)}")
+        web_server_logger.error(f"Exception traceback: {traceback.format_exc()}")
+        return f"error: {str(e)}"
 
 @app.get("/health_check")
 async def health_check():

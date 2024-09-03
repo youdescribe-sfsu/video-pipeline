@@ -2,6 +2,8 @@ from .web_server_utils import return_pipeline_save_file_folder
 import sqlite3
 from enum import Enum
 from .custom_logger import web_server_logger
+import traceback
+
 # Define an Enum for the status options
 class StatusEnum(str, Enum):
     done = "done"
@@ -145,36 +147,38 @@ def get_status_for_youtube_id(youtube_id,ai_user_id):
 
 
 def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id):
+    web_server_logger.info(f"Starting process_incoming_data for youtube_id: {youtube_id}")
     try:
-
-        # Create a connection pool with the custom SQLitePool class
-        # pool = SQLitePool(factory=sqlite3.connect, database='youtube_data.db')
-
         with connection.return_connection() as con:
             cursor = con.cursor()
 
-            # Check if the (youtube_id, ai_user_id) combination exists in the database
-            cursor.execute('SELECT COUNT(*) as count FROM youtube_data WHERE youtube_id = ? AND ai_user_id = ?', (youtube_id, ai_user_id))
+            web_server_logger.info("Checking if (youtube_id, ai_user_id) combination exists")
+            cursor.execute('SELECT COUNT(*) as count FROM youtube_data WHERE youtube_id = ? AND ai_user_id = ?',
+                           (youtube_id, ai_user_id))
             count = cursor.fetchone()
 
             if count['count'] == 0:
-                # If the combination does not exist, add it to the database and add (youtube_id, ai_user_id) to the queue
-                cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)', (youtube_id, ai_user_id, StatusEnum.in_progress.value,))
-                cursor.execute('INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
-                               (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
+                web_server_logger.info("Combination does not exist, inserting new data")
+                cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)',
+                               (youtube_id, ai_user_id, StatusEnum.in_progress.value,))
+                cursor.execute(
+                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
+                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
             else:
-                # If the combination exists in the database add a new row to the ai_user_data table
-                cursor.execute('INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
-                               (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
+                web_server_logger.info("Combination exists, inserting new row in ai_user_data")
+                cursor.execute(
+                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
+                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
 
         con.commit()
+        web_server_logger.info(f"Successfully processed incoming data for youtube_id: {youtube_id}")
     except sqlite3.Error as e:
-        print("Error processing incoming data:", e)
-        web_server_logger.error("Error processing incoming data:", e)
+        web_server_logger.error(f"SQLite error in process_incoming_data: {str(e)}")
+        raise
     except Exception as e:
-        print("Error processing incoming data:", e)
-        web_server_logger.error("Error processing incoming data:", e)
-        
+        web_server_logger.error(f"Unexpected error in process_incoming_data: {str(e)}")
+        web_server_logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
 
 
 def update_status(youtube_id, ai_user_id, status):
