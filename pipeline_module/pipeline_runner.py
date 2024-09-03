@@ -174,6 +174,7 @@ def run_pipeline(
         userId=userId,
         AI_USER_ID=AI_USER_ID,
     )
+    print("INSIDE RUN PIPELINE FUNCTION")
     pipeline_runner.run_pipeline()
 
 if __name__ == "__main__":

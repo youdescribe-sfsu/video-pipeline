@@ -74,6 +74,7 @@ def process_queue():
                 userId=None,
                 AI_USER_ID=ai_user_id,
             )
+            print("Updating status")
             update_status(youtube_id, ai_user_id, StatusEnum.done.value)
 
             # video_runner_obj = {
