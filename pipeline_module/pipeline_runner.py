@@ -140,11 +140,13 @@ class PipelineRunner:
             AI_USER_ID=self.AI_USER_ID,
         )
 
-    def run_pipeline(self) -> None:
+    def run_full_pipeline(self) -> None:
+        print("STARTING RUN FULL PIPELINE")
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
 
         try:
             for task in self.tasks:
+                print(f"Running Task - {task}")
                 self.run_task(task)
 
             self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
@@ -175,7 +177,7 @@ def run_pipeline(
         AI_USER_ID=AI_USER_ID,
     )
     print("INSIDE RUN PIPELINE FUNCTION")
-    pipeline_runner.run_pipeline()
+    pipeline_runner.run_full_pipeline()
 
 if __name__ == "__main__":
     load_dotenv()
