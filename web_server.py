@@ -13,6 +13,7 @@ from web_server_module.custom_logger import web_server_logger
 import asyncio
 import json
 import time
+import traceback
 
 stop_event= Event()
 task_queue = queue.Queue()
@@ -50,52 +51,64 @@ def update_queue_periodically():
 
         time.sleep(60)  # 1 minute, adjust as needed
 
+
 def process_queue():
     web_server_logger.info("Starting to process queue")
     while True:
         if not task_queue.empty():
             youtube_id, ai_user_id = task_queue.get()
-            ydx_server, ydx_app_host = get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id)
-            print("Processing request for youtube_id: {}, ai_user_id: {}".format(youtube_id, ai_user_id))
-            web_server_logger.info("Processing request for youtube_id: {}, ai_user_id: {}".format(youtube_id, ai_user_id))
-            run_pipeline(
-                video_id=youtube_id,
-                video_end_time=None,
-                video_start_time=None,
-                upload_to_server=False,
-                tasks=None,
-                ydx_server=ydx_server,
-                ydx_app_host=ydx_app_host,
-                userId=None,
-                AI_USER_ID=ai_user_id,
-            )
-            update_status(youtube_id, ai_user_id, StatusEnum.done.value)
-            
-            video_runner_obj = {
-                "video_id": youtube_id,
-                "logger": web_server_logger
-            }
-            generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
-            user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
+            try:
+                web_server_logger.info(f"Processing request for youtube_id: {youtube_id}, ai_user_id: {ai_user_id}")
+                ydx_server, ydx_app_host = get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id)
+                web_server_logger.info(f"Retrieved ydx_server: {ydx_server}, ydx_app_host: {ydx_app_host}")
 
-            for data in user_data:
-                generate_YDX_caption.generateYDXCaption(
-                    ydx_server=data.get("ydx_server", None),
-                    ydx_app_host=data.get("ydx_app_host", None),
-                    userId=data.get("user_id", None),
-                    AI_USER_ID=data.get("ai_user_id", None),
-                    logger=web_server_logger,
+                run_pipeline(
+                    video_id=youtube_id,
+                    video_end_time=None,
+                    video_start_time=None,
+                    upload_to_server=False,
+                    tasks=None,
+                    ydx_server=ydx_server,
+                    ydx_app_host=ydx_app_host,
+                    userId=None,
+                    AI_USER_ID=ai_user_id,
                 )
-                update_ai_user_data(
-                    youtube_id=youtube_id,
-                    ai_user_id=ai_user_id,
-                    user_id=data.get("user_id", None),
-                    status=StatusEnum.done.value,
-                )
-                print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
+                web_server_logger.info(f"Pipeline run completed for youtube_id: {youtube_id}")
+
+                update_status(youtube_id, ai_user_id, StatusEnum.done.value)
+                web_server_logger.info(f"Status updated for youtube_id: {youtube_id}")
+
+                video_runner_obj = {
+                    "video_id": youtube_id,
+                    "logger": web_server_logger
+                }
+                generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
+                user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
+                web_server_logger.info(f"Retrieved user data: {user_data}")
+
+                for data in user_data:
+                    web_server_logger.info(f"Generating YDX caption for user: {data.get('user_id')}")
+                    generate_YDX_caption.generateYDXCaption(
+                        ydx_server=data.get("ydx_server", None),
+                        ydx_app_host=data.get("ydx_app_host", None),
+                        userId=data.get("user_id", None),
+                        AI_USER_ID=data.get("ai_user_id", None),
+                        logger=web_server_logger,
+                    )
+                    update_ai_user_data(
+                        youtube_id=youtube_id,
+                        ai_user_id=ai_user_id,
+                        user_id=data.get("user_id", None),
+                        status=StatusEnum.done.value,
+                    )
+                    web_server_logger.info(
+                        f"Updated status for youtube_id: {youtube_id}, ai_user_id: {ai_user_id}, user_id: {data.get('user_id')}")
+            except Exception as e:
+                web_server_logger.error(f"Error processing request: {str(e)}")
+                web_server_logger.error(traceback.format_exc())
         else:
             web_server_logger.info("Queue is empty")
-            time.sleep(30)  # Check every 30s if there is a new task in the queue
+            time.sleep(30)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
