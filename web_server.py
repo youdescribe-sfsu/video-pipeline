@@ -68,7 +68,6 @@ def process_queue():
                 video_end_time=None,
                 video_start_time=None,
                 upload_to_server=True,
-                multi_thread=False,
                 tasks=None,
                 ydx_server=ydx_server,
                 ydx_app_host=ydx_app_host,
