@@ -152,26 +152,22 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
         with connection.return_connection() as con:
             cursor = con.cursor()
 
-            print("Checking if (youtube_id, ai_user_id) combination exists")
             cursor.execute('SELECT COUNT(*) as count FROM youtube_data WHERE youtube_id = ? AND ai_user_id = ?',
                            (youtube_id, ai_user_id))
             count = cursor.fetchone()
 
             if count['count'] == 0:
-                print("Combination does not exist, inserting new data")
                 cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)',
                                (youtube_id, ai_user_id, StatusEnum.in_progress.value,))
                 cursor.execute(
                     'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
                     (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
             else:
-                print("Combination exists, inserting new row in ai_user_data")
                 cursor.execute(
                     'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
                     (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
 
         con.commit()
-        print(f"Successfully processed incoming data for youtube_id: {youtube_id}")
     except sqlite3.Error as e:
         web_server_logger.error(f"SQLite error in process_incoming_data: {str(e)}")
         raise
