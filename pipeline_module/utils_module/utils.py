@@ -52,7 +52,7 @@ import threading
 progress_lock = threading.Lock()
 
 class PipelineTask(Enum):
-    DOWNLOAD_VIDEO = "import_video"
+    IMPORT_VIDEO = "import_video"
     EXTRACT_AUDIO = "extract_audio"
     SPEECH_TO_TEXT = "speech_to_text"
     FRAME_EXTRACTION = "frame_extraction"
