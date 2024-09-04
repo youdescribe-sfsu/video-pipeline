@@ -1,12 +1,11 @@
 import cv2
 import os
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..utils_module.utils import read_value_from_file, return_video_download_location, return_video_frames_folder, \
     save_value_to_file
 from ..utils_module.timeit_decorator import timeit
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 class FrameExtraction:
     def __init__(self, video_runner_obj: Dict[str, int], default_fps: int = 3):
@@ -33,6 +32,7 @@ class FrameExtraction:
             total_frames = int(vid.get(cv2.CAP_PROP_FRAME_COUNT))
             video_fps = vid.get(cv2.CAP_PROP_FPS)
             duration = total_frames / video_fps
+            vid.release()  # Release the main VideoCapture object
 
             adaptive_fps = self.calculate_adaptive_fps(duration)
             frames_to_extract = int(duration * adaptive_fps)
@@ -43,18 +43,13 @@ class FrameExtraction:
             frame_indices = np.linspace(0, total_frames - 1, frames_to_extract, dtype=int)
 
             with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-                future_to_frame = {executor.submit(self.process_frame, vid, frame_idx): frame_idx for frame_idx in
-                                   frame_indices}
-                for future in as_completed(future_to_frame):
-                    frame_idx = future_to_frame[future]
+                futures = [executor.submit(self.process_frame, frame_idx) for frame_idx in frame_indices]
+                for future in as_completed(futures):
                     try:
                         future.result()
                     except Exception as exc:
-                        self.logger.error(f"Frame {frame_idx} generated an exception: {exc}")
-                    else:
-                        self.logger.info(f"Processed frame {frame_idx}")
+                        self.logger.error(f"Frame processing generated an exception: {exc}")
 
-            vid.release()
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']",
                                value='done')
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['adaptive_fps']",
@@ -69,12 +64,16 @@ class FrameExtraction:
             self.logger.error(f"Error in frame extraction: {str(e)}")
             return False
 
-    def process_frame(self, vid: cv2.VideoCapture, frame_idx: int) -> None:
+    def process_frame(self, frame_idx: int) -> None:
+        vid = cv2.VideoCapture(self.video_path)  # Create a new VideoCapture object for each thread
         vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = vid.read()
+        vid.release()  # Release the VideoCapture object immediately after use
+
         if ret:
             frame_filename = os.path.join(self.frames_folder, f"frame_{frame_idx}.jpg")
             cv2.imwrite(frame_filename, frame)
+            self.logger.info(f"Processed frame {frame_idx}")
         else:
             self.logger.warning(f"Failed to read frame {frame_idx}")
 
