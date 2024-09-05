@@ -10,15 +10,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class ObjectDetection:
     def __init__(self, video_runner_obj: Dict[str, Any]):
+        print(f"Initializing ObjectDetection for video: {video_runner_obj['video_id']}")
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
         self.yolo_version = "v8"
         self.confidence_threshold = 0.25
         self.yolo_endpoint = os.getenv('YOLO_ENDPOINT', 'http://localhost:8087/detect')
         self.batch_size = 16
+        print(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
 
     @timeit
     def run_object_detection(self) -> bool:
+        print("Starting run_object_detection method")
         try:
             self.logger.info(f"Running object detection on {self.video_runner_obj['video_id']}")
             if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ObjectDetection']['started']") == 'done':
@@ -42,15 +45,18 @@ class ObjectDetection:
         return [os.path.join(frames_folder, f) for f in os.listdir(frames_folder) if f.endswith('.jpg')]
 
     def process_frames_in_batches(self, frame_files: List[str]) -> List[Dict[str, Any]]:
+        print(f"Processing {len(frame_files)} frames in batches")
         results = []
         for i in range(0, len(frame_files), self.batch_size):
             batch = frame_files[i:i+self.batch_size]
             batch_results = self.process_batch(batch)
             results.extend(batch_results)
             self.logger.info(f"Processed batch {i//self.batch_size + 1}/{len(frame_files)//self.batch_size + 1}")
+        print(f"Processed {len(results)} frames")
         return results
 
     def process_batch(self, batch: List[str]) -> List[Dict[str, Any]]:
+        print(f"Processing batch of {len(batch)} frames")
         payload = {
             "files": batch,
             "confidence": self.confidence_threshold,
@@ -59,12 +65,14 @@ class ObjectDetection:
         try:
             response = requests.post(self.yolo_endpoint, json=payload)
             response.raise_for_status()
+            print(f"Batch processing result: {len(response.json()['results'])} frames processed")
             return response.json()['results']
         except requests.RequestException as e:
             self.logger.error(f"Error in YOLO API request: {str(e)}")
             raise
 
     def save_detection_results(self, results: List[Dict[str, Any]]) -> None:
+        print(f"Saving detection results for {len(results)} frames")
         output_file = os.path.join(return_video_folder_name(self.video_runner_obj), OBJECTS_CSV)
         self.logger.info(f"Saving object detection results to {output_file}")
 
@@ -85,6 +93,8 @@ class ObjectDetection:
                 for obj in result['objects']:
                     row[obj['name']] = obj['confidence']
                 writer.writerow(row)
+        print(f"Detection results saved to {output_file}")
+
 
     def get_object_counts(self, results: List[Dict[str, Any]]) -> Dict[str, int]:
         object_counts = {}

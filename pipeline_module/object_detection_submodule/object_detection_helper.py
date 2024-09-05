@@ -10,6 +10,7 @@ DEFAULT_OBJECT_DETECTION_BATCH_SIZE = 100
 IMAGE_THRESHOLD = 0.25
 
 def get_object_from_YOLO_batch(files_path, threshold, logger=None):
+    print(f"Sending batch request to YOLO API for {len(files_path)} files")
     """
     Use remote image object detection service provided by YOLO
     """
@@ -55,9 +56,11 @@ def get_object_from_YOLO_batch(files_path, threshold, logger=None):
     except requests.exceptions.RequestException as e:
         print(f"Request error: {e}")
         raise Exception(f"Request error: {e}")
+    print(f"YOLO API batch response received for {len(return_val)} files")
     return return_val
 
 def get_object_from_YOLO(filename, threshold, logger=None):
+    print(f"Sending single file request to YOLO API for {filename}")
     """
     Use remote image object detection service provided by YOLO
     """
@@ -103,6 +106,7 @@ def get_object_from_YOLO(filename, threshold, logger=None):
     except requests.exceptions.RequestException as e:
         print(f"Request error: {e}")
         raise Exception(f"Request error: {e}")
+    print(f"YOLO API response received for {filename}")
     return return_val
 
 def detect_objects(video_files_path, threshold, video_runner_obj, logging=False, logger=None):
@@ -212,6 +216,7 @@ def detect_objects_batch(video_files_path, threshold, video_runner_obj, logging=
 
 @timeit
 def object_detection_to_csv(video_runner_obj):
+    print(f"Starting object_detection_to_csv for video: {video_runner_obj['video_id']}")
     video_frames_path = return_video_frames_folder(video_runner_obj)
     video_runner_obj["logger"].info(f"Running object detection for {video_runner_obj['video_id']}")
     
@@ -221,7 +226,9 @@ def object_detection_to_csv(video_runner_obj):
 
     if not os.path.exists(outcsvpath):
         try:
+            print("Detecting objects and writing to CSV")
             objects = detect_objects_batch(video_frames_path, IMAGE_THRESHOLD, video_runner_obj=video_runner_obj, logging=True, logger=video_runner_obj["logger"])
+            print(f"Object detection completed. Writing results to {outcsvpath}")
             video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")
             video_runner_obj["logger"].info(f"video_frames_path: {video_frames_path}")
 
@@ -249,12 +256,26 @@ def object_detection_to_csv(video_runner_obj):
                             row.append('')
                     writer.writerow(row)
                     outcsvfile.flush()
+            print(f"Object detection results written to {outcsvpath}")
             return True
         except Exception as e:
+            print(f"Error in object_detection_to_csv: {str(e)}")
             traceback.print_exc()
             print(e)
             return False
 
+    else:
+        print(f"Object detection CSV already exists: {outcsvpath}")
+        return True
+
+
 if __name__ == "__main__":
-    video_name = 'Homeless German Shepherd cries like a human!  I have never heard anything like this!!!'
-    object_detection_to_csv(video_name)
+    # Test code
+    video_runner_obj = {
+        "video_id": "test_video",
+        "logger": print
+    }
+
+    # Test object_detection_to_csv
+    success = object_detection_to_csv(video_runner_obj)
+    print(f"object_detection_to_csv {'succeeded' if success else 'failed'}")
