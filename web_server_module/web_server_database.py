@@ -54,7 +54,8 @@ def create_database():
                     ydx_server TEXT,
                     ydx_app_host TEXT,
                     status TEXT,
-                    FOREIGN KEY (youtube_id) REFERENCES youtube_data (youtube_id)
+                    FOREIGN KEY (youtube_id) REFERENCES youtube_data (youtube_id),
+                    UNIQUE(user_id, youtube_id, ai_user_id)
                 )
             ''')
 
@@ -147,25 +148,26 @@ def get_status_for_youtube_id(youtube_id,ai_user_id):
 
 
 def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id):
-    print(f"Starting process_incoming_data for youtube_id: {youtube_id}")
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
 
+            # Check if entry exists in youtube_data
             cursor.execute('SELECT COUNT(*) as count FROM youtube_data WHERE youtube_id = ? AND ai_user_id = ?',
                            (youtube_id, ai_user_id))
             count = cursor.fetchone()
 
             if count['count'] == 0:
+                # Insert into youtube_data if not exists
                 cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)',
-                               (youtube_id, ai_user_id, StatusEnum.in_progress.value,))
-                cursor.execute(
-                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
-            else:
-                cursor.execute(
-                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
+                               (youtube_id, ai_user_id, StatusEnum.in_progress.value))
+
+            # Use INSERT OR REPLACE for ai_user_data
+            cursor.execute('''
+                INSERT OR REPLACE INTO ai_user_data 
+                (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value))
 
         con.commit()
     except sqlite3.Error as e:
@@ -175,7 +177,6 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
         web_server_logger.error(f"Unexpected error in process_incoming_data: {str(e)}")
         web_server_logger.error(f"Traceback: {traceback.format_exc()}")
         raise
-
 
 def update_status(youtube_id, ai_user_id, status):
     try:
