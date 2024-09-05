@@ -18,6 +18,8 @@ TRANSCRIPTS = 'transcripts.json'
 DIALOGS = 'dialogs.json'
 VICR_CSV = 'vicr.csv'
 COUNT_VERTICE = 'count_vertice.json'
+PROD_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-prod/'
+DEV_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-dev/'
 
 ## OCR CSV HEADERS
 
@@ -39,11 +41,10 @@ KEY_FRAME_HEADERS = {
     TIMESTAMP_SELECTOR: 'Timestamp',
     IS_KEYFRAME_SELECTOR: 'Is Keyframe',
     KEYFRAME_CAPTION_SELECTOR: 'Caption',
-    }
+}
 
 CAPTION_IMAGE_PAIR = 'caption_image_pair.csv'
 CAPTION_SCORE = 'caption_score.csv'
-
 
 from enum import Enum
 import json
@@ -65,8 +66,17 @@ class PipelineTask(Enum):
     TEXT_SUMMARIZATION = "text_summarization"
     UPLOAD_TO_YDX = "upload_to_ydx"
 
+
 import os
-from typing import Dict,Union
+from typing import Dict, Union
+
+
+def return_artifacts_root_folder(current_env):
+    if current_env == "development":
+        return DEV_ARTIFACTS_ROOT_FOLDER
+    else:
+        return PROD_ARTIFACTS_ROOT_FOLDER
+
 
 def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
@@ -80,27 +90,23 @@ def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> st
     str: The folder name for the video.
     """
     video_id = video_runner_obj.get("video_id")
-    video_start_time = video_runner_obj.get("video_start_time",None)
-    video_end_time = video_runner_obj.get("video_end_time",None)
+    video_start_time = video_runner_obj.get("video_start_time", None)
+    video_end_time = video_runner_obj.get("video_end_time", None)
+
     CURRENT_ENV = os.environ.get("CURRENT_ENV", "production")
     AI_USER_ID = video_runner_obj.get("AI_USER_ID", None)
     return_string = ""
 
     if video_start_time is not None and video_end_time is not None:
-        if CURRENT_ENV == "development":
-            return_string =  f"{video_id}_files/part_start_{video_start_time}_{video_end_time}"
-        else:
-            return_string =  f"/home/datasets/pipeline/{video_id}_files/part_start_{video_start_time}_end_{video_end_time}_files"
-
-    if CURRENT_ENV == "development":
-        return_string = f"{video_id}_files"
+        return_string = f"{return_artifacts_root_folder(CURRENT_ENV)}{video_id}_files/part_start_{video_start_time}_end_{video_end_time}"
     else:
-        return_string = f"/home/datasets/pipeline/{video_id}_files"
-    
+        return_string = f"{return_artifacts_root_folder(CURRENT_ENV)}{video_id}_files"
+
     if AI_USER_ID is not None:
         return_string = f"{return_string}_{AI_USER_ID}"
-    
+
     return return_string
+
 
 def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     """
@@ -115,7 +121,7 @@ def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     """
     video_folder_name = return_video_folder_name(video_runner_obj)
     return f"{video_folder_name}/progress.json"
-    
+
 
 def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None:
     """
@@ -222,7 +228,6 @@ def save_value_to_file(video_runner_obj: Dict[str, int], key: str, value: str) -
     except Exception as e:
         print(f"Error saving value to file: {e}")
     return
-
 
 
 def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:
