@@ -90,7 +90,10 @@ class PipelineRunner:
 
     def run_import_video(self) -> None:
         import_video = ImportVideo({"video_id": self.video_id, "logger": self.logger})
-        return import_video.download_video()
+        success = import_video.download_video()
+        if not success:
+            self.logger.error("Failed to import video")
+            raise Exception("Video import failed")
 
     def run_extract_audio(self) -> None:
         extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
