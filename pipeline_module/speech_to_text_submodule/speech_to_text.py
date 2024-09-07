@@ -102,15 +102,35 @@ class SpeechToText:
         print("Waiting for speech recognition operation to complete...")
         response = operation.result(timeout=600)  # 10 minutes timeout
         print("Speech recognition completed")
-        print("Resposne ", response)
-        return response
+
+        # Convert the response to a dictionary
+        response_dict = speech.LongRunningRecognizeResponse.to_dict(response)
+        return response_dict
 
     def save_transcript(self, response: Dict[str, Any]) -> None:
         transcript_file = os.path.join(return_video_folder_name(self.video_runner_obj), TRANSCRIPTS)
-        print(f"Saving transcript to {transcript_file}")
-        with open(transcript_file, "w") as outfile:
-            json.dump(speech.RecognizeResponse.to_dict(response), outfile, indent=2)
-        print(f"Transcript saved to {transcript_file}")
+        print(f"Attempting to save transcript to {transcript_file}")
+
+        try:
+            with open(transcript_file, "w") as outfile:
+                json.dump(response, outfile, indent=2)
+
+            print(f"Transcript successfully saved to {transcript_file}")
+
+            with open(transcript_file, "r") as infile:
+                content = infile.read()
+                print(f"File content (first 1000 characters): {content[:1000]}")
+
+        except Exception as e:
+            print(f"Error in save_transcript: {str(e)}")
+
+            # Try to save whatever we can
+            try:
+                with open(transcript_file, "w") as outfile:
+                    json.dump({"error": str(e), "response": str(response)}, outfile, indent=2)
+                print(f"Error information saved to {transcript_file}")
+            except Exception as inner_e:
+                print(f"Could not save error information: {str(inner_e)}")
 
     def batch_recognize(self, gcs_uri: str, frame_rate: int, channels: int) -> List[Dict[str, Any]]:
         print(f"Starting batch recognition for {gcs_uri}")
