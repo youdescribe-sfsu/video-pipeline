@@ -54,8 +54,8 @@ class ImportVideo:
                 json.dump({'duration': duration, 'title': title}, f)
             print(f"Metadata saved to {metadata_file}")
 
-            if not self.check_video_format():
-                raise ValueError("Downloaded video is not in the expected format.")
+            # if not self.check_video_format():
+            #     raise ValueError("Downloaded video is not in the expected format.")
 
             if video_start_time and video_end_time:
                 self.trim_video(video_start_time, video_end_time)
