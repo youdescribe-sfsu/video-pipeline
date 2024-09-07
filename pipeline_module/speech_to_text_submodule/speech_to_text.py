@@ -40,6 +40,7 @@ class SpeechToText:
 
             print("Starting speech recognition")
             response = self.recognize_speech(gcs_uri, frame_rate, channels)
+            print("Resposne ", response)
 
             self.save_transcript(response)
 
@@ -101,6 +102,7 @@ class SpeechToText:
         print("Waiting for speech recognition operation to complete...")
         response = operation.result(timeout=600)  # 10 minutes timeout
         print("Speech recognition completed")
+        print("Resposne ", response)
         return response
 
     def save_transcript(self, response: Dict[str, Any]) -> None:
