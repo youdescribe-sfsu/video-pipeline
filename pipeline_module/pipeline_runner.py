@@ -89,19 +89,36 @@ class PipelineRunner:
             raise
 
     def run_import_video(self) -> None:
+        print("Starting run_extract_audio method")
         import_video = ImportVideo({"video_id": self.video_id, "logger": self.logger})
         success = import_video.download_video()
         if not success:
             self.logger.error("Failed to import video")
             raise Exception("Video import failed")
+        else:
+            print("Import Video completed successfully")
 
     def run_extract_audio(self) -> None:
+        print("Starting run_extract_audio method")
         extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
-        return extract_audio.extract_audio()
+        success = extract_audio.extract_audio()
+        if not success:
+            print("Failed to extract audio")
+            self.logger.error("Failed to extract audio")
+            raise Exception("Audio extraction failed")
+        else:
+            print("Audio extraction completed successfully")
 
     def run_speech_to_text(self) -> None:
+        print("Starting run_speech_to_text method")
         speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger})
-        return speech_to_text.get_speech_from_audio()
+        success = speech_to_text.get_speech_from_audio()
+        if not success:
+            print("Failed to convert speech to text")
+            self.logger.error("Failed to convert speech to text")
+            raise Exception("Speech to text conversion failed")
+        else:
+            print("Speech to text conversion completed successfully")
 
     def run_frame_extraction(self) -> None:
         frame_extraction = FrameExtraction(
