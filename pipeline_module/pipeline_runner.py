@@ -89,36 +89,43 @@ class PipelineRunner:
             raise
 
     def run_import_video(self) -> None:
-        print("Starting run_extract_audio method")
-        import_video = ImportVideo({"video_id": self.video_id, "logger": self.logger})
-        success = import_video.download_video()
-        if not success:
-            self.logger.error("Failed to import video")
-            raise Exception("Video import failed")
-        else:
+        print("Starting run_import_video method")
+        try:
+            import_video = ImportVideo({"video_id": self.video_id, "logger": self.logger})
+            success = import_video.download_video()
+            if not success:
+                raise Exception("Video import failed")
             print("Import Video completed successfully")
+        except Exception as e:
+            print(f"Error occurred in video import: {str(e)}")
+            self.logger.error(f"Error in video import: {str(e)}", exc_info=True)
+            raise
 
     def run_extract_audio(self) -> None:
         print("Starting run_extract_audio method")
-        extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
-        success = extract_audio.extract_audio()
-        if not success:
-            print("Failed to extract audio")
-            self.logger.error("Failed to extract audio")
-            raise Exception("Audio extraction failed")
-        else:
+        try:
+            extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
+            success = extract_audio.extract_audio()
+            if not success:
+                raise Exception("Audio extraction failed")
             print("Audio extraction completed successfully")
+        except Exception as e:
+            print(f"Error occurred in audio extraction: {str(e)}")
+            self.logger.error(f"Error in audio extraction: {str(e)}", exc_info=True)
+            raise
 
     def run_speech_to_text(self) -> None:
         print("Starting run_speech_to_text method")
-        speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger})
-        success = speech_to_text.get_speech_from_audio()
-        if not success:
-            print("Failed to convert speech to text")
-            self.logger.error("Failed to convert speech to text")
-            raise Exception("Speech to text conversion failed")
-        else:
+        try:
+            speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger})
+            success = speech_to_text.get_speech_from_audio()
+            if not success:
+                raise Exception("Speech to text conversion failed")
             print("Speech to text conversion completed successfully")
+        except Exception as e:
+            print(f"Error occurred in speech to text conversion: {str(e)}")
+            self.logger.error(f"Error in speech to text conversion: {str(e)}", exc_info=True)
+            raise
 
     def run_frame_extraction(self) -> None:
         print("Starting run_frame_extraction method")
@@ -129,60 +136,140 @@ class PipelineRunner:
             )
             success = frame_extraction.extract_frames()
             if not success:
-                print("Failed to extract frames")
-                self.logger.error("Failed to extract frames")
                 raise Exception("Frame extraction failed")
-            else:
-                print("Frame extraction completed successfully")
+            print("Frame extraction completed successfully")
         except Exception as e:
             print(f"Error occurred in frame extraction: {str(e)}")
             self.logger.error(f"Error in frame extraction: {str(e)}", exc_info=True)
             raise
 
     def run_ocr_extraction(self) -> None:
-        ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger})
-        return ocr_extraction.run_ocr_detection()
+        print("Starting run_ocr_extraction method")
+        try:
+            ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger})
+            success = ocr_extraction.run_ocr_detection()
+            if not success:
+                raise Exception("OCR extraction failed")
+            print("OCR extraction completed successfully")
+        except Exception as e:
+            print(f"Error occurred in OCR extraction: {str(e)}")
+            self.logger.error(f"Error in OCR extraction: {str(e)}", exc_info=True)
+            raise
 
     def run_object_detection(self) -> None:
-        object_detection = ObjectDetection({"video_id": self.video_id, "logger": self.logger})
-        return object_detection.run_object_detection()
+        print("Starting run_object_detection method")
+        try:
+            object_detection = ObjectDetection({"video_id": self.video_id, "logger": self.logger})
+            success = object_detection.run_object_detection()
+            if not success:
+                raise Exception("Object detection failed")
+            print("Object detection completed successfully")
+        except Exception as e:
+            print(f"Error occurred in object detection: {str(e)}")
+            self.logger.error(f"Error in object detection: {str(e)}", exc_info=True)
+            raise
 
     def run_keyframe_selection(self) -> None:
-        keyframe_selection = KeyframeSelection({"video_id": self.video_id, "logger": self.logger})
-        return keyframe_selection.run_keyframe_selection()
+        print("Starting run_keyframe_selection method")
+        try:
+            keyframe_selection = KeyframeSelection({"video_id": self.video_id, "logger": self.logger})
+            success = keyframe_selection.run_keyframe_selection()
+            if not success:
+                raise Exception("Keyframe selection failed")
+            print("Keyframe selection completed successfully")
+        except Exception as e:
+            print(f"Error occurred in keyframe selection: {str(e)}")
+            self.logger.error(f"Error in keyframe selection: {str(e)}", exc_info=True)
+            raise
 
     def run_image_captioning(self) -> None:
-        image_captioning = ImageCaptioning({"video_id": self.video_id, "logger": self.logger})
-        image_captioning.run_image_captioning()
-        return image_captioning.combine_image_caption()
+        print("Starting run_image_captioning method")
+        try:
+            image_captioning = ImageCaptioning({"video_id": self.video_id, "logger": self.logger})
+            success = image_captioning.run_image_captioning()
+            if not success:
+                raise Exception("Image captioning failed")
+            combined_success = image_captioning.combine_image_caption()
+            if not combined_success:
+                raise Exception("Combining image captions failed")
+            print("Image captioning completed successfully")
+        except Exception as e:
+            print(f"Error occurred in image captioning: {str(e)}")
+            self.logger.error(f"Error in image captioning: {str(e)}", exc_info=True)
+            raise
 
     def run_caption_rating(self) -> None:
-        caption_rating = CaptionRating({"video_id": self.video_id, "logger": self.logger})
-        return caption_rating.perform_caption_rating()
+        print("Starting run_caption_rating method")
+        try:
+            caption_rating = CaptionRating({"video_id": self.video_id, "logger": self.logger})
+            success = caption_rating.perform_caption_rating()
+            if not success:
+                raise Exception("Caption rating failed")
+            print("Caption rating completed successfully")
+        except Exception as e:
+            print(f"Error occurred in caption rating: {str(e)}")
+            self.logger.error(f"Error in caption rating: {str(e)}", exc_info=True)
+            raise
 
     def run_scene_segmentation(self) -> None:
-        scene_segmentation = SceneSegmentation({"video_id": self.video_id, "logger": self.logger})
-        return scene_segmentation.run_scene_segmentation()
+        print("Starting run_scene_segmentation method")
+        try:
+            scene_segmentation = SceneSegmentation({"video_id": self.video_id, "logger": self.logger})
+            success = scene_segmentation.run_scene_segmentation()
+            if not success:
+                raise Exception("Scene segmentation failed")
+            print("Scene segmentation completed successfully")
+        except Exception as e:
+            print(f"Error occurred in scene segmentation: {str(e)}")
+            self.logger.error(f"Error in scene segmentation: {str(e)}", exc_info=True)
+            raise
 
     def run_text_summarization(self) -> None:
-        text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger})
-        return text_summarization.generate_text_summary()
+        print("Starting run_text_summarization method")
+        try:
+            text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger})
+            success = text_summarization.generate_text_summary()
+            if not success:
+                raise Exception("Text summarization failed")
+            print("Text summarization completed successfully")
+        except Exception as e:
+            print(f"Error occurred in text summarization: {str(e)}")
+            self.logger.error(f"Error in text summarization: {str(e)}", exc_info=True)
+            raise
 
     def run_upload_to_ydx(self) -> None:
-        upload_to_ydx = UploadToYDX(
-            {"video_id": self.video_id, "logger": self.logger},
-            upload_to_server=self.upload_to_server
-        )
-        return upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
+        print("Starting run_upload_to_ydx method")
+        try:
+            upload_to_ydx = UploadToYDX(
+                {"video_id": self.video_id, "logger": self.logger},
+                upload_to_server=self.upload_to_server
+            )
+            success = upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
+            if not success:
+                raise Exception("Upload to YDX failed")
+            print("Upload to YDX completed successfully")
+        except Exception as e:
+            print(f"Error occurred in upload to YDX: {str(e)}")
+            self.logger.error(f"Error in upload to YDX: {str(e)}", exc_info=True)
+            raise
 
     def run_generate_ydx_caption(self) -> None:
-        generate_ydx_caption = GenerateYDXCaption({"video_id": self.video_id, "logger": self.logger})
-        return generate_ydx_caption.generateYDXCaption(
-            ydx_server=self.ydx_server,
-            ydx_app_host=self.ydx_app_host,
-            userId=self.userId,
-            AI_USER_ID=self.AI_USER_ID,
-        )
+        print("Starting run_generate_ydx_caption method")
+        try:
+            generate_ydx_caption = GenerateYDXCaption({"video_id": self.video_id, "logger": self.logger})
+            success = generate_ydx_caption.generateYDXCaption(
+                ydx_server=self.ydx_server,
+                ydx_app_host=self.ydx_app_host,
+                userId=self.userId,
+                AI_USER_ID=self.AI_USER_ID,
+            )
+            if not success:
+                raise Exception("Generate YDX caption failed")
+            print("Generate YDX caption completed successfully")
+        except Exception as e:
+            print(f"Error occurred in generate YDX caption: {str(e)}")
+            self.logger.error(f"Error in generate YDX caption: {str(e)}", exc_info=True)
+            raise
 
     def run_full_pipeline(self) -> None:
         print("STARTING RUN FULL PIPELINE")
