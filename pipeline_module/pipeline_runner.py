@@ -121,11 +121,23 @@ class PipelineRunner:
             print("Speech to text conversion completed successfully")
 
     def run_frame_extraction(self) -> None:
-        frame_extraction = FrameExtraction(
-            {"video_id": self.video_id, "logger": self.logger},
-            int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
-        )
-        return frame_extraction.extract_frames()
+        print("Starting run_frame_extraction method")
+        try:
+            frame_extraction = FrameExtraction(
+                {"video_id": self.video_id, "logger": self.logger},
+                int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
+            )
+            success = frame_extraction.extract_frames()
+            if not success:
+                print("Failed to extract frames")
+                self.logger.error("Failed to extract frames")
+                raise Exception("Frame extraction failed")
+            else:
+                print("Frame extraction completed successfully")
+        except Exception as e:
+            print(f"Error occurred in frame extraction: {str(e)}")
+            self.logger.error(f"Error in frame extraction: {str(e)}", exc_info=True)
+            raise
 
     def run_ocr_extraction(self) -> None:
         ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger})
