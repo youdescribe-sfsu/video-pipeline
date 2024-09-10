@@ -65,8 +65,25 @@ class ObjectDetection:
         try:
             response = requests.post(self.yolo_endpoint, json=payload)
             response.raise_for_status()
-            print(f"Batch processing result: {len(response.json()['results'])} frames processed")
-            return response.json()['results']
+            results = response.json()['results']
+            print(f"Batch processing result: {len(results)} frames processed")
+
+            # Add error checking for individual frames
+            valid_results = []
+            for result in results:
+                try:
+                    # Validate result structure
+                    if 'frame_number' not in result or 'timestamp' not in result or 'objects' not in result:
+                        raise ValueError(f"Invalid result structure for frame: {result.get('frame_number', 'unknown')}")
+
+                    # Ensure timestamp is a valid float
+                    result['timestamp'] = float(result['timestamp'])
+
+                    valid_results.append(result)
+                except Exception as e:
+                    self.logger.error(f"Error processing frame {result.get('frame_number', 'unknown')}: {str(e)}")
+
+            return valid_results
         except requests.RequestException as e:
             self.logger.error(f"Error in YOLO API request: {str(e)}")
             raise
