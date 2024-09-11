@@ -207,13 +207,10 @@ def save_value_to_file(video_runner_obj: Dict[str, Union[int, str]], key: str, v
     """
     Save a new value associated with a specific key to the progress data stored in a JSON file for the given video runner object.
 
-    This function first loads the existing progress data from a JSON file based on the provided video runner object.
-    It then updates the progress data with the new key-value pair, and saves the modified progress data back to the file.
-    If there are any errors during the process, the function handles them gracefully.
+    This function handles nested keys in the format "['key1']['key2']['key3']".
 
     Parameters:
         video_runner_obj (Dict[str, Union[int, str]]): A dictionary containing the information of the video runner.
-            The keys are "video_id", "video_start_time", and "video_end_time", with their values as integers or strings.
         key (str): The key under which the new value will be stored in the progress data.
         value (Any): The value to be associated with the provided key in the progress data.
 
@@ -222,19 +219,25 @@ def save_value_to_file(video_runner_obj: Dict[str, Union[int, str]], key: str, v
     """
     try:
         json_file = load_progress_from_file(video_runner_obj)  # Load existing progress data
-        keys = key.strip('[]').split('][')
+
+        # Parse the key string
+        keys = [k.strip("'[]") for k in key.split("][")]
+
+        # Navigate through the nested dictionaries
         current = json_file
         for k in keys[:-1]:
             if k not in current:
                 current[k] = {}
             current = current[k]
+
+        # Set the value at the final key
         current[keys[-1]] = value
+
         save_progress_to_file(video_runner_obj, json_file)  # Save the modified progress data
         print(f"Successfully saved value for key: {key}")
     except Exception as e:
         print(f"Error saving value to file: {e}")
     return
-
 
 def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:
     """
