@@ -109,7 +109,7 @@ def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> st
     return return_string
 
 
-def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
+def return_video_progress_file(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
     Returns the progress file for a video.
 
@@ -124,7 +124,7 @@ def return_video_progress_file(video_runner_obj: Dict[str, int]) -> str:
     return f"{video_folder_name}/progress.json"
 
 
-def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None:
+def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dict or None:
     """
     Load progress from a JSON file or start with a default progress dictionary.
 
@@ -151,7 +151,7 @@ def load_progress_from_file(video_runner_obj: Dict[str, int]) -> Dict or None:
 
     return loaded_progress
 
-def read_value_from_file(video_runner_obj: Dict[str, int], key: str) -> Dict or None:
+def read_value_from_file(video_runner_obj: Dict[str, Union[int, str]], key: str) -> Dict or None:
     """
     Read a specific value from the progress data stored in a JSON file associated with the given video runner object.
 
@@ -178,7 +178,7 @@ def read_value_from_file(video_runner_obj: Dict[str, int], key: str) -> Dict or 
     return value
 
 
-def save_progress_to_file(video_runner_obj: Dict[str, int], progress_data: Dict[str, int]):
+def save_progress_to_file(video_runner_obj: Dict[str, Union[int, str]], progress_data: Dict[str, Union[int, str]]):
     """
     Save progress data to a JSON file.
 
@@ -239,7 +239,7 @@ def save_value_to_file(video_runner_obj: Dict[str, Union[int, str]], key: str, v
         print(f"Error saving value to file: {e}")
     return
 
-def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:
+def return_video_download_location(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
     Returns the download location for a video.
 
@@ -255,7 +255,7 @@ def return_video_download_location(video_runner_obj: Dict[str, int]) -> str:
     return f"{video_folder_name}/{video_id}.mp4"
 
 
-def return_video_frames_folder(video_runner_obj: Dict[str, int]) -> str:
+def return_video_frames_folder(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
     Returns the frames folder for a video.
 
@@ -270,7 +270,7 @@ def return_video_frames_folder(video_runner_obj: Dict[str, int]) -> str:
     return f"{video_folder_name}/frames"
 
 
-def return_audio_file_name(video_runner_obj: Dict[str, int]) -> str:
+def return_audio_file_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:
     """
     Returns the audio file name for a video.
 
