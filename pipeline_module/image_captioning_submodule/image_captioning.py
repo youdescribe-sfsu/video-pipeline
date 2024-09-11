@@ -68,7 +68,7 @@ class ImageCaptioning:
                     outcsvfile.flush()
                     save_value_to_file(video_runner_obj=self.video_runner_obj,
                                        key="['ImageCaptioning']['run_image_captioning']['last_processed_frame']",
-                                       value=frame_index)
+                                       value=str(frame_index))
 
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['started']",
                                value='done')
@@ -155,7 +155,7 @@ class ImageCaptioning:
             csv_writer.writerows(updated_rows)
 
         save_value_to_file(video_runner_obj=self.video_runner_obj,
-                           key="['ImageCaptioning']['filter_keyframes_from_caption']", value=1)
+                           key="['ImageCaptioning']['filter_keyframes_from_caption']", value=str(1))
 
     def combine_image_caption(self) -> None:
         if read_value_from_file(video_runner_obj=self.video_runner_obj,
@@ -191,7 +191,7 @@ class ImageCaptioning:
                 csvDictWriter.writerow(row)
 
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['combine_image_caption']",
-                           value=1)
+                           value=str(1))
         self.logger.info(f"Completed Writing Image Caption Pair to CSV")
 
 

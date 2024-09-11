@@ -70,7 +70,7 @@ class CaptionRating:
                         self.logger.error(f"Error processing row {row['frame_index']}: {str(e)}")
 
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['get_all_caption_rating']",
-                           value=1)
+                           value=str(1))
 
     def process_row(self, row: Dict[str, str]) -> Dict[str, Any]:
         captions = [row[f'caption{i}'] for i in range(1, 5) if f'caption{i}' in row]
@@ -122,7 +122,7 @@ class CaptionRating:
                     output_row.update({k: object_row.get(k, '') for k in fieldnames[4:]})
                     writer.writerow(output_row)
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['filter_captions']", value=1)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['filter_captions']", value=str(1))
         self.logger.info(f"Caption filtering complete for {self.video_runner_obj['video_id']}")
 
 

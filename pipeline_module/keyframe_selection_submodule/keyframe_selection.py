@@ -19,7 +19,7 @@ class KeyframeSelection:
 
         try:
             print("Saving initial progress")
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['KeyframeSelection']['started']", value=True)
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['KeyframeSelection']['started']", value=str(True))
         except Exception as e:
             error_msg = f"Error saving KeyframeSelection progress: {str(e)}"
             print(error_msg)

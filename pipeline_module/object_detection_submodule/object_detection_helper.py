@@ -118,7 +118,7 @@ def detect_objects(video_files_path, threshold, video_runner_obj, logging=False,
     last_processed_frame = 0
 
     if not read_value_from_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']"):
-        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=True)
+        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=str(True))
         step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
         num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
     else:
@@ -146,7 +146,7 @@ def detect_objects(video_files_path, threshold, video_runner_obj, logging=False,
         if logger:
             logger.info(f"Frame Index: {frame_index}")
         last_processed_frame = frame_index
-        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=last_processed_frame)
+        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=str(last_processed_frame))
 
     if logging:
         print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
@@ -171,7 +171,7 @@ def detect_objects_batch(video_files_path, threshold, video_runner_obj, logging=
     last_processed_frame = 0
 
     if not read_value_from_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']"):
-        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=True)
+        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=str(True))
         step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
         num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
     else:
@@ -198,7 +198,7 @@ def detect_objects_batch(video_files_path, threshold, video_runner_obj, logging=
                 logger.info(f"Frame Index: {frame_index}")
 
             last_processed_frame = frame_index
-            save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=last_processed_frame)
+            save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=str(last_processed_frame))
 
             batched_frame_filenames = []
 

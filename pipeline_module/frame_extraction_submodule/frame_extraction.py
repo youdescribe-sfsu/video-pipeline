@@ -94,7 +94,7 @@ class FrameExtraction:
     def _save_extraction_progress(self, adaptive_fps: float, frames_extracted: int) -> None:
         print("Frame extraction completed, saving progress")
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']", value='done')
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['adaptive_fps']", value=adaptive_fps)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['adaptive_fps']", value=str(adaptive_fps))
         save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['frames_extracted']", value=frames_extracted)
 
     def process_frame(self, frame_idx: int) -> None:
@@ -122,7 +122,7 @@ class FrameExtraction:
         elif duration <= 900:  # For videos up to 15 minutes
             return max(self.default_fps - 2, 1)
         else:  # For videos longer than 15 minutes
-            return max(1, min(self.default_fps - 3, duration / 300))
+            return max(1, min(self.default_fps - 3, int(duration / 300)))
 
     @timeit
     def extract_frames_with_scene_detection(self) -> bool:
@@ -185,9 +185,9 @@ class FrameExtraction:
         vid.release()
 
     def set_video_common_values(self, adaptive_fps: float, frames_extracted: int, video_fps: float) -> None:
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=int(video_fps / adaptive_fps))
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']", value=frames_extracted)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']", value=adaptive_fps)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=str(video_fps / adaptive_fps))
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']", value=str(frames_extracted))
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']", value=str(adaptive_fps))
 
         print(f"Set video common values: step={int(video_fps / adaptive_fps)}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
         self.logger.info(f"Set video common values: step={int(video_fps / adaptive_fps)}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")

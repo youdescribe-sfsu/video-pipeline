@@ -30,7 +30,7 @@ class SceneSegmentation:
             self.logger.info("Scene segmentation already processed")
             return True
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['started']", value=True)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['started']", value=str(True))
 
         try:
             frame_data = self.load_frame_data()
@@ -39,7 +39,7 @@ class SceneSegmentation:
             self.save_scenes(scenes)
 
             save_value_to_file(video_runner_obj=self.video_runner_obj,
-                               key="['SceneSegmentation']['run_scene_segmentation']", value=1)
+                               key="['SceneSegmentation']['run_scene_segmentation']", value=str(1))
             self.logger.info("Scene segmentation completed")
             return True
         except Exception as e:

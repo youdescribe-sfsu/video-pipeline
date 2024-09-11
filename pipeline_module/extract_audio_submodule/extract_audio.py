@@ -55,7 +55,7 @@ class ExtractAudio:
                 print(f"Failed to create output audio file: {output_file}")
                 raise RuntimeError(f"Failed to create output audio file: {output_file}")
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ExtractAudio']['extract_audio']", value=True)
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ExtractAudio']['extract_audio']", value=str(True))
             print("Audio extraction completed successfully.")
             return True
 

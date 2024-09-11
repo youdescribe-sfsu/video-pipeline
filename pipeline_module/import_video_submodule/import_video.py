@@ -60,7 +60,7 @@ class ImportVideo:
             if video_start_time and video_end_time:
                 self.trim_video(video_start_time, video_end_time)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']", value=True)
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']", value=str(True))
             print(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
 
             return True

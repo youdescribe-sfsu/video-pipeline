@@ -48,7 +48,7 @@ class SpeechToText:
             self.delete_blob(audio_file_name)
 
             save_value_to_file(video_runner_obj=self.video_runner_obj,
-                               key="['SpeechToText']['getting_speech_from_audio']", value=1)
+                               key="['SpeechToText']['getting_speech_from_audio']", value=str(1))
             print("Speech to text completed successfully")
 
             return True
