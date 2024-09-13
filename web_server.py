@@ -1,171 +1,172 @@
+from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 from dotenv import load_dotenv
-
-load_dotenv()
-from fastapi import FastAPI, status
-import queue
-from contextlib import asynccontextmanager
-from threading import Thread, Event
-import uvicorn
-from pipeline_module.generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from pipeline_module.pipeline_runner import run_pipeline
-from web_server_module.web_server_database import create_database, get_data_for_youtube_id_ai_user_id, \
-    get_data_for_youtube_id_and_user_id, get_pending_jobs_with_youtube_ids, update_ai_user_data, update_status, \
-    process_incoming_data, StatusEnum
-from web_server_module.web_server_types import WebServerRequest
-from web_server_module.custom_logger import web_server_logger
-import asyncio
+import os
 import json
-import time
+import asyncio
+import traceback
+from datetime import datetime
+import queue
 
-stop_event = Event()
-task_queue = queue.Queue()
+# Import custom modules
+from web_server_module.web_server_types import WebServerRequest
+from web_server_module.custom_logger import setup_logger
+from pipeline_module.pipeline_runner import run_pipeline
+from web_server_module.web_server_database import (
+    create_database, process_incoming_data, update_status, update_ai_user_data,
+    get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id,
+    StatusEnum
+)
+
+# Load environment variables
+load_dotenv()
+
+# Setup FastAPI app
+app = FastAPI()
+
+# Setup CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Setup logger
+logger = setup_logger()
+
+# Global variables
+GPU_URL = os.getenv("GPU_URL")
+AI_USER_ID = os.getenv("AI_USER_ID")
+
+# Queue for managing pipeline tasks
+pipeline_queue = queue.Queue()
+
+# Set for tracking enqueued tasks
 enqueued_tasks = set()
-running_tasks = []
 
 
-async def cleanup_tasks():
-    for task in running_tasks:
-        task.cancel()
-    await asyncio.gather(*running_tasks, return_exceptions=True)
-
-
-def update_queue():
-    pending_jobs_with_youtube_ids = get_pending_jobs_with_youtube_ids()
-    for data in pending_jobs_with_youtube_ids:
-        youtube_id = data['youtube_id']
-        ai_user_id = data['ai_user_id']
-
-        # Check if the task already exists in the set of enqueued tasks
-        if (youtube_id, ai_user_id) not in enqueued_tasks:
-            print("Adding youtube_id: {}, ai_user_id: {} to queue".format(youtube_id, ai_user_id))
-            web_server_logger.info("Adding youtube_id: {}, ai_user_id: {} to queue".format(youtube_id, ai_user_id))
-
-            # Enqueue the task
-            task_queue.put((youtube_id, ai_user_id))
-
-            # Update the set of enqueued tasks
-            enqueued_tasks.add((youtube_id, ai_user_id))
-
-
-def update_queue_periodically():
-    while True:
-        update_queue()
-
-        time.sleep(60)  # 1 minute, adjust as needed
-
-
-def process_queue():
-    web_server_logger.info("Starting to process queue")
-    while True:
-        if not task_queue.empty():
-            youtube_id, ai_user_id = task_queue.get()
-            ydx_server, ydx_app_host = get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id)
-            print("Processing request for youtube_id: {}, ai_user_id: {}".format(youtube_id, ai_user_id))
-            web_server_logger.info(
-                "Processing request for youtube_id: {}, ai_user_id: {}".format(youtube_id, ai_user_id))
-            run_pipeline(
-                video_id=youtube_id,
-                video_end_time=None,
-                video_start_time=None,
-                upload_to_server=True,
-                tasks=None,
-                ydx_server=ydx_server,
-                ydx_app_host=ydx_app_host,
-                userId=None,
-                AI_USER_ID=ai_user_id,
-            )
-            print("Updating status")
-            update_status(youtube_id, ai_user_id, StatusEnum.done.value)
-
-            # video_runner_obj = {
-            #     "video_id": youtube_id,
-            #     "logger": web_server_logger
-            # }
-            # generate_YDX_caption = GenerateYDXCaption(video_runner_obj=video_runner_obj)
-            user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
-
-            for data in user_data:
-                # generate_YDX_caption.generateYDXCaption(
-                #     ydx_server=data.get("ydx_server", None),
-                #     ydx_app_host=data.get("ydx_app_host", None),
-                #     userId=data.get("user_id", None),
-                #     AI_USER_ID=data.get("ai_user_id", None),
-                #     logger=web_server_logger,
-                # )
-                update_ai_user_data(
-                    youtube_id=youtube_id,
-                    ai_user_id=ai_user_id,
-                    user_id=data.get("user_id", None),
-                    status=StatusEnum.done.value,
-                )
-                print("Updated status for youtube_id: {}, ai_user_id: {} and ".format(youtube_id, ai_user_id))
-        else:
-            print("Queue is empty")
-            time.sleep(30)  # Check every 30s if there is a new task in the queue
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@app.on_event("startup")
+async def startup_event():
     create_database()
-    update_queue()
-    thread_update_queue = Thread(target=update_queue_periodically)
-    thread_update_queue.daemon = True
-    thread_update_queue.start()
-
-    thread_process_queue = Thread(target=process_queue)
-    thread_process_queue.daemon = True
-    thread_process_queue.start()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+    logger.info("Application started, database initialized")
+    # Start the queue processing task
+    await asyncio.create_task(process_queue())
 
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
-        data_json = json.loads(post_data.model_dump_json())
-        print("data_json :: {}".format((data_json)))
+        logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
 
-        user_id = data_json['user_id']
-        ydx_server = data_json['ydx_server']
-        ydx_app_host = data_json['ydx_app_host']
-        ai_user_id = data_json['AI_USER_ID']
-        youtube_id = data_json['youtube_id']
+        if not post_data.youtube_id or not post_data.AI_USER_ID:
+            raise HTTPException(status_code=400, detail="Missing required fields")
 
-        web_server_logger.info("data_json :: {}".format(str(data_json)))
-        web_server_logger.info("youtube_id :: {}".format(str(youtube_id)))
-
-        web_server_logger.info(
-            "User ID: {} called for youtube video :: {}".format(
-                user_id, youtube_id
-            )
+        process_incoming_data(
+            user_id=post_data.user_id,
+            ydx_server=post_data.ydx_server,
+            ydx_app_host=post_data.ydx_app_host,
+            ai_user_id=post_data.AI_USER_ID,
+            youtube_id=post_data.youtube_id
         )
-        print(
-            "User ID: {} called for youtube video :: {}".format(
-                user_id, youtube_id
-            )
-        )
-        process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
-        task_queue.put((youtube_id, ai_user_id))
 
-        return "You posted: {}".format(str(data_json))
+        # Add task to queue if not already enqueued
+        task_key = (post_data.youtube_id, post_data.AI_USER_ID)
+        if task_key not in enqueued_tasks:
+            pipeline_queue.put(post_data)
+            enqueued_tasks.add(task_key)
+            logger.info(f"Task added to queue: {task_key}")
+
+        return {"status": "success", "message": "AI caption generation request queued"}
+
     except Exception as e:
-        print(e)
-        print("Exception :: {}".format(str(e)))
-        web_server_logger.error("Exception :: {}".format(str(e)))
-        return "error"
+        logger.error(f"Error in generate_ai_caption: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {"status": "failure", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+async def process_queue():
+    while True:
+        try:
+            if not pipeline_queue.empty():
+                task = pipeline_queue.get()
+                await run_pipeline_task(
+                    youtube_id=task.youtube_id,
+                    ai_user_id=task.AI_USER_ID,
+                    ydx_server=task.ydx_server,
+                    ydx_app_host=task.ydx_app_host
+                )
+                # Remove task from enqueued set after processing
+                enqueued_tasks.remove((task.youtube_id, task.AI_USER_ID))
+            else:
+                await asyncio.sleep(5)  # Wait for 5 seconds before checking queue again
+        except Exception as e:
+            logger.error(f"Error processing queue: {str(e)}")
+            logger.error(traceback.format_exc())
+
+
+async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
+    try:
+        await run_pipeline(
+            video_id=youtube_id,
+            video_end_time=None,
+            video_start_time=None,
+            upload_to_server=True,
+            tasks=None,
+            ydx_server=ydx_server,
+            ydx_app_host=ydx_app_host,
+            userId=None,
+            AI_USER_ID=ai_user_id,
+        )
+        update_status(youtube_id, ai_user_id, StatusEnum.done.value)
+
+        user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
+        for data in user_data:
+            update_ai_user_data(
+                youtube_id=youtube_id,
+                ai_user_id=ai_user_id,
+                user_id=data.get("user_id", None),
+                status=StatusEnum.done.value,
+            )
+        logger.info(f"Pipeline completed for YouTube ID: {youtube_id}")
+    except Exception as e:
+        logger.error(f"Pipeline failed for YouTube ID {youtube_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
+        await handle_pipeline_failure(youtube_id, ai_user_id)
+
+
+async def handle_pipeline_failure(youtube_id: str, ai_user_id: str):
+    # Implement cleanup and notification logic here
+    logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+    # Add your implementation here
+
+
+@app.get("/ai_description_status/{youtube_id}")
+async def ai_description_status(youtube_id: str):
+    try:
+        status = get_data_for_youtube_id_ai_user_id(youtube_id, AI_USER_ID)
+        if not status:
+            raise HTTPException(status_code=404, detail="AI description not found")
+        return {"status": status}
+    except Exception as e:
+        logger.error(f"Error in ai_description_status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/health_check")
 async def health_check():
     try:
-        return {"message": "OK"}, status.HTTP_200_OK
+        return {"status": "OK", "timestamp": datetime.now().isoformat(), "queue_size": pipeline_queue.qsize()}
     except Exception as e:
-        print("Exception :: {}".format(str(e)))
-        web_server_logger.error("Exception :: {}".format(str(e)))
-        return "error"
+        logger.error(f"Health check failed: {str(e)}")
+        return {"status": "Error", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 if __name__ == "__main__":
+    import uvicorn
+
     uvicorn.run("web_server:app", host="0.0.0.0", port=8086, reload=True)
