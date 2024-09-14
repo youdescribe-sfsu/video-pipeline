@@ -1,8 +1,10 @@
 from .web_server_utils import return_pipeline_save_file_folder
 import sqlite3
 from enum import Enum
-from .custom_logger import web_server_logger
+from .custom_logger import setup_logger
 import traceback
+
+logger = setup_logger()
 
 # Define an Enum for the status options
 class StatusEnum(str, Enum):
@@ -59,10 +61,10 @@ def create_database():
                 )
             ''')
 
-            web_server_logger.info("Database created successfully.")
+            logger.info("Database created successfully.")
         except sqlite3.Error as e:
             print("Error creating database:", e)
-            web_server_logger.error("Error creating database:", e)
+            logger.error("Error creating database:", e)
             return
     return
 
@@ -83,7 +85,7 @@ def get_pending_jobs_with_youtube_ids():
             return pending_jobs_with_youtube_ids
     except sqlite3.Error as e:
         print("Error getting pending jobs with YouTube IDs:", e)
-        web_server_logger.error("Error getting pending jobs with YouTube IDs:", e)
+        logger.error("Error getting pending jobs with YouTube IDs:", e)
         return []
 
 
@@ -102,7 +104,7 @@ def get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id):
 
             return data
     except sqlite3.Error as e:
-        web_server_logger.error("Error getting data get_data_for_youtube_id_and_user_id:", e)
+        logger.error("Error getting data get_data_for_youtube_id_and_user_id:", e)
         print("Error getting data for YouTube ID and AI user ID:", e)
         return []
     
@@ -123,7 +125,7 @@ def get_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
             ydx_app_host = status['ydx_app_host']
             return ydx_server,ydx_app_host
     except sqlite3.Error as e:
-        web_server_logger.error("Error getting get_data_for_youtube_id_ai_user_id ", str(e))
+        logger.error("Error getting get_data_for_youtube_id_ai_user_id ", str(e))
         print("Error getting status for YouTube ID:", e)
         return None
 
@@ -171,11 +173,11 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
 
         con.commit()
     except sqlite3.Error as e:
-        web_server_logger.error(f"SQLite error in process_incoming_data: {str(e)}")
+        logger.error(f"SQLite error in process_incoming_data: {str(e)}")
         raise
     except Exception as e:
-        web_server_logger.error(f"Unexpected error in process_incoming_data: {str(e)}")
-        web_server_logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Unexpected error in process_incoming_data: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise
 
 def update_status(youtube_id, ai_user_id, status):
@@ -190,7 +192,7 @@ def update_status(youtube_id, ai_user_id, status):
             ''', (status, youtube_id, ai_user_id,))
     except sqlite3.Error as e:
         print("Error updating status:", e)
-        web_server_logger.error("Error updating status:", e)
+        logger.error("Error updating status:", e)
         
         
 
@@ -206,7 +208,7 @@ def update_ai_user_data(youtube_id, ai_user_id,user_id, status):
             ''', (status, youtube_id, ai_user_id,user_id,))
     except sqlite3.Error as e:
         print("Error updating status:", e)
-        web_server_logger.error("Error updating status:", e)
+        logger.error("Error updating status:", e)
         
         
 
@@ -225,6 +227,6 @@ def return_all_user_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
             return status
     except sqlite3.Error as e:
         print("Error getting status for YouTube ID:", e)
-        web_server_logger.error("Error getting status for YouTube ID:", e)
+        logger.error("Error getting status for YouTube ID:", e)
         return None
         
