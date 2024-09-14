@@ -6,7 +6,7 @@ from logging import Logger
 import yt_dlp as ydl
 from datetime import timedelta
 import aiofiles
-import aioffmpeg
+import ffmpeg
 
 from ..utils_module.utils import read_value_from_file, return_video_download_location, return_video_folder_name, \
     save_value_to_file
@@ -97,7 +97,7 @@ class ImportVideo:
         print("Checking video format")
         video_path = return_video_download_location(self.video_runner_obj)
         try:
-            probe = await aioffmpeg.probe(video_path)
+            probe = await asyncio.to_thread(ffmpeg.probe, video_path)
             video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
             if video_stream and video_stream['codec_name'] == 'h264':
                 print("Video format check passed: MP4 with H.264 codec")
@@ -105,34 +105,20 @@ class ImportVideo:
             else:
                 print("Video is not in the expected format (MP4 with H.264 codec)")
                 return False
-        except aioffmpeg.Error as e:
+        except ffmpeg.Error as e:
             print(f"Error checking video format: {str(e)}")
             return False
 
     async def trim_video(self, start_time: str, end_time: str) -> None:
         print(f"Trimming video from {start_time} to {end_time}")
         try:
-            start = timedelta(seconds=int(start_time))
-            end = timedelta(seconds=int(end_time))
-
             input_file = return_video_download_location(self.video_runner_obj)
             output_file = return_video_folder_name(self.video_runner_obj) + '/trimmed.mp4'
 
-            input_stream = aioffmpeg.input(input_file)
-            vid = (
-                input_stream.video
-                .trim(start=start_time, end=end_time)
-                .setpts('PTS-STARTPTS')
-            )
-            aud = (
-                input_stream.audio
-                .filter_('atrim', start=start_time, end=end_time)
-                .filter_('asetpts', 'PTS-STARTPTS')
-            )
+            stream = ffmpeg.input(input_file, ss=start_time, t=end_time)
+            stream = ffmpeg.output(stream, output_file)
 
-            joined = aioffmpeg.concat(vid, aud, v=1, a=1).node
-            output = aioffmpeg.output(joined[0], joined[1], output_file)
-            await aioffmpeg.run(output, overwrite_output=True)
+            await asyncio.to_thread(ffmpeg.run, stream, overwrite_output=True)
 
             if os.path.exists(input_file):
                 os.remove(input_file)
@@ -140,7 +126,7 @@ class ImportVideo:
 
             print(f"Video trimmed successfully")
 
-        except aioffmpeg.Error as e:
+        except ffmpeg.Error as e:
             print(f"FFmpeg error occurred during video trimming: {e.stderr.decode()}")
             raise
         except Exception as e:
@@ -152,7 +138,7 @@ class ImportVideo:
         video_file = return_video_download_location(self.video_runner_obj)
 
         try:
-            probe = await aioffmpeg.probe(video_file)
+            probe = await asyncio.to_thread(ffmpeg.probe, video_file)
             video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
 
             if video_stream:
@@ -169,8 +155,8 @@ class ImportVideo:
                 print("No video stream found in the file.")
                 return None
 
-        except aioffmpeg.Error as e:
-            print(f"FFmpeg error occurred while getting video metadata: {e.stderr.decode()}")
+        except ffmpeg.Error as e:
+            print(f"FFmpeg error occurred while getting video metadata: {str(e)}")
             return None
         except Exception as e:
             print(f"An unexpected error occurred while getting video metadata: {str(e)}")
