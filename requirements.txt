@@ -90,4 +90,4 @@ torch==2.4.0
 pillow==10.4.0
 scikit-learn
 aiofiles
-aioffmpeg
+ffmpeg-python
