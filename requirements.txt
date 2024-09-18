@@ -83,7 +83,7 @@ watchfiles==0.24.0
 web.py==0.62
 websockets==13.0.1
 wrapt==1.16.0
-yt-dlp==2024.8.6
+yt-dlp
 zipp==3.20.1
 langdetect==1.0.9
 torch==2.4.0
