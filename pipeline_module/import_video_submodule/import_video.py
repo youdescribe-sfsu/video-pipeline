@@ -161,19 +161,3 @@ class ImportVideo:
         except Exception as e:
             print(f"An unexpected error occurred while getting video metadata: {str(e)}")
             return None
-
-    async def cleanup(self) -> None:
-        print("Starting cleanup for ImportVideo")
-        video_path = return_video_download_location(self.video_runner_obj)
-        if os.path.exists(video_path):
-            os.remove(video_path)
-            print(f"Removed downloaded video: {video_path}")
-
-        metadata_file = return_video_folder_name(self.video_runner_obj) + '/metadata.json'
-        if os.path.exists(metadata_file):
-            os.remove(metadata_file)
-            print(f"Removed metadata file: {metadata_file}")
-
-        await save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']",
-                                 value=str(False))
-        print("Cleanup for ImportVideo completed")

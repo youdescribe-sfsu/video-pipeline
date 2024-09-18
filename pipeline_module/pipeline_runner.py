@@ -3,7 +3,10 @@ import os
 import asyncio
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
+from yt_dlp.compat import shutil
 
+from web_server import logger
+from web_server_module.web_server_database import remove_sqlite_entry
 # Import all the necessary submodules
 from .import_video_submodule.import_video import ImportVideo
 from .extract_audio_submodule.extract_audio import ExtractAudio
@@ -18,7 +21,9 @@ from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
 from .text_summarization_submodule.text_summary import TextSummaryCoordinator
 from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from .utils_module.utils import load_progress_from_file, save_progress_to_file, PipelineTask
+from .utils_module.utils import load_progress_from_file, save_progress_to_file, PipelineTask, return_video_folder_name, \
+    return_video_download_location
+
 
 class PipelineRunner:
     def __init__(
@@ -78,18 +83,6 @@ class PipelineRunner:
             self.save_progress()
             await self.cleanup_task(task)
             raise
-
-    async def cleanup_task(self, failed_task: str):
-        self.logger.info(f"Starting cleanup for failed task: {failed_task}")
-        # Implement cleanup logic for each task
-        # For example:
-        if failed_task == 'import_video':
-            await self.cleanup_import_video()
-        # Add cleanup methods for other tasks
-
-    async def cleanup_import_video(self):
-        # Implement cleanup for import_video task
-        pass
 
     async def run_import_video(self) -> None:
         import_video = ImportVideo({"video_id": self.video_id, "logger": self.logger})
@@ -191,14 +184,22 @@ class PipelineRunner:
             self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
         except Exception as e:
             self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}", exc_info=True)
-            await self.cleanup_pipeline()
             raise
 
-    async def cleanup_pipeline(self):
-        self.logger.info("Starting full pipeline cleanup")
-        for task in reversed(self.tasks):
-            await self.cleanup_task(task)
-        self.logger.info("Pipeline cleanup completed")
+
+async def cleanup_failed_pipeline(video_id, ai_user_id, error_message):
+    logger = logging.getLogger(f"PipelineLogger-{video_id}")
+    logger.error(f"Pipeline failed for video {video_id}: {error_message}")
+
+    # Delete the entire video folder
+    video_folder = return_video_folder_name({"video_id": video_id})
+    if os.path.exists(video_folder):
+        shutil.rmtree(video_folder)
+        logger.info(f"Removed video folder: {video_folder}")
+
+    # Remove SQLite database entry
+    await remove_sqlite_entry(video_id, ai_user_id)
+    logger.info(f"Removed SQLite entry for video {video_id}")
 
 async def run_pipeline(
         video_id: str,
@@ -211,27 +212,27 @@ async def run_pipeline(
         userId: Optional[str] = None,
         AI_USER_ID: Optional[str] = None,
 ) -> None:
-    pipeline_runner = PipelineRunner(
-        video_id=video_id,
-        video_start_time=video_start_time,
-        video_end_time=video_end_time,
-        upload_to_server=upload_to_server,
-        tasks=tasks,
-        ydx_server=ydx_server,
-        ydx_app_host=ydx_app_host,
-        userId=userId,
-        AI_USER_ID=AI_USER_ID,
-    )
-
-    if all(pipeline_runner.progress.get(task) == "completed" for task in pipeline_runner.tasks):
-        pipeline_runner.logger.info(f"Pipeline already completed for video: {video_id}")
-        return
-
     try:
+        pipeline_runner = PipelineRunner(
+            video_id=video_id,
+            video_start_time=video_start_time,
+            video_end_time=video_end_time,
+            upload_to_server=upload_to_server,
+            tasks=tasks,
+            ydx_server=ydx_server,
+            ydx_app_host=ydx_app_host,
+            userId=userId,
+            AI_USER_ID=AI_USER_ID,
+        )
+
+        if all(pipeline_runner.progress.get(task) == "completed" for task in pipeline_runner.tasks):
+            pipeline_runner.logger.info(f"Pipeline already completed for video: {video_id}")
+            return
+
         await pipeline_runner.run_full_pipeline()
+
     except Exception as e:
-        pipeline_runner.logger.error(f"Pipeline execution failed: {str(e)}", exc_info=True)
-        # Cleanup is now handled within run_full_pipeline
+        await cleanup_failed_pipeline(video_id, AI_USER_ID, str(e))
         raise
 
 if __name__ == "__main__":

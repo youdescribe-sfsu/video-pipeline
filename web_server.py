@@ -10,15 +10,16 @@ import traceback
 from datetime import datetime
 import queue
 import uvicorn
+import aiohttp
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import setup_logger
-from pipeline_module.pipeline_runner import run_pipeline
+from pipeline_module.pipeline_runner import run_pipeline, cleanup_failed_pipeline
 from web_server_module.web_server_database import (
     create_database, process_incoming_data, update_status, update_ai_user_data,
     get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id,
-    StatusEnum
+    StatusEnum, remove_sqlite_entry
 )
 
 # Load environment variables
@@ -42,9 +43,10 @@ logger = setup_logger()
 # Global variables
 GPU_URL = os.getenv("GPU_URL")
 AI_USER_ID = os.getenv("AI_USER_ID")
+YDX_SERVER = os.getenv("YDX_SERVER")
 
 # Queue for managing pipeline tasks
-pipeline_queue = queue.Queue()
+pipeline_queue = asyncio.Queue()
 
 # Set for tracking enqueued tasks
 enqueued_tasks = set()
@@ -78,7 +80,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
         # Add task to queue if not already enqueued
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
         if task_key not in enqueued_tasks:
-            pipeline_queue.put(post_data)
+            await pipeline_queue.put(post_data)
             enqueued_tasks.add(task_key)
             logger.info(f"Task added to queue: {task_key}")
 
@@ -94,19 +96,55 @@ async def process_queue():
     logger.info("Queue processing started")
     while True:
         try:
-            if not pipeline_queue.empty():
-                task = pipeline_queue.get_nowait()
-                asyncio.create_task(run_pipeline_task(
-                    youtube_id=task.youtube_id,
-                    ai_user_id=task.AI_USER_ID,
-                    ydx_server=task.ydx_server,
-                    ydx_app_host=task.ydx_app_host
-                ))
-            await asyncio.sleep(5)  # Use await here
+            task = await pipeline_queue.get()
+            asyncio.create_task(run_pipeline_task(
+                youtube_id=task.youtube_id,
+                ai_user_id=task.AI_USER_ID,
+                ydx_server=task.ydx_server,
+                ydx_app_host=task.ydx_app_host
+            ))
         except Exception as e:
             logger.error(f"Error processing queue: {str(e)}")
             logger.error(traceback.format_exc())
         logger.info("Queue processing iteration completed")
+
+
+async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
+                                  ydx_app_host: str):
+    logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+
+    # Cleanup failed pipeline
+    await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
+
+    # Remove SQLite entry
+    await remove_sqlite_entry(youtube_id, ai_user_id)
+
+    # Notify YouDescribe service about the failure
+    await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
+
+    # Notify admin (implement this based on your needs)
+    await notify_admin(youtube_id, ai_user_id, error_message)
+
+
+async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
+                                     ydx_app_host: str):
+    url = f"{ydx_server}/api/pipeline-failure"
+    data = {
+        "youtube_id": youtube_id,
+        "ai_user_id": ai_user_id,
+        "error_message": error_message,
+        "ydx_app_host": ydx_app_host
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=data) as response:
+            if response.status != 200:
+                logger.error(f"Failed to notify YouDescribe service: {await response.text()}")
+
+
+async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
+    # Implement email notification to admin
+    logger.info(f"Admin notification: Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+    # Add your implementation here
 
 
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
@@ -137,13 +175,10 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
         logger.error(f"Pipeline failed for YouTube ID {youtube_id}: {str(e)}")
         logger.error(traceback.format_exc())
         update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
-        await handle_pipeline_failure(youtube_id, ai_user_id)
-
-
-async def handle_pipeline_failure(youtube_id: str, ai_user_id: str):
-    # Implement cleanup and notification logic here
-    logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
-    # Add your implementation here
+        await handle_pipeline_failure(youtube_id, ai_user_id, str(e), ydx_server, ydx_app_host)
+    finally:
+        # Remove task from enqueued set
+        enqueued_tasks.remove((youtube_id, ai_user_id))
 
 
 @app.get("/ai_description_status/{youtube_id}")
