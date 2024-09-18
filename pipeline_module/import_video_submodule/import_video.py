@@ -18,7 +18,6 @@ class ImportVideo:
         print(f"ImportVideo initialized with video_runner_obj: {video_runner_obj}")
 
     @timeit
-    @timeit
     def download_video(self) -> bool:
         print("Starting download_video method")
         video_id = self.video_runner_obj.get("video_id")
@@ -26,12 +25,8 @@ class ImportVideo:
         video_end_time = self.video_runner_obj.get("video_end_time", None)
         print(f"Video ID: {video_id}, Start time: {video_start_time}, End time: {video_end_time}")
 
-        if not video_id:
-            print("Error: video_id is missing from video_runner_obj")
-            return False
-
         try:
-            if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']"):
+            if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']") == 'done':
                 print("Video already downloaded, skipping step.")
                 return True
 
@@ -46,18 +41,11 @@ class ImportVideo:
                 print(f"Downloading video: {video_id}")
                 vid = ydl_instance.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
 
-            if not vid:
-                print("Error: Failed to extract video info")
-                return False
-
             print("Video download completed")
 
             # Get Video Duration and Title
             duration = vid.get('duration')
             title = vid.get('title')
-            if not duration or not title:
-                print("Error: Failed to get video duration or title")
-                return False
             print(f"Video Title: {title}, Duration: {duration}")
 
             # Save metadata to json file
@@ -66,11 +54,13 @@ class ImportVideo:
                 json.dump({'duration': duration, 'title': title}, f)
             print(f"Metadata saved to {metadata_file}")
 
+            # if not self.check_video_format():
+            #     raise ValueError("Downloaded video is not in the expected format.")
+
             if video_start_time and video_end_time:
                 self.trim_video(video_start_time, video_end_time)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']",
-                               value=str(True))
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']", value=str(True))
             print(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
 
             return True
