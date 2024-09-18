@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     print("Starting application...")
     create_database()
     print("Database initialized")
-    asyncio.create_task(process_queue())
+    await asyncio.create_task(process_queue())
     print("Queue processing task started")
 
     yield
