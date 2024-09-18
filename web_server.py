@@ -69,6 +69,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
 
+        print("PROCESS INCOMING DATA")
         process_incoming_data(
             user_id=post_data.user_id,
             ydx_server=post_data.ydx_server,

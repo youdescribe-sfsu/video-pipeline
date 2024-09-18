@@ -152,6 +152,7 @@ def get_status_for_youtube_id(youtube_id,ai_user_id):
 
 def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id):
     try:
+        print("Inside Process Incoming Data")
         with connection.return_connection() as con:
             cursor = con.cursor()
 
@@ -161,6 +162,7 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
             count = cursor.fetchone()
 
             if count['count'] == 0:
+                print("Inside IF")
                 # Insert into youtube_data if not exists
                 cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)',
                                (youtube_id, ai_user_id, StatusEnum.in_progress.value))
@@ -174,6 +176,7 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
 
         con.commit()
     except sqlite3.Error as e:
+        print("Error ", e)
         logger.error(f"SQLite error in process_incoming_data: {str(e)}")
         raise
     except Exception as e:
