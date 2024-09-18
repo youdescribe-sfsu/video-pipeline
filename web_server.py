@@ -57,7 +57,7 @@ async def startup_event():
     logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
-    await asyncio.create_task(process_queue())
+    asyncio.create_task(process_queue())
     logger.info("Queue processing task started")
 
 
