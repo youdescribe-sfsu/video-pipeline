@@ -15,7 +15,6 @@ click==8.1.7
 distro==1.9.0
 exceptiongroup==1.2.2
 fastapi==0.112.2
-ffmpeg-python==0.2.0
 future==1.0.0
 google==3.0.0
 google-api-core==2.19.2
