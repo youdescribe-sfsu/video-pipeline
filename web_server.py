@@ -51,17 +51,16 @@ enqueued_tasks = set()
 
 # Define lifespan function
 async def lifespan(app: FastAPI):
-    print("Starting application...")
+    logger.info("Starting application...")
     create_database()
-    print("Database initialized")
+    logger.info("Database initialized")
     await asyncio.create_task(process_queue())
-    print("Queue processing task started")
+    logger.info("Queue processing task started")
 
     yield
 
     # Shutdown logic goes here
-    print("Application shutting down...")
-
+    logger.info("Application shutting down...")
 
 # Apply lifespan to the app
 app.lifespan_context = lifespan
@@ -71,8 +70,8 @@ app.lifespan_context = lifespan
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
         data_json = json.loads(post_data.model_dump_json())
-        print("data_json :: {}".format((data_json)))
-        print(f"Received request for YouTube ID: {post_data.youtube_id}")
+        logger.info(f"data_json :: {data_json}")
+        logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
 
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
