@@ -5,7 +5,6 @@ from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from yt_dlp.compat import shutil
 
-from web_server import logger
 from web_server_module.web_server_database import remove_sqlite_entry
 # Import all the necessary submodules
 from .import_video_submodule.import_video import ImportVideo
