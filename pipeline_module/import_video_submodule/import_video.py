@@ -1,7 +1,7 @@
 import os
 import json
 import yt_dlp as ydl
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Optional, Any
 from logging import Logger
 from ..utils_module.utils import read_value_from_file, return_video_download_location, return_video_folder_name, save_value_to_file
 from ..utils_module.timeit_decorator import timeit
@@ -9,7 +9,7 @@ from datetime import timedelta
 import ffmpeg
 
 class ImportVideo:
-    def __init__(self, video_runner_obj: Dict[str, Union[int, str]]):
+    def __init__(self, video_runner_obj: Dict[str, Any]):
         print("Initializing ImportVideo")
         self.video_runner_obj = video_runner_obj
         self.logger: Logger = video_runner_obj.get("logger")

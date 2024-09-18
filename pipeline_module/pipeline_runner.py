@@ -80,7 +80,6 @@ class PipelineRunner:
             self.logger.error(f"Error in task {task}: {str(e)}", exc_info=True)
             self.progress[task] = "failed"
             self.save_progress()
-            await self.cleanup_task(task)
             raise
 
     async def run_import_video(self) -> None:
