@@ -27,6 +27,7 @@ class SQLiteConnection:
     def __exit__(self, exc_type, exc_value, traceback):
         if self.connection:
             self.connection.close()
+
     def return_connection(self):
         return self.connection
 
@@ -100,7 +101,7 @@ def get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id):
                 SELECT * FROM ai_user_data
                 WHERE youtube_id = ? AND ai_user_id = ?
             ''', (youtube_id, ai_user_id))
-            
+
             data = cursor.fetchall()
 
             return data
@@ -108,9 +109,9 @@ def get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id):
         logger.error("Error getting data get_data_for_youtube_id_and_user_id:", e)
         print("Error getting data for YouTube ID and AI user ID:", e)
         return []
-    
 
-def get_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
+
+def get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id):
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
@@ -119,8 +120,8 @@ def get_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
             cursor.execute('''
                 SELECT * FROM ai_user_data
                 WHERE youtube_id = ? AND ai_user_id = ?
-            ''', (youtube_id,ai_user_id))
-            
+            ''', (youtube_id, ai_user_id))
+
             status = cursor.fetchone()
             ydx_server = status['ydx_server']
             ydx_app_host = status['ydx_app_host']
@@ -131,7 +132,7 @@ def get_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
         return None
 
 
-def get_status_for_youtube_id(youtube_id,ai_user_id):
+def get_status_for_youtube_id(youtube_id, ai_user_id):
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
@@ -140,10 +141,10 @@ def get_status_for_youtube_id(youtube_id,ai_user_id):
             cursor.execute('''
                 SELECT status FROM youtube_data
                 WHERE youtube_id = ? AND ai_user_id = ?
-            ''', (youtube_id,ai_user_id))
-            
+            ''', (youtube_id, ai_user_id))
+
             status = cursor.fetchone()
-        
+
             return status[0] if status else None
     except sqlite3.Error as e:
         print("Error getting status for YouTube ID:", e)
@@ -166,15 +167,13 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
                 # Insert into youtube_data if not exists
                 cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)',
                                (youtube_id, ai_user_id, StatusEnum.in_progress.value))
-                cursor.execute(
-                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
 
-            else:
-                # If the combination exists in the database add a new row to the ai_user_data table
-                cursor.execute(
-                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
-                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
+            # Use INSERT OR REPLACE for ai_user_data
+            cursor.execute('''
+                INSERT OR REPLACE INTO ai_user_data 
+                (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value))
 
         con.commit()
     except sqlite3.Error as e:
@@ -199,10 +198,8 @@ def update_status(youtube_id, ai_user_id, status):
     except sqlite3.Error as e:
         print("Error updating status:", e)
         logger.error("Error updating status:", e)
-        
-        
 
-def update_ai_user_data(youtube_id, ai_user_id,user_id, status):
+def update_ai_user_data(youtube_id, ai_user_id, user_id, status):
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
@@ -211,14 +208,12 @@ def update_ai_user_data(youtube_id, ai_user_id,user_id, status):
                 UPDATE ai_user_data
                 SET status = ?
                 WHERE youtube_id = ? AND ai_user_id = ? AND user_id = ?
-            ''', (status, youtube_id, ai_user_id,user_id,))
+            ''', (status, youtube_id, ai_user_id, user_id,))
     except sqlite3.Error as e:
         print("Error updating status:", e)
         logger.error("Error updating status:", e)
-        
-        
 
-def return_all_user_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
+def return_all_user_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id):
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
@@ -227,8 +222,8 @@ def return_all_user_data_for_youtube_id_ai_user_id(youtube_id,ai_user_id):
             cursor.execute('''
                 SELECT * FROM ai_user_data
                 WHERE youtube_id = ? AND ai_user_id = ?
-            ''', (youtube_id,ai_user_id))
-            
+            ''', (youtube_id, ai_user_id))
+
             status = cursor.fetchall()
             return status
     except sqlite3.Error as e:
