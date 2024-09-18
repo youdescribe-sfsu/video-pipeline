@@ -97,7 +97,7 @@ async def process_queue():
     while True:
         try:
             task = await pipeline_queue.get()
-            asyncio.create_task(run_pipeline_task(
+            await asyncio.create_task(run_pipeline_task(
                 youtube_id=task.youtube_id,
                 ai_user_id=task.AI_USER_ID,
                 ydx_server=task.ydx_server,
