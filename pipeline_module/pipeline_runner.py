@@ -85,7 +85,7 @@ class PipelineRunner:
 
     async def run_import_video(self) -> None:
         import_video = ImportVideo({"video_id": self.video_id, "logger": self.logger})
-        success = await import_video.download_video()
+        success = import_video.download_video()
         if not success:
             raise Exception("Video import failed")
 
