@@ -8,6 +8,7 @@ logger = setup_logger()
 
 # Define an Enum for the status options
 class StatusEnum(str, Enum):
+    failed = "failed"
     done = "done"
     in_progress = "in_progress"
 
