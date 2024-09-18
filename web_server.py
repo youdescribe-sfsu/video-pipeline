@@ -9,6 +9,7 @@ import asyncio
 import traceback
 from datetime import datetime
 import queue
+import uvicorn
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
@@ -51,10 +52,11 @@ enqueued_tasks = set()
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Starting application...")
     create_database()
-    logger.info("Application started, database initialized")
-    # Start the queue processing task
-    await asyncio.create_task(process_queue())
+    logger.info("Database initialized")
+    asyncio.create_task(process_queue())
+    logger.info("Queue processing task started")
 
 
 @app.post("/generate_ai_caption")
@@ -89,23 +91,22 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
 
 async def process_queue():
+    logger.info("Queue processing started")
     while True:
         try:
             if not pipeline_queue.empty():
-                task = pipeline_queue.get()
-                await run_pipeline_task(
+                task = pipeline_queue.get_nowait()
+                asyncio.create_task(run_pipeline_task(
                     youtube_id=task.youtube_id,
                     ai_user_id=task.AI_USER_ID,
                     ydx_server=task.ydx_server,
                     ydx_app_host=task.ydx_app_host
-                )
-                # Remove task from enqueued set after processing
-                enqueued_tasks.remove((task.youtube_id, task.AI_USER_ID))
-            else:
-                await asyncio.sleep(5)  # Wait for 5 seconds before checking queue again
+                ))
+            await asyncio.sleep(5)  # Use await here
         except Exception as e:
             logger.error(f"Error processing queue: {str(e)}")
             logger.error(traceback.format_exc())
+        logger.info("Queue processing iteration completed")
 
 
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
@@ -167,6 +168,4 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run("web_server:app", host="0.0.0.0", port=8086, reload=True)
