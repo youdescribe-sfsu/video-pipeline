@@ -57,26 +57,27 @@ async def startup_event():
     logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
-    asyncio.create_task(process_queue())
+    await asyncio.create_task(process_queue())
     logger.info("Queue processing task started")
 
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
+        data_json = json.loads(post_data.model_dump_json())
+        print("data_json :: {}".format((data_json)))
         logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
 
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
 
-        print("PROCESS INCOMING DATA")
-        process_incoming_data(
-            user_id=post_data.user_id,
-            ydx_server=post_data.ydx_server,
-            ydx_app_host=post_data.ydx_app_host,
-            ai_user_id=post_data.AI_USER_ID,
-            youtube_id=post_data.youtube_id
-        )
+        user_id = data_json['user_id']
+        ydx_server = data_json['ydx_server']
+        ydx_app_host = data_json['ydx_app_host']
+        ai_user_id = data_json['AI_USER_ID']
+        youtube_id = data_json['youtube_id']
+
+        process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
 
         # Add task to queue if not already enqueued
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
