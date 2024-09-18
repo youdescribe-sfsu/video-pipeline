@@ -51,16 +51,16 @@ enqueued_tasks = set()
 
 # Define lifespan function
 async def lifespan(app: FastAPI):
-    logger.info("Starting application...")
+    print("Starting application...")
     create_database()
-    logger.info("Database initialized")
+    print("Database initialized")
     asyncio.create_task(process_queue())
-    logger.info("Queue processing task started")
+    print("Queue processing task started")
 
     yield
 
     # Shutdown logic goes here
-    logger.info("Application shutting down...")
+    print("Application shutting down...")
 
 
 # Apply lifespan to the app
@@ -72,7 +72,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
     try:
         data_json = json.loads(post_data.model_dump_json())
         print("data_json :: {}".format((data_json)))
-        logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
+        print(f"Received request for YouTube ID: {post_data.youtube_id}")
 
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
@@ -90,7 +90,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
         if task_key not in enqueued_tasks:
             await pipeline_queue.put(post_data)
             enqueued_tasks.add(task_key)
-            logger.info(f"Task added to queue: {task_key}")
+            print(f"Task added to queue: {task_key}")
 
         return {"status": "success", "message": "AI caption generation request queued"}
 
@@ -101,7 +101,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
 
 async def process_queue():
-    logger.info("Queue processing started")
+    print("Queue processing started")
     while True:
         try:
             task = await pipeline_queue.get()
@@ -114,7 +114,7 @@ async def process_queue():
         except Exception as e:
             logger.error(f"Error processing queue: {str(e)}")
             logger.error(traceback.format_exc())
-        logger.info("Queue processing iteration completed")
+        print("Queue processing iteration completed")
 
 
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
@@ -151,7 +151,7 @@ async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_mes
 
 async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
     # Implement email notification to admin
-    logger.info(f"Admin notification: Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+    print(f"Admin notification: Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
     # Add your implementation here
 
 
@@ -178,7 +178,7 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
                 user_id=data.get("user_id", None),
                 status=StatusEnum.done.value,
             )
-        logger.info(f"Pipeline completed for YouTube ID: {youtube_id}")
+        print(f"Pipeline completed for YouTube ID: {youtube_id}")
     except Exception as e:
         logger.error(f"Pipeline failed for YouTube ID {youtube_id}: {str(e)}")
         logger.error(traceback.format_exc())
