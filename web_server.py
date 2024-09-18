@@ -1,14 +1,11 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
 from dotenv import load_dotenv
 import os
 import json
 import asyncio
 import traceback
 from datetime import datetime
-import queue
 import uvicorn
 import aiohttp
 
@@ -52,13 +49,22 @@ pipeline_queue = asyncio.Queue()
 enqueued_tasks = set()
 
 
-@app.on_event("startup")
-async def startup_event():
+# Define lifespan function
+async def lifespan(app: FastAPI):
     logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
     asyncio.create_task(process_queue())
     logger.info("Queue processing task started")
+
+    yield
+
+    # Shutdown logic goes here
+    logger.info("Application shutting down...")
+
+
+# Apply lifespan to the app
+app.lifespan_context = lifespan
 
 
 @app.post("/generate_ai_caption")
