@@ -91,3 +91,4 @@ scikit-learn
 aiofiles
 ffmpeg-python
 aiohttp
+transformers
