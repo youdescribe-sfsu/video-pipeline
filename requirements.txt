@@ -91,3 +91,4 @@ pillow==10.4.0
 scikit-learn
 aiofiles
 ffmpeg-python
+aiohttp
