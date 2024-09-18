@@ -166,13 +166,15 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
                 # Insert into youtube_data if not exists
                 cursor.execute('INSERT INTO youtube_data (youtube_id, ai_user_id, status) VALUES (?, ?, ?)',
                                (youtube_id, ai_user_id, StatusEnum.in_progress.value))
+                cursor.execute(
+                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
+                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
 
-            # Use INSERT OR REPLACE for ai_user_data
-            cursor.execute('''
-                INSERT OR REPLACE INTO ai_user_data 
-                (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value))
+            else:
+                # If the combination exists in the database add a new row to the ai_user_data table
+                cursor.execute(
+                    'INSERT INTO ai_user_data (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, status) VALUES (?, ?, ?, ?, ?, ?)',
+                    (user_id, youtube_id, ai_user_id, ydx_server, ydx_app_host, StatusEnum.in_progress.value,))
 
         con.commit()
     except sqlite3.Error as e:
