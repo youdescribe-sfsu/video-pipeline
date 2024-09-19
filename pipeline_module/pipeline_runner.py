@@ -196,7 +196,7 @@ async def cleanup_failed_pipeline(video_id, ai_user_id, error_message):
         logger.info(f"Removed video folder: {video_folder}")
 
     # Remove SQLite database entry
-    await remove_sqlite_entry(video_id, ai_user_id)
+    # await remove_sqlite_entry(video_id, ai_user_id)
     logger.info(f"Removed SQLite entry for video {video_id}")
 
 async def run_pipeline(
