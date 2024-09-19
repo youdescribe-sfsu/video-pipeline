@@ -70,17 +70,21 @@ app.lifespan_context = lifespan
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
         data_json = json.loads(post_data.model_dump_json())
-        logger.info(f"data_json :: {data_json}")
-        logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
+        # logger.info(f"data_json :: {data_json}")
+        # logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
 
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
+
+        print(f'data_json - {data_json}')
 
         user_id = data_json['user_id']
         ydx_server = data_json['ydx_server']
         ydx_app_host = data_json['ydx_app_host']
         ai_user_id = data_json['AI_USER_ID']
         youtube_id = data_json['youtube_id']
+
+        print(f'INFORMATION - {user_id}, {ydx_server}, {ydx_app_host}, {ai_user_id}, {youtube_id}')
 
         process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
 
