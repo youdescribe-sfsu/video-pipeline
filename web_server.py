@@ -38,12 +38,11 @@ pipeline_queue = asyncio.Queue()
 enqueued_tasks = set()
 
 @asynccontextmanager
-# Define lifespan function
-async def lifespan(app: FastAPI):
+async def lifespan():
     logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
-    await asyncio.create_task(process_queue())
+    asyncio.create_task(process_queue())
     logger.info("Queue processing task started")
 
     yield
