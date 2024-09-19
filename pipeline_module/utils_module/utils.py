@@ -95,7 +95,7 @@ def return_video_folder_name(video_runner_obj: Dict[str, Union[int, str]]) -> st
     video_end_time = video_runner_obj.get("video_end_time", None)
 
     CURRENT_ENV = os.environ.get("CURRENT_ENV", "production")
-    AI_USER_ID = video_runner_obj.get("AI_USER_ID", None)
+    AI_USER_ID = video_runner_obj.get("AI_USER_ID", "650506db3ff1c2140ea10ece")
     return_string = ""
 
     if video_start_time is not None and video_end_time is not None:
