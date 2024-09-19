@@ -75,7 +75,9 @@ class ImportVideo:
             return False
         except Exception as e:
             print(f"Unexpected error downloading video: {str(e)}")
-            self.logger.error(f"Unexpected error downloading video: {str(e)}")
+            print(f"Error type: {type(e)}")
+            print(f"Error args: {e.args}")
+            self.logger.error(f"Unexpected error downloading video: {str(e)}", exc_info=True)
             return False
 
     def progress_hook(self, d: Dict[str, Union[str, int, float]]) -> None:
