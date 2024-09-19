@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime
 import uvicorn
 import aiohttp
+from contextlib import asynccontextmanager
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
@@ -21,18 +22,6 @@ from web_server_module.web_server_database import (
 
 # Load environment variables
 load_dotenv()
-
-# Setup FastAPI app
-app = FastAPI()
-
-# Setup CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Adjust this in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Setup logger
 logger = setup_logger()
@@ -48,7 +37,7 @@ pipeline_queue = asyncio.Queue()
 # Set for tracking enqueued tasks
 enqueued_tasks = set()
 
-
+@asynccontextmanager
 # Define lifespan function
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
@@ -63,8 +52,9 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down...")
 
 # Apply lifespan to the app
-app.lifespan_context = lifespan
 
+# Setup FastAPI app
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
