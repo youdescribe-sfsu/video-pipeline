@@ -38,7 +38,7 @@ pipeline_queue = asyncio.Queue()
 enqueued_tasks = set()
 
 @asynccontextmanager
-async def lifespan():
+async def lifespan(app: FastAPI):
     logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
