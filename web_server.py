@@ -128,7 +128,7 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_messag
 
 async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
                                      ydx_app_host: str):
-    url = f"{ydx_server}/api/pipeline-failure"
+    url = f"{ydx_server}/api/users/pipeline-failure"
     data = {
         "youtube_id": youtube_id,
         "ai_user_id": ai_user_id,
