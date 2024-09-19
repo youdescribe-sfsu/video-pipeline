@@ -84,13 +84,13 @@ class PipelineRunner:
 
     async def run_import_video(self) -> None:
         import_video =  ImportVideo({"video_id": self.video_id, "logger": self.logger})
-        success = await import_video.download_video()
+        success = import_video.download_video()
         if not success:
             raise Exception("Video import failed")
 
     async def run_extract_audio(self) -> None:
         extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
-        success = await extract_audio.extract_audio()
+        success = extract_audio.extract_audio()
         if not success:
             raise Exception("Audio extraction failed")
 
