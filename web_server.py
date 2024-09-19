@@ -117,7 +117,7 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_messag
     await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
 
     # Remove SQLite entry
-    await remove_sqlite_entry(youtube_id, ai_user_id)
+    # await remove_sqlite_entry(youtube_id, ai_user_id)
 
     # Notify YouDescribe service about the failure
     await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
