@@ -198,6 +198,7 @@ def save_value_to_file(video_runner_obj: Dict[str, Union[int, str]], key: str, v
     """
     try:
         json_file = load_progress_from_file(video_runner_obj)  # Load existing progress data
+        print(f"Current progress data: {json.dumps(json_file, indent=2)}")
 
         # Parse the key string
         keys = [k.strip("'[]") for k in key.split("][")]
@@ -214,6 +215,8 @@ def save_value_to_file(video_runner_obj: Dict[str, Union[int, str]], key: str, v
 
         save_progress_to_file(video_runner_obj, json_file)  # Save the modified progress data
         print(f"Successfully saved value for key: {key}")
+        print(f"New value: {value}")
+        print(f"Updated progress data: {json.dumps(json_file, indent=2)}")
     except Exception as e:
         print(f"Error saving value to file: {e}")
     return
