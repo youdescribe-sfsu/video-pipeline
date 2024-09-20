@@ -101,7 +101,7 @@ class PipelineRunner:
 
     async def run_speech_to_text(self) -> None:
         speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger})
-        success = await speech_to_text.get_speech_from_audio()
+        success = speech_to_text.get_speech_from_audio()
         if not success:
             raise Exception("Speech to text conversion failed")
 
@@ -110,52 +110,52 @@ class PipelineRunner:
             {"video_id": self.video_id, "logger": self.logger},
             int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
         )
-        success = await frame_extraction.extract_frames()
+        success = frame_extraction.extract_frames()
         if not success:
             raise Exception("Frame extraction failed")
 
     async def run_ocr_extraction(self) -> None:
         ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger})
-        success = await ocr_extraction.run_ocr_detection()
+        success = ocr_extraction.run_ocr_detection()
         if not success:
             raise Exception("OCR extraction failed")
 
     async def run_object_detection(self) -> None:
         object_detection = ObjectDetection({"video_id": self.video_id, "logger": self.logger})
-        success = await object_detection.run_object_detection()
+        success = object_detection.run_object_detection()
         if not success:
             raise Exception("Object detection failed")
 
     async def run_keyframe_selection(self) -> None:
         keyframe_selection = KeyframeSelection({"video_id": self.video_id, "logger": self.logger})
-        success = await keyframe_selection.run_keyframe_selection()
+        success = keyframe_selection.run_keyframe_selection()
         if not success:
             raise Exception("Keyframe selection failed")
 
     async def run_image_captioning(self) -> None:
         image_captioning = ImageCaptioning({"video_id": self.video_id, "logger": self.logger})
-        success = await image_captioning.run_image_captioning()
+        success = image_captioning.run_image_captioning()
         if not success:
             raise Exception("Image captioning failed")
-        combined_success = await image_captioning.combine_image_caption()
+        combined_success = image_captioning.combine_image_caption()
         if not combined_success:
             raise Exception("Combining image captions failed")
 
     async def run_caption_rating(self) -> None:
         caption_rating = CaptionRating({"video_id": self.video_id, "logger": self.logger})
-        success = await caption_rating.perform_caption_rating()
+        success = caption_rating.perform_caption_rating()
         if not success:
             raise Exception("Caption rating failed")
 
     async def run_scene_segmentation(self) -> None:
         scene_segmentation = SceneSegmentation({"video_id": self.video_id, "logger": self.logger})
-        success = await scene_segmentation.run_scene_segmentation()
+        success = scene_segmentation.run_scene_segmentation()
         if not success:
             raise Exception("Scene segmentation failed")
 
     async def run_text_summarization(self) -> None:
         text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger})
-        success = await text_summarization.generate_text_summary()
+        success = text_summarization.generate_text_summary()
         if not success:
             raise Exception("Text summarization failed")
 
