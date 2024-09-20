@@ -27,7 +27,9 @@ class ImportVideo:
         print(f"Video ID: {video_id}, Start time: {video_start_time}, End time: {video_end_time}")
 
         try:
-            if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']"):
+            download_status = read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                                   key="['ImportVideo']['download_video']")
+            if download_status:
                 print("Video already downloaded, skipping step.")
                 return True
 
@@ -38,34 +40,31 @@ class ImportVideo:
             }
             print(f"ydl_opts: {ydl_opts}")
 
-            print("Initializing YoutubeDL")
             with ydl.YoutubeDL(ydl_opts) as ydl_instance:
-                print(f"Extracting info for video: {video_id}")
+                print(f"Downloading video: {video_id}")
                 vid = ydl_instance.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=True)
-                print(f"Info extraction complete. vid type: {type(vid)}")
 
             print("Video download completed")
 
             if vid is None:
                 raise ValueError("No video information extracted")
 
-            print("Extracting metadata")
+            # Get Video Duration and Title
             duration = vid.get('duration')
             title = vid.get('title')
-            print(f"Extracted metadata - Title: {title}, Duration: {duration}")
+            print(f"Video Title: {title}, Duration: {duration}")
 
-            print("Saving metadata")
+            # Save metadata to json file
             metadata_file = return_video_folder_name(self.video_runner_obj) + '/metadata.json'
             with open(metadata_file, 'w') as f:
                 json.dump({'duration': duration, 'title': title}, f)
             print(f"Metadata saved to {metadata_file}")
 
             if video_start_time and video_end_time:
-                print("Trimming video")
                 self.trim_video(video_start_time, video_end_time)
 
             save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']",
-                               value=str(True))
+                               value=True)
             print(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
 
             return True
@@ -73,17 +72,14 @@ class ImportVideo:
         except ydl.DownloadError as e:
             print(f"Error downloading video: {str(e)}")
             self.logger.error(f"Error downloading video: {str(e)}")
-            print(traceback.format_exc())
             return False
         except ValueError as e:
             print(str(e))
             self.logger.error(str(e))
-            print(traceback.format_exc())
             return False
         except Exception as e:
             print(f"Unexpected error downloading video: {str(e)}")
             self.logger.error(f"Unexpected error downloading video: {str(e)}")
-            print(traceback.format_exc())
             return False
 
     def progress_hook(self, d: Dict[str, Union[str, int, float]]) -> None:

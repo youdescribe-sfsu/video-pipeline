@@ -124,19 +124,8 @@ def return_video_progress_file(video_runner_obj: Dict[str, Union[int, str]]) -> 
     return f"{video_folder_name}/progress.json"
 
 
-def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dict or None:
-    """
-    Load progress from a JSON file or start with a default progress dictionary.
-
-    Parameters:
-        video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
-            The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
-
-    Returns:
-        dict: The loaded progress dictionary or the default progress if the file doesn't exist.
-    """
+def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dict:
     progress_file = return_video_progress_file(video_runner_obj)
-    loaded_progress = DEFAULT_SAVE_PROGRESS
 
     try:
         with progress_lock:
@@ -144,38 +133,28 @@ def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dic
                 with open(progress_file, 'r') as progress_file_obj:
                     loaded_progress = json.load(progress_file_obj)
             else:
-                return None
+                loaded_progress = DEFAULT_SAVE_PROGRESS.copy()
+                loaded_progress['video_id'] = video_runner_obj.get('video_id', '')
     except Exception as e:
         print(f"Error loading progress from file: {e}")
-        return None
+        loaded_progress = DEFAULT_SAVE_PROGRESS.copy()
+        loaded_progress['video_id'] = video_runner_obj.get('video_id', '')
 
     return loaded_progress
 
-def read_value_from_file(video_runner_obj: Dict[str, Union[int, str]], key: str) -> Dict or None:
-    """
-    Read a specific value from the progress data stored in a JSON file associated with the given video runner object.
 
-    This function retrieves the progress data by loading it from a JSON file based on the provided video runner object.
-    It then looks for the specified key within the progress data and returns its corresponding value. If the key is not
-    found in the progress data, or if there is an issue loading the progress data from the file, the function returns None.
-
-    Parameters:
-        video_runner_obj (Dict[str, int]): A dictionary containing the information of the video runner.
-            The keys are "video_id", "video_start_time", and "video_end_time", with their values as integers.
-        key (str): The key corresponding to the value you want to retrieve from the progress data.
-
-    Returns:
-        The value associated with the provided key within the progress data, or None if the key is not found or an error occurs.
-    """
+def read_value_from_file(video_runner_obj: Dict[str, Union[int, str]], key: str) -> Any:
     json_file = load_progress_from_file(video_runner_obj)
-    expression = f"json_file{key}"
-    value = None
-    try:
-        value = eval(expression)
-    except KeyError:
-        pass
+    keys = key.strip("[]").replace("']['", ".").split(".")
 
-    return value
+    current = json_file
+    for k in keys:
+        if isinstance(current, dict) and k in current:
+            current = current[k]
+        else:
+            return None
+
+    return current
 
 
 def save_progress_to_file(video_runner_obj: Dict[str, Union[int, str]], progress_data: Dict[str, Union[int, str]]):
