@@ -132,15 +132,19 @@ def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dic
             if os.path.exists(progress_file):
                 with open(progress_file, 'r') as progress_file_obj:
                     loaded_progress = json.load(progress_file_obj)
+                    # Merge with default values
+                    merged_progress = DEFAULT_SAVE_PROGRESS.copy()
+                    merged_progress.update(loaded_progress)
+                    return merged_progress
             else:
-                loaded_progress = DEFAULT_SAVE_PROGRESS.copy()
-                loaded_progress['video_id'] = video_runner_obj.get('video_id', '')
+                new_progress = DEFAULT_SAVE_PROGRESS.copy()
+                new_progress['video_id'] = video_runner_obj.get('video_id', '')
+                return new_progress
     except Exception as e:
         print(f"Error loading progress from file: {e}")
-        loaded_progress = DEFAULT_SAVE_PROGRESS.copy()
-        loaded_progress['video_id'] = video_runner_obj.get('video_id', '')
-
-    return loaded_progress
+        new_progress = DEFAULT_SAVE_PROGRESS.copy()
+        new_progress['video_id'] = video_runner_obj.get('video_id', '')
+        return new_progress
 
 
 def read_value_from_file(video_runner_obj: Dict[str, Union[int, str]], key: str) -> Any:
@@ -176,8 +180,11 @@ def save_progress_to_file(video_runner_obj: Dict[str, Union[int, str]], progress
 
     try:
         with progress_lock:
+            print(f"Saving progress to file: {progress_file}")
+            print(f"Progress data being saved: {json.dumps(progress_data, indent=2)}")
             with open(progress_file, 'w') as progress_file_obj:
                 json.dump(progress_data, progress_file_obj)
+            print("Progress saved successfully")
     except Exception as e:
         print(f"Error saving progress to file: {e}")
 
