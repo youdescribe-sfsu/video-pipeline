@@ -52,7 +52,12 @@ class PipelineRunner:
     def setup_logger(self) -> logging.Logger:
         logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
         logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(f"pipeline_logs/{self.video_id}_{self.AI_USER_ID}_pipeline.log")
+
+        # Create pipeline_logs directory if it doesn't exist
+        log_dir = "pipeline_logs"
+        os.makedirs(log_dir, exist_ok=True)
+
+        handler = logging.FileHandler(f"{log_dir}/{self.video_id}_{self.AI_USER_ID}_pipeline.log")
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)

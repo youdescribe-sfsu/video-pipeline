@@ -97,15 +97,18 @@ async def process_queue():
     while True:
         try:
             task = await pipeline_queue.get()
-            await asyncio.create_task(run_pipeline_task(
+            await run_pipeline_task(
                 youtube_id=task.youtube_id,
                 ai_user_id=task.AI_USER_ID,
                 ydx_server=task.ydx_server,
                 ydx_app_host=task.ydx_app_host
-            ))
+            )
         except Exception as e:
             logger.error(f"Error processing queue: {str(e)}")
             logger.error(traceback.format_exc())
+        finally:
+            # Ensure task is removed from enqueued_tasks, even if an error occurred
+            enqueued_tasks.discard((task.youtube_id, task.AI_USER_ID))
         print("Queue processing iteration completed")
 
 
@@ -197,7 +200,7 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
         await handle_pipeline_failure(youtube_id, ai_user_id, str(e), ydx_server, ydx_app_host)
     finally:
         # Remove task from enqueued set
-        enqueued_tasks.remove((youtube_id, ai_user_id))
+        enqueued_tasks.discard((youtube_id, ai_user_id))
 
 
 @app.get("/ai_description_status/{youtube_id}")
