@@ -26,6 +26,7 @@ class ImportVideo:
         print(f"Video ID: {video_id}, Start time: {video_start_time}, End time: {video_end_time}")
 
         try:
+            print("VIDEO LOGGER OBJECT ", self.video_runner_obj)
             if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']") == 'done':
                 print("Video already downloaded, skipping step.")
                 return True
