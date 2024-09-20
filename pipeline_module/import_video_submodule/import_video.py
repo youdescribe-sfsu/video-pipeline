@@ -43,24 +43,29 @@ class ImportVideo:
 
             print("Video download completed")
 
+            if vid is None:
+                raise ValueError("No video information extracted")
+
             # Get Video Duration and Title
-            duration = vid.get('duration')
-            title = vid.get('title')
-            print(f"Video Title: {title}, Duration: {duration}")
+            try:
+                duration = vid.get('duration')
+                title = vid.get('title')
+                print(f"Video Title: {title}, Duration: {duration}")
 
-            # Save metadata to json file
-            metadata_file = return_video_folder_name(self.video_runner_obj) + '/metadata.json'
-            with open(metadata_file, 'w') as f:
-                json.dump({'duration': duration, 'title': title}, f)
-            print(f"Metadata saved to {metadata_file}")
-
-            # if not self.check_video_format():
-            #     raise ValueError("Downloaded video is not in the expected format.")
+                # Save metadata to json file
+                metadata_file = return_video_folder_name(self.video_runner_obj) + '/metadata.json'
+                with open(metadata_file, 'w') as f:
+                    json.dump({'duration': duration, 'title': title}, f)
+                print(f"Metadata saved to {metadata_file}")
+            except AttributeError as e:
+                print(f"Error extracting metadata: {str(e)}")
+                self.logger.error(f"Error extracting metadata: {str(e)}")
 
             if video_start_time and video_end_time:
                 self.trim_video(video_start_time, video_end_time)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']", value=str(True))
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']",
+                               value=str(True))
             print(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
 
             return True
