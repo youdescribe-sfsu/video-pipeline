@@ -64,12 +64,25 @@ class PipelineRunner:
         return logger
 
     def load_progress(self) -> Dict[str, Any]:
-        return load_progress_from_file({"video_id": self.video_id}) or {}
+        return load_progress_from_file({
+            "video_id": self.video_id,
+            "AI_USER_ID": self.AI_USER_ID,
+            "video_start_time": self.video_start_time,
+            "video_end_time": self.video_end_time
+        })
 
     def save_progress(self):
-        save_progress_to_file({"video_id": self.video_id}, self.progress)
+        save_progress_to_file({
+            "video_id": self.video_id,
+            "AI_USER_ID": self.AI_USER_ID,
+            "video_start_time": self.video_start_time,
+            "video_end_time": self.video_end_time
+        }, self.progress)
 
     async def run_task(self, task: str, *args, **kwargs) -> Any:
+        # Reload progress before starting the task
+        self.progress = self.load_progress()
+
         if self.progress.get(task) == "completed":
             self.logger.info(f"Skipping completed task: {task}")
             return
