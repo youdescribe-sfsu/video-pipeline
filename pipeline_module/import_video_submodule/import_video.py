@@ -26,8 +26,7 @@ class ImportVideo:
         print(f"Video ID: {video_id}, Start time: {video_start_time}, End time: {video_end_time}")
 
         try:
-            print("VIDEO LOGGER OBJECT ", self.video_runner_obj)
-            if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']") == 'done':
+            if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']"):
                 print("Video already downloaded, skipping step.")
                 return True
 
@@ -76,9 +75,7 @@ class ImportVideo:
             return False
         except Exception as e:
             print(f"Unexpected error downloading video: {str(e)}")
-            print(f"Error type: {type(e)}")
-            print(f"Error args: {e.args}")
-            self.logger.error(f"Unexpected error downloading video: {str(e)}", exc_info=True)
+            self.logger.error(f"Unexpected error downloading video: {str(e)}")
             return False
 
     def progress_hook(self, d: Dict[str, Union[str, int, float]]) -> None:
