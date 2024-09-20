@@ -19,28 +19,39 @@ class KeyframeSelection:
 
         try:
             print("Saving initial progress")
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['KeyframeSelection']['started']", value=str(True))
+            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['KeyframeSelection']['started']",
+                               value=str(True))
         except Exception as e:
             error_msg = f"Error saving KeyframeSelection progress: {str(e)}"
             print(error_msg)
             self.logger.error(error_msg)
 
         print("Checking if keyframe selection was already done")
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['KeyframeSelection']['started']") == 'done':
+        if read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                key="['KeyframeSelection']['started']") == 'done':
             self.logger.info("Keyframe selection already done, skipping step.")
             print("Keyframe selection already done, skipping step.")
             return True
 
         print("Reading video common values")
         step = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']")
-        num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']")
-        frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']")
+        num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                          key="['video_common_values']['num_frames']")
+        frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                                 key="['video_common_values']['frames_per_second']")
         print(f"Video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}")
 
         if None in (step, num_frames, frames_per_second):
             error_msg = f"Invalid video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}"
             print(error_msg)
             self.logger.error(error_msg)
+
+            # Add additional logging to help diagnose the issue
+            self.logger.error("Dumping all video_common_values:")
+            all_common_values = read_value_from_file(video_runner_obj=self.video_runner_obj,
+                                                     key="['video_common_values']")
+            self.logger.error(str(all_common_values))
+
             return False
 
         incsvpath = return_video_folder_name(self.video_runner_obj) + "/" + OBJECTS_CSV
