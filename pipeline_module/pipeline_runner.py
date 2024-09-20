@@ -235,7 +235,7 @@ async def run_pipeline(
         await pipeline_runner.run_full_pipeline()
 
     except Exception as e:
-        await cleanup_failed_pipeline(video_id, AI_USER_ID, str(e))
+        # await cleanup_failed_pipeline(video_id, AI_USER_ID, str(e))
         raise
 
 if __name__ == "__main__":
