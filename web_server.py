@@ -37,6 +37,7 @@ pipeline_queue = asyncio.Queue()
 # Set for tracking enqueued tasks
 enqueued_tasks = set()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
@@ -50,18 +51,17 @@ async def lifespan(app: FastAPI):
     # Shutdown logic goes here
     logger.info("Application shutting down...")
 
+
 # Apply lifespan to the app
 
 # Setup FastAPI app
 app = FastAPI(lifespan=lifespan)
 
+
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
         data_json = json.loads(post_data.model_dump_json())
-        # logger.info(f"data_json :: {data_json}")
-        # logger.info(f"Received request for YouTube ID: {post_data.youtube_id}")
-
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
 
@@ -109,6 +109,22 @@ async def process_queue():
         print("Queue processing iteration completed")
 
 
+async def clean_up_queue(youtube_id: str, ai_user_id: str):
+    # Create a new queue without the failed task
+    new_queue = asyncio.Queue()
+    while not pipeline_queue.empty():
+        task = await pipeline_queue.get()
+        if task.youtube_id != youtube_id or task.AI_USER_ID != ai_user_id:
+            await new_queue.put(task)
+
+    # Replace the old queue with the new one
+    global pipeline_queue
+    pipeline_queue = new_queue
+
+    # Remove the task from enqueued_tasks set
+    enqueued_tasks.discard((youtube_id, ai_user_id))
+
+
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
                                   ydx_app_host: str):
     logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
@@ -117,7 +133,10 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_messag
     await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
 
     # Remove SQLite entry
-    # await remove_sqlite_entry(youtube_id, ai_user_id)
+    await remove_sqlite_entry(youtube_id, ai_user_id)
+
+    # Clean up the queue
+    await clean_up_queue(youtube_id, ai_user_id)
 
     # Notify YouDescribe service about the failure
     await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
