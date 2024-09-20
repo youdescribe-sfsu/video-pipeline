@@ -19,7 +19,6 @@ class ImportVideo:
         print(f"ImportVideo initialized with video_runner_obj: {video_runner_obj}")
 
     @timeit
-    @timeit
     def download_video(self) -> bool:
         print("Starting download_video method")
         video_id = self.video_runner_obj.get("video_id")
