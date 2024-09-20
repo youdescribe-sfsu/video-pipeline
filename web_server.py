@@ -110,6 +110,7 @@ async def process_queue():
 
 
 async def clean_up_queue(youtube_id: str, ai_user_id: str):
+    global pipeline_queue
     # Create a new queue without the failed task
     new_queue = asyncio.Queue()
     while not pipeline_queue.empty():
@@ -118,7 +119,6 @@ async def clean_up_queue(youtube_id: str, ai_user_id: str):
             await new_queue.put(task)
 
     # Replace the old queue with the new one
-    global pipeline_queue
     pipeline_queue = new_queue
 
     # Remove the task from enqueued_tasks set
