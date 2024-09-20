@@ -133,10 +133,10 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_messag
     logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
 
     # Cleanup failed pipeline
-    await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
+    # await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
 
     # Remove SQLite entry
-    await remove_sqlite_entry(youtube_id, ai_user_id)
+    # await remove_sqlite_entry(youtube_id, ai_user_id)
 
     # Clean up the queue
     await clean_up_queue(youtube_id, ai_user_id)
