@@ -185,12 +185,21 @@ class FrameExtraction:
         vid.release()
 
     def set_video_common_values(self, adaptive_fps: float, frames_extracted: int, video_fps: float) -> None:
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=str(video_fps / adaptive_fps))
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']", value=str(frames_extracted))
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']", value=str(adaptive_fps))
+        step = str(int(video_fps / adaptive_fps))
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=step)
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']",
+                           value=str(frames_extracted))
+        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']",
+                           value=str(adaptive_fps))
 
-        print(f"Set video common values: step={int(video_fps / adaptive_fps)}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
-        self.logger.info(f"Set video common values: step={int(video_fps / adaptive_fps)}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
+        print(f"Set video common values: step={step}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
+        self.logger.info(
+            f"Set video common values: step={step}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
+
+        # Add this new logging
+        all_common_values = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']")
+        print(f"Verified saved video common values: {all_common_values}")
+        self.logger.info(f"Verified saved video common values: {all_common_values}")
 
 if __name__ == "__main__":
     print("Running FrameExtraction as main")

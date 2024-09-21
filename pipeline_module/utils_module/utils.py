@@ -126,6 +126,7 @@ def return_video_progress_file(video_runner_obj: Dict[str, Union[int, str]]) -> 
 
 def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dict:
     progress_file = return_video_progress_file(video_runner_obj)
+    print(f"Loading progress from file: {progress_file}")
 
     try:
         with progress_lock:
@@ -135,15 +136,18 @@ def load_progress_from_file(video_runner_obj: Dict[str, Union[int, str]]) -> Dic
                     # Merge with default values
                     merged_progress = DEFAULT_SAVE_PROGRESS.copy()
                     merged_progress.update(loaded_progress)
+                    print(f"Loaded and merged progress: {json.dumps(merged_progress, indent=2)}")
                     return merged_progress
             else:
                 new_progress = DEFAULT_SAVE_PROGRESS.copy()
                 new_progress['video_id'] = video_runner_obj.get('video_id', '')
+                print(f"Created new progress: {json.dumps(new_progress, indent=2)}")
                 return new_progress
     except Exception as e:
         print(f"Error loading progress from file: {e}")
         new_progress = DEFAULT_SAVE_PROGRESS.copy()
         new_progress['video_id'] = video_runner_obj.get('video_id', '')
+        print(f"Created new progress due to error: {json.dumps(new_progress, indent=2)}")
         return new_progress
 
 

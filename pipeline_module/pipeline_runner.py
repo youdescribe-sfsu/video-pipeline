@@ -140,7 +140,13 @@ class PipelineRunner:
             raise Exception("Object detection failed")
 
     async def run_keyframe_selection(self) -> None:
-        keyframe_selection = KeyframeSelection({"video_id": self.video_id, "logger": self.logger})
+        keyframe_selection = KeyframeSelection({
+            "video_id": self.video_id,
+            "logger": self.logger,
+            "AI_USER_ID": self.AI_USER_ID,
+            "video_start_time": self.video_start_time,
+            "video_end_time": self.video_end_time
+        })
         success = keyframe_selection.run_keyframe_selection()
         if not success:
             raise Exception("Keyframe selection failed")
