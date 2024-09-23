@@ -65,7 +65,6 @@ def create_database():
 
             logger.info("Database created successfully.")
         except sqlite3.Error as e:
-            print("Error creating database:", e)
             logger.error("Error creating database:", e)
             return
     return
