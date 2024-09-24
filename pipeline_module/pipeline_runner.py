@@ -65,8 +65,15 @@ class PipelineRunner:
 
     def load_progress(self) -> Dict[str, Any]:
         """Load pipeline progress from the SQLite database."""
-        progress = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
-        return progress or {}
+        status = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
+
+        if isinstance(status, str):
+            # If status is a single string, return it as a dict for easier access
+            return {"status": status}
+        elif isinstance(status, dict):
+            return status
+        else:
+            return {}
 
     def save_progress(self):
         """Save pipeline progress to the SQLite database."""
@@ -239,14 +246,18 @@ async def run_pipeline(
             AI_USER_ID=AI_USER_ID,
         )
 
-        if all(pipeline_runner.progress.get(task) == "completed" for task in pipeline_runner.tasks):
-            pipeline_runner.logger.info(f"Pipeline already completed for video: {video_id}")
-            return
+        if isinstance(pipeline_runner.progress, dict):
+            if all(pipeline_runner.progress.get(task) == "completed" for task in pipeline_runner.tasks):
+                pipeline_runner.logger.info(f"Pipeline already completed for video: {video_id}")
+                return
+        else:
+            pipeline_runner.logger.error(f"Invalid progress data for video: {video_id}")
+            raise ValueError("Progress data is not a valid dictionary.")
 
         await pipeline_runner.run_full_pipeline()
 
     except Exception as e:
-        # await cleanup_failed_pipeline(video_id, AI_USER_ID, str(e))
+        pipeline_runner.logger.error(f"Pipeline failed: {str(e)}")
         raise
 
 if __name__ == "__main__":
