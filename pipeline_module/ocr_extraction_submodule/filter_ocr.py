@@ -1,4 +1,4 @@
-from web_server_module.web_server_database import get_status_for_youtube_id, update_status
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 import csv
 from ..utils_module.utils import return_video_folder_name, OCR_TEXT_CSV_FILE_NAME, OCR_FILTER_CSV_FILE_NAME
 from ..utils_module.timeit_decorator import timeit

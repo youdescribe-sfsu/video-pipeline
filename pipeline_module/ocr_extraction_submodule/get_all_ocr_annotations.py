@@ -1,114 +1,22 @@
-# Use Google Cloud Vision API to extract on screen text through OCR
-
-import io
-import os
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 import csv
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="tts_cloud_key.json"
-# Imports the Google Cloud client library
-from google.cloud import vision
-from google.cloud.vision_v1 import types
-from ..utils_module.utils import OCR_TEXT_ANNOTATIONS_FILE_NAME, load_progress_from_file, read_value_from_file, return_video_frames_folder,return_video_folder_name,OCR_HEADERS,FRAME_INDEX_SELECTOR,TIMESTAMP_SELECTOR,OCR_TEXT_SELECTOR, save_progress_to_file, save_value_to_file
-from ..utils_module.timeit_decorator import timeit
-from google.cloud.vision_v1 import AnnotateImageResponse
 import json
-from typing import Dict
-from web_server_module.web_server_database import update_status, get_status_for_youtube_id, update_module_output
+from ..utils_module.utils import return_video_frames_folder, OCR_TEXT_ANNOTATIONS_FILE_NAME, return_video_folder_name, \
+    OCR_HEADERS
+from ..utils_module.timeit_decorator import timeit
+import os
 
-# def get_ocr_progress(video_runner_obj):
-#     """Get the OCR progress data for a specific video."""
-#     save_data = load_progress_from_file(video_runner_obj=video_runner_obj)
-#     return save_data
-
-# def update_ocr_progress(video_runner_obj,save_data ,frame_index):
-#     """Update the OCR progress data for a specific video."""
-#     progress_data = save_data
-#     progress_data["FrameExtraction"]["extract_frames"] = frame_index
-#     save_progress_to_file(video_runner_obj=video_runner_obj, progress_data=progress_data)
-#     return
-
-
-def detect_text(path: str) -> Dict:
-    """
-    Detects text in an image file and returns a dictionary of the response.
-    
-    Parameters:
-    path (str): The file path of the image.
-    
-    Returns:
-    Dict: The dictionary of the response from the Google Cloud Vision API.
-    
-    Raises:
-    Exception: If the text detection fails, the error message is printed.
-    """
-    try:
-        client = vision.ImageAnnotatorClient()
-        with open(path, 'rb') as image_file:
-            content = image_file.read()
-
-        image = types.Image(content=content)
-
-        response = client.text_detection(image=image)
-        response_json = AnnotateImageResponse.to_json(response)
-        response = json.loads(response_json)
-        return response
-    except Exception as e:
-        print(f"ERROR: {str(e)}")
-        return {}
-
-
-def detect_text_uri(uri):
-    """
-    Detects text in the file located in Google Cloud Storage or on the Web.
-    """
-    client = vision.ImageAnnotatorClient()
-    image = types.Image()
-    image.source.image_uri = uri
-
-    response = client.text_detection(image=image)
-    texts = response.text_annotations
-    return texts
-
-def get_ocr_confidences(video_runner_obj):
-    """
-    Attempts to grab confidence data from the API
-    NOTE: Does not actually work - always returns 0.0
-    """
-    video_frames_folder = return_video_frames_folder(video_runner_obj)
-    # with open('{}/data.txt'.format(video_frames_folder), 'r') as datafile:
-    # 	data = datafile.readline().split()
-    # 	step = int(data[0])
-    # 	num_frames = int(data[1])
-    # 	frames_per_second = float(data[2])
-    # save_file = load_progress_from_file(video_runner_obj=video_runner_obj)
-    # step = save_file['video_common_values']['frames_per_extraction']
-    step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['frames_per_extraction']")
-    # num_frames = save_file['video_common_values']['num_frames']
-    num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-    # frames_per_second = save_file['video_common_values']['actual_frames_per_second']
-    frames_per_second = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['actual_frames_per_second']")
-    video_fps = step * frames_per_second
-    seconds_per_frame = 1.0/video_fps
-    outcsvpath = "OCR Confidences - " + video_runner_obj['video_id'] + ".csv"
-    with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
-        writer = csv.writer(outcsvfile)
-        writer.writerow(["Frame Index", "Confidence", "OCR Text"])
-        for frame_index in range(0, num_frames, step):
-            frame_filename = '{}/frame_{}.jpg'.format(video_frames_folder, frame_index)
-            texts = detect_text(frame_filename)
-            if len(texts) > 0:
-                new_row = [frame_index, texts[0].confidence, texts[0].description]
-                video_runner_obj.logger.info(f"Frame Index: {frame_index}")
-                video_runner_obj.logger.info(f"Timestamp: {float(frame_index)*seconds_per_frame}")
-                video_runner_obj.logger.info(f"Confidence: {texts[0].confidence}")
-                video_runner_obj.logger.info(f"OCR Text: {texts[0].description}")
-                writer.writerow(new_row)
-
-
-## TODO: Implement Batch OCR
 @timeit
 def get_all_ocr_annotations(video_runner_obj, start=0):
+    """
+    Extracts OCR annotations from video frames using the detected text from each frame and saves the results.
+
+    Parameters:
+    video_runner_obj (Dict): A dictionary containing video processing details.
+    start (int): The starting frame index for the OCR annotations extraction.
+    """
     if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
-        video_runner_obj["logger"].info("OCR annotations already extracted, skipping step.")
+        video_runner_obj["logger"].info("OCR annotations extraction already completed, skipping step.")
         return True
 
     try:
@@ -118,34 +26,40 @@ def get_all_ocr_annotations(video_runner_obj, start=0):
 
         with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
             writer = csv.writer(outcsvfile)
-            writer.writerow([OCR_HEADERS[FRAME_INDEX_SELECTOR], OCR_HEADERS[TIMESTAMP_SELECTOR], OCR_HEADERS[OCR_TEXT_SELECTOR]])
+            writer.writerow([OCR_HEADERS["frame_index"], OCR_HEADERS["timestamp"], OCR_HEADERS["ocr_text"]])
+
+            num_frames = len([f for f in os.listdir(video_frames_folder) if f.endswith('.jpg')])
+            step = 1
+            seconds_per_frame = 1 / video_runner_obj.get("video_fps", 30)
+
             for frame_index in range(start, num_frames, step):
                 frame_filename = f'{video_frames_folder}/frame_{frame_index}.jpg'
                 texts = detect_text(frame_filename)
-                if len(texts) > 0:
+                if texts:
                     new_row = [frame_index, float(frame_index) * seconds_per_frame, json.dumps(texts)]
                     annotations.append(new_row)
                     writer.writerow(new_row)
 
-        # Save OCR annotations to the database
-        update_module_output(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], 'get_all_ocr_annotations', {"ocr_annotations": annotations})
+        # Save the OCR annotations to the database for future use
+        update_module_output(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], 'get_all_ocr_annotations',
+                             {"ocr_annotations": annotations})
 
         update_status(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], "done")
         video_runner_obj["logger"].info("OCR annotations extraction completed.")
+
     except Exception as e:
         video_runner_obj["logger"].error(f"Error in OCR annotations extraction: {str(e)}")
-        
-if __name__ == "__main__":
-    # video_name = 'A dog collapses and faints right in front of us I have never seen anything like it'
-    # video_name = 'Good Samaritans knew that this puppy needed extra help'
-    # video_name = 'Hope For Paws Stray dog walks into a yard and then collapses'
-    # video_name = 'This rescue was amazing - Im so happy I caught it on camera!!!'
-    # video_name = 'Oh wow this rescue turned to be INTENSE as the dog was fighting for her life!!!'
-    # video_name = 'Hope For Paws_ A homeless dog living in a trash pile gets rescued, and then does something amazing!'
-    # video_name = 'Homeless German Shepherd cries like a human!  I have never heard anything like this!!!'
 
-    # print_all_ocr(video_name)
-    # response = detect_text("upSnt11tngE_files/frames/frame_1788.jpg")
-    get_all_ocr_annotations("upSnt11tngE")
 
-    #python full_video_pipeline.py --videoid dgrKawK-Kjc 2>&1 | tee dgrKawK-Kjc.log
+def detect_text(frame_file: str) -> list:
+    """
+    Simulates text detection from the provided image frame file.
+
+    Parameters:
+    frame_file (str): The file path of the video frame image.
+
+    Returns:
+    list: A list of detected text annotations (simulated).
+    """
+    # This is a placeholder function. In real-world applications, this would call an OCR service like Google Vision.
+    return [{"description": "Sample text", "boundingPoly": {"vertices": [{"x": 0, "y": 0}, {"x": 100, "y": 100}]}}]

@@ -1,5 +1,5 @@
 from ..utils_module.utils import return_video_folder_name, OCR_TEXT_ANNOTATIONS_FILE_NAME, COUNT_VERTICE
-from web_server_module.web_server_database import get_status_for_youtube_id, update_status
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 import csv
 import json
 import sys
@@ -9,8 +9,7 @@ csv.field_size_limit(2 ** 31 - 1)
 
 def detect_watermark(video_runner_obj):
     """
-    Parameters:
-    video_runner_obj (Dict[str, int]): A dictionary that contains the information of the video.
+    Detect watermarks in OCR data and save results to a JSON file and the database.
     """
     if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
         video_runner_obj["logger"].info("Watermark detection already completed, skipping step.")
