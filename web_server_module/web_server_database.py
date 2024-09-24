@@ -3,6 +3,7 @@ import sqlite3
 from enum import Enum
 from .custom_logger import setup_logger
 import traceback
+import json
 
 logger = setup_logger()
 
@@ -65,6 +66,16 @@ def create_database():
                     FOREIGN KEY (youtube_id) REFERENCES youtube_data (youtube_id),
                     UNIQUE(user_id, youtube_id, ai_user_id)
                 )
+            ''')
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS module_outputs (
+                    youtube_id TEXT,
+                    ai_user_id TEXT,
+                    module_name TEXT,
+                    output_data TEXT,  -- JSON-like structure to store output values
+                    PRIMARY KEY (youtube_id, ai_user_id, module_name)
+                );
             ''')
 
             logger.info("Database created successfully.")
@@ -228,6 +239,38 @@ def return_all_user_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id):
             return data
     except sqlite3.Error as e:
         logger.error(f"Error getting data for YouTube ID and AI User ID: {e}")
+        return None
+
+def update_module_output(youtube_id, ai_user_id, module_name, output_data):
+    """
+    Store the output of a module in the database for future use.
+    """
+    try:
+        with connection.return_connection() as con:
+            cursor = con.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO module_outputs (youtube_id, ai_user_id, module_name, output_data)
+                VALUES (?, ?, ?, ?)
+            ''', (youtube_id, ai_user_id, module_name, json.dumps(output_data)))
+            print(f"Updated module output for {module_name} in the database.")
+    except sqlite3.Error as e:
+        logger.error(f"Error updating module output: {e}")
+
+def get_module_output(youtube_id, ai_user_id, module_name):
+    """
+    Retrieve the output of a module from the database.
+    """
+    try:
+        with connection.return_connection() as con:
+            cursor = con.cursor()
+            cursor.execute('''
+                SELECT output_data FROM module_outputs
+                WHERE youtube_id = ? AND ai_user_id = ? AND module_name = ?
+            ''', (youtube_id, ai_user_id, module_name))
+            result = cursor.fetchone()
+            return json.loads(result['output_data']) if result else None
+    except sqlite3.Error as e:
+        logger.error(f"Error getting module output: {e}")
         return None
 
 async def remove_sqlite_entry(youtube_id: str, ai_user_id: str):

@@ -3,7 +3,8 @@ import os
 import numpy as np
 from typing import Dict, List, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from ..utils_module.utils import read_value_from_file, return_video_download_location, return_video_frames_folder, save_value_to_file
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+from ..utils_module.utils import return_video_download_location, return_video_frames_folder
 from ..utils_module.timeit_decorator import timeit
 
 class FrameExtraction:
@@ -52,7 +53,8 @@ class FrameExtraction:
             return False
 
     def _is_extraction_complete(self) -> bool:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']") == 'done':
+        # Use the database to check if frame extraction is already completed
+        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
             print("Frames already extracted, skipping step.")
             self.logger.info("Frames already extracted, skipping step.")
             return True
@@ -92,10 +94,20 @@ class FrameExtraction:
                     self.logger.error(f"Frame processing generated an exception: {exc}")
 
     def _save_extraction_progress(self, adaptive_fps: float, frames_extracted: int) -> None:
-        print("Frame extraction completed, saving progress")
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['started']", value='done')
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['adaptive_fps']", value=str(adaptive_fps))
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['frames_extracted']", value=frames_extracted)
+        print("Frame extraction completed, saving progress and output values")
+        # Update progress status in the database
+        update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
+
+        # Save the output values of this module in the database (for future use)
+        module_outputs = {
+            'adaptive_fps': adaptive_fps,
+            'frames_extracted': frames_extracted
+        }
+        # Store the output in the database
+        update_module_output(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"),
+                             'frame_extraction', module_outputs)
+
+        print(f"Frame extraction progress and outputs saved in the database.")
 
     def process_frame(self, frame_idx: int) -> None:
         print(f"Processing frame {frame_idx}")
@@ -126,7 +138,8 @@ class FrameExtraction:
 
     @timeit
     def extract_frames_with_scene_detection(self) -> bool:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['scene_detection_done']") == 'done':
+        # Use the database to check if scene detection and frame extraction are already completed
+        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
             self.logger.info("Scene detection and keyframe extraction already completed, skipping step.")
             return True
 
@@ -138,10 +151,9 @@ class FrameExtraction:
             self.logger.info("Extracting keyframes")
             self.extract_keyframes(scene_changes)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['scene_detection_done']", value='done')
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['FrameExtraction']['scene_changes']", value=scene_changes)
-
-            self.logger.info("Scene detection and keyframe extraction completed successfully.")
+            # Update the database with the completion status
+            update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
+            print("Scene detection and keyframe extraction completed successfully.")
             return True
 
         except Exception as e:
@@ -186,31 +198,6 @@ class FrameExtraction:
 
     def set_video_common_values(self, adaptive_fps: float, frames_extracted: int, video_fps: float) -> None:
         step = str(int(video_fps / adaptive_fps))
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']", value=step)
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['num_frames']",
-                           value=str(frames_extracted))
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['frames_per_second']",
-                           value=str(adaptive_fps))
-
         print(f"Set video common values: step={step}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
         self.logger.info(
             f"Set video common values: step={step}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
-
-        # Add this new logging
-        all_common_values = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']")
-        print(f"Verified saved video common values: {all_common_values}")
-        self.logger.info(f"Verified saved video common values: {all_common_values}")
-
-if __name__ == "__main__":
-    print("Running FrameExtraction as main")
-    # For testing purposes
-    video_runner_obj = {
-        "video_id": "test_video",
-        "logger": print  # Use print as a simple logger for testing
-    }
-    frame_extractor = FrameExtraction(video_runner_obj)
-    success = frame_extractor.extract_frames()
-    print(f"Frame extraction {'succeeded' if success else 'failed'}")
-
-    scene_detection_success = frame_extractor.extract_frames_with_scene_detection()
-    print(f"Scene detection and keyframe extraction {'succeeded' if scene_detection_success else 'failed'}")
