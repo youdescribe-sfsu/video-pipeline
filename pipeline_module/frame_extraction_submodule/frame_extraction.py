@@ -30,6 +30,7 @@ class FrameExtraction:
             vid, total_frames, video_fps, duration = self._get_video_info()
             adaptive_fps = self.calculate_adaptive_fps(duration)
             frames_to_extract = int(duration * adaptive_fps)
+            step = str(int(video_fps / adaptive_fps))
 
             print(f"Extracting frames at {adaptive_fps} fps")
             print(f"Total frames to extract: {frames_to_extract}")
@@ -40,8 +41,7 @@ class FrameExtraction:
 
             self._extract_frames_parallel(frame_indices)
 
-            self._save_extraction_progress(adaptive_fps, frames_to_extract)
-            self.set_video_common_values(adaptive_fps, frames_to_extract, video_fps)
+            self._save_extraction_progress(adaptive_fps, frames_to_extract, step)
 
             print("Frame extraction completed successfully.")
             self.logger.info("Frame extraction completed successfully.")
@@ -93,7 +93,7 @@ class FrameExtraction:
                     print(f"Frame processing generated an exception: {exc}")
                     self.logger.error(f"Frame processing generated an exception: {exc}")
 
-    def _save_extraction_progress(self, adaptive_fps: float, frames_extracted: int) -> None:
+    def _save_extraction_progress(self, adaptive_fps: float, frames_extracted: int, step: str) -> None:
         print("Frame extraction completed, saving progress and output values")
         # Update progress status in the database
         update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
@@ -101,7 +101,8 @@ class FrameExtraction:
         # Save the output values of this module in the database (for future use)
         module_outputs = {
             'adaptive_fps': adaptive_fps,
-            'frames_extracted': frames_extracted
+            'frames_extracted': frames_extracted,
+            'steps': step
         }
         # Store the output in the database
         update_module_output(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"),
@@ -195,9 +196,3 @@ class FrameExtraction:
                 self.logger.warning(f"Failed to read keyframe {frame_idx}")
 
         vid.release()
-
-    def set_video_common_values(self, adaptive_fps: float, frames_extracted: int, video_fps: float) -> None:
-        step = str(int(video_fps / adaptive_fps))
-        print(f"Set video common values: step={step}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
-        self.logger.info(
-            f"Set video common values: step={step}, num_frames={frames_extracted}, frames_per_second={adaptive_fps}")
