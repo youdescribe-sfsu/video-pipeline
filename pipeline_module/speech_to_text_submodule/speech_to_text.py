@@ -4,8 +4,8 @@ from google.cloud import speech_v1p1beta1 as speech
 from google.cloud import storage
 from typing import Dict, Any, List, Optional
 import audio_metadata
-from ..utils_module.utils import TRANSCRIPTS, read_value_from_file, save_value_to_file, return_audio_file_name, \
-    return_video_folder_name
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status
+from ..utils_module.utils import TRANSCRIPTS, return_audio_file_name, return_video_folder_name
 from ..utils_module.timeit_decorator import timeit
 
 
@@ -27,8 +27,8 @@ class SpeechToText:
         file_name = os.path.join(filepath, audio_file_name)
         print(f"Audio file: {file_name}")
 
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['SpeechToText']['getting_speech_from_audio']") == 1:
+        # Use the database to check if speech-to-text has already been completed
+        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
             print("Speech to text already completed, skipping step.")
             return True
 
@@ -40,15 +40,15 @@ class SpeechToText:
 
             print("Starting speech recognition")
             response = self.recognize_speech(gcs_uri, frame_rate, channels)
-            print("Resposne ", response)
+            print("Response ", response)
 
             self.save_transcript(response)
 
             print(f"Deleting {audio_file_name} from cloud storage")
             self.delete_blob(audio_file_name)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj,
-                               key="['SpeechToText']['getting_speech_from_audio']", value=str(1))
+            # Use the database to update the progress status
+            update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
             print("Speech to text completed successfully")
 
             return True
