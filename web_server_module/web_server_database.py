@@ -156,7 +156,7 @@ def get_status_for_youtube_id(youtube_id, ai_user_id):
 
             # Add logging to see what the query returns
             print(f"Query result: {status}")
-            return status[0] if status else None
+            return status['status'] if status else None
 
     except sqlite3.Error as e:
         print(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
