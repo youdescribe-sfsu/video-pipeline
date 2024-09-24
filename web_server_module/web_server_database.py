@@ -140,12 +140,12 @@ def get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id):
         return None
 
 def get_status_for_youtube_id(youtube_id, ai_user_id):
-    """
-    Retrieves the status of the pipeline (in_progress, done, failed).
-    """
     try:
         with connection.return_connection() as con:
             cursor = con.cursor()
+
+            # Add logging to check the query inputs
+            print(f"Executing query for youtube_id: {youtube_id}, ai_user_id: {ai_user_id}")
 
             cursor.execute('''
                 SELECT status FROM youtube_data
@@ -153,9 +153,14 @@ def get_status_for_youtube_id(youtube_id, ai_user_id):
             ''', (youtube_id, ai_user_id))
 
             status = cursor.fetchone()
+
+            # Add logging to see what the query returns
+            print(f"Query result: {status}")
             return status[0] if status else None
+
     except sqlite3.Error as e:
-        logger.error(f"Error getting status for YouTube ID: {e}")
+        print(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
+        logger.error(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
         return None
 
 def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id):
