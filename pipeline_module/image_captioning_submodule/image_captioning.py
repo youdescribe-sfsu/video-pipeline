@@ -3,16 +3,17 @@ import os
 import requests
 import json
 import traceback
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Optional
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import torch
 from PIL import Image
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.timeit_decorator import timeit
 from ..utils_module.utils import (
     CAPTIONS_CSV, FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
     KEY_FRAME_HEADERS, KEYFRAME_CAPTION_SELECTOR, KEYFRAMES_CSV,
-    TIMESTAMP_SELECTOR, read_value_from_file, return_video_folder_name,
-    return_video_frames_folder, CAPTION_IMAGE_PAIR, save_value_to_file
+    TIMESTAMP_SELECTOR, return_video_folder_name,
+    return_video_frames_folder, CAPTION_IMAGE_PAIR
 )
 
 
@@ -22,8 +23,7 @@ class ImageCaptioning:
         self.logger = video_runner_obj.get("logger")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(
-            self.device)
+        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(self.device)
         self.caption_history = []
 
     @timeit
@@ -31,26 +31,25 @@ class ImageCaptioning:
         video_frames_path = return_video_frames_folder(self.video_runner_obj)
         video_folder_path = return_video_folder_name(self.video_runner_obj)
 
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['started']") == 'done':
+        # Check if image captioning is already done using the database
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
             self.logger.info("Image captioning already done")
             return True
 
         try:
-            step = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']")
-            num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                              key="['video_common_values']['num_frames']")
-            frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                                     key="['video_common_values']['frames_per_second']")
+            # Retrieve common video values from the database
+            step = self.load_common_video_value('step')
+            num_frames = self.load_common_video_value('num_frames')
+            frames_per_second = self.load_common_video_value('frames_per_second')
 
             video_fps = step * frames_per_second
             seconds_per_frame = 1.0 / video_fps
 
             keyframes = self.load_keyframes(video_folder_path)
 
-            outcsvpath = video_folder_path + '/' + CAPTIONS_CSV
-            mode = 'w'
+            outcsvpath = os.path.join(video_folder_path, CAPTIONS_CSV)
 
-            with open(outcsvpath, mode, newline='', encoding='utf-8') as outcsvfile:
+            with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
                 writer = csv.writer(outcsvfile)
                 writer.writerow([KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR], KEY_FRAME_HEADERS[TIMESTAMP_SELECTOR],
                                  KEY_FRAME_HEADERS[IS_KEYFRAME_SELECTOR], KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
@@ -60,18 +59,18 @@ class ImageCaptioning:
                     captions = self.generate_captions(frame_filename)
 
                     if captions:
-                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes,
-                               json.dumps(captions)]
+                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, json.dumps(captions)]
                         writer.writerow(row)
 
                     self.logger.info(f"Frame index: {frame_index}, Captions: {captions}")
                     outcsvfile.flush()
-                    save_value_to_file(video_runner_obj=self.video_runner_obj,
-                                       key="['ImageCaptioning']['run_image_captioning']['last_processed_frame']",
-                                       value=str(frame_index))
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['started']",
-                               value='done')
+            # Mark image captioning as done in the database
+            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
+
+            # Save the generated captions to the database
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'image_captioning', {"captions": captions})
+
             return True
 
         except Exception as e:
@@ -79,62 +78,74 @@ class ImageCaptioning:
             self.logger.error(traceback.format_exc())
             return False
 
+    def load_common_video_value(self, key: str) -> Optional[Any]:
+        """
+        Load common video values like step, num_frames, frames_per_second from the database.
+        """
+        try:
+            value = get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'video_common_values')[key]
+            return value
+        except KeyError:
+            self.logger.error(f"Error: Could not retrieve {key} from video common values")
+            return None
+
     def load_keyframes(self, video_folder_path: str) -> List[int]:
-        with open(video_folder_path + '/' + KEYFRAMES_CSV, newline='', encoding='utf-8') as incsvfile:
+        """
+        Loads keyframes from the keyframes CSV file.
+        """
+        with open(os.path.join(video_folder_path, KEYFRAMES_CSV), newline='', encoding='utf-8') as incsvfile:
             reader = csv.reader(incsvfile)
             next(reader)  # skip header
             return [int(row[0]) for row in reader]
 
     def generate_captions(self, image_path: str) -> List[str]:
+        """
+        Generate captions for a given image using the BLIP model.
+        """
         image = Image.open(image_path).convert('RGB')
         inputs = self.processor(image, return_tensors="pt").to(self.device)
 
-        # Generate multiple captions with different strategies
+        # Generate multiple captions using different prompts
         captions = []
 
-        # Standard caption
-        captions.append(self.generate_single_caption(inputs))
-
-        # Caption with different prompt
+        captions.append(self.generate_single_caption(inputs))  # Standard caption
         captions.append(self.generate_single_caption(inputs, prompt="Describe the scene in detail:"))
-
-        # Caption focusing on actions
         captions.append(self.generate_single_caption(inputs, prompt="What actions are happening in this image?"))
-
-        # Caption focusing on objects
         captions.append(self.generate_single_caption(inputs, prompt="List the main objects in this image:"))
 
-        # Remove any duplicate captions
+        # Remove duplicates
         captions = list(dict.fromkeys(captions))
 
-        self.caption_history.append(captions[0])  # Add the main caption to history
+        # Maintain a history of the last 5 captions
+        self.caption_history.append(captions[0])
         if len(self.caption_history) > 5:
-            self.caption_history.pop(0)  # Keep only the last 5 captions
+            self.caption_history.pop(0)
 
         return captions
 
     def generate_single_caption(self, inputs: Dict[str, torch.Tensor], prompt: Optional[str] = None) -> str:
+        """
+        Generates a single caption with an optional prompt.
+        """
         if prompt:
             inputs['prompt'] = prompt
 
-        # Use caption history for context
+        # Use caption history for context if available
         if self.caption_history:
-            context = " ".join(self.caption_history[-3:])  # Use last 3 captions as context
+            context = " ".join(self.caption_history[-3:])
             inputs['prompt'] = f"Context: {context}. {prompt or ''}"
 
         outputs = self.model.generate(**inputs, max_new_tokens=50)
         return self.processor.decode(outputs[0], skip_special_tokens=True)
 
     def filter_keyframes_from_caption(self) -> None:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['ImageCaptioning']['filter_keyframes_from_caption']") == 1:
-            self.logger.info("Filtering keyframes from caption already done, skipping step.")
-            return
-
+        """
+        Filters keyframes from the caption CSV file.
+        """
         video_folder_path = return_video_folder_name(self.video_runner_obj)
         keyframes = self.load_keyframes(video_folder_path)
 
-        csv_file_path = video_folder_path + '/' + CAPTIONS_CSV
+        csv_file_path = os.path.join(video_folder_path, CAPTIONS_CSV)
         updated_rows = []
 
         with open(csv_file_path, 'r', newline='', encoding='utf-8') as csv_file:
@@ -154,16 +165,12 @@ class ImageCaptioning:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerows(updated_rows)
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj,
-                           key="['ImageCaptioning']['filter_keyframes_from_caption']", value=str(1))
-
     def combine_image_caption(self) -> None:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['ImageCaptioning']['combine_image_caption']") == 1:
-            self.logger.info("Image Captioning already done")
-            return
-
-        captcsvpath = return_video_folder_name(self.video_runner_obj) + '/' + CAPTIONS_CSV
+        """
+        Combines image paths with their respective captions and saves them to a CSV file.
+        """
+        video_folder_path = return_video_folder_name(self.video_runner_obj)
+        captcsvpath = os.path.join(video_folder_path, CAPTIONS_CSV)
 
         with open(captcsvpath, 'r', newline='', encoding='utf-8') as captcsvfile:
             data = csv.DictReader(captcsvfile)
@@ -176,7 +183,7 @@ class ImageCaptioning:
                 } for row in data
             ]
 
-        image_caption_csv_file = return_video_folder_name(self.video_runner_obj) + '/' + CAPTION_IMAGE_PAIR
+        image_caption_csv_file = os.path.join(video_folder_path, CAPTION_IMAGE_PAIR)
         with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
             fieldnames = ["frame_index", "frame_url", "caption1", "caption2", "caption3", "caption4"]
             csvDictWriter = csv.DictWriter(output_file, fieldnames=fieldnames)
@@ -190,21 +197,4 @@ class ImageCaptioning:
                     row[f"caption{i}"] = caption
                 csvDictWriter.writerow(row)
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImageCaptioning']['combine_image_caption']",
-                           value=str(1))
         self.logger.info(f"Completed Writing Image Caption Pair to CSV")
-
-
-if __name__ == "__main__":
-    # For testing purposes
-    video_runner_obj = {
-        "video_id": "test_video",
-        "logger": print  # Use print as a simple logger for testing
-    }
-    image_captioning = ImageCaptioning(video_runner_obj)
-    success = image_captioning.run_image_captioning()
-    print(f"Image captioning {'succeeded' if success else 'failed'}")
-
-    if success:
-        image_captioning.filter_keyframes_from_caption()
-        image_captioning.combine_image_caption()
