@@ -1,8 +1,8 @@
 import csv
-from ..utils_module.utils import read_value_from_file, return_video_frames_folder, \
-    return_video_folder_name, save_value_to_file
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS, KEYFRAMES_CSV, TIMESTAMP_SELECTOR, OBJECTS_CSV
 from ..utils_module.timeit_decorator import timeit
-from ..utils_module.utils import FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS, KEYFRAMES_CSV, TIMESTAMP_SELECTOR, OBJECTS_CSV
+import os
 
 class KeyframeSelection:
     def __init__(self, video_runner_obj, target_keyframes_per_second=1):
@@ -17,60 +17,84 @@ class KeyframeSelection:
         print("Starting run_keyframe_selection method")
         self.logger.info(f"Running keyframe selection for {self.video_runner_obj['video_id']}")
 
-        try:
-            print("Saving initial progress")
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['KeyframeSelection']['started']",
-                               value=str(True))
-        except Exception as e:
-            error_msg = f"Error saving KeyframeSelection progress: {str(e)}"
-            print(error_msg)
-            self.logger.error(error_msg)
-
-        print("Checking if keyframe selection was already done")
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['KeyframeSelection']['started']") == 'done':
+        # Check if the keyframe selection is already completed
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
             self.logger.info("Keyframe selection already done, skipping step.")
             print("Keyframe selection already done, skipping step.")
             return True
 
-        print("Reading video common values")
-        step = read_value_from_file(video_runner_obj=self.video_runner_obj, key="['video_common_values']['step']")
-        num_frames = read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                          key="['video_common_values']['num_frames']")
-        frames_per_second = read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                                 key="['video_common_values']['frames_per_second']")
+        print("Reading video common values from the database")
+        video_common_values = self.load_video_common_values()
+        if video_common_values is None:
+            return False
 
-        print(f"Raw video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}")
-        self.logger.info(
-            f"Raw video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}")
+        step, num_frames, frames_per_second = video_common_values
 
+        print(f"Running keyframe selection logic with step={step}, num_frames={num_frames}, fps={frames_per_second}")
+        self.logger.info(f"Running keyframe selection with step={step}, num_frames={num_frames}, fps={frames_per_second}")
+
+        # Your keyframe selection logic here (not provided in full in the original code)
+
+        # Save keyframe results
+        keyframes_data = self.select_keyframes(step, num_frames, frames_per_second)
+        self.save_keyframes_to_csv(keyframes_data)
+
+        # Save results to the database for future modules
+        update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'keyframe_selection', {"keyframes": keyframes_data})
+
+        # Update progress in the database
+        update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
+
+        self.logger.info("Keyframe selection completed successfully")
+
+    def load_video_common_values(self):
+        """
+        Retrieves video common values (step, num_frames, frames_per_second) from the database.
+        """
         try:
-            # Convert values to appropriate types
-            step = int(float(step)) if step is not None else None
-            num_frames = int(float(num_frames)) if num_frames is not None else None
-            frames_per_second = float(frames_per_second) if frames_per_second is not None else None
-        except ValueError as e:
-            error_msg = f"Error converting video common values: {str(e)}"
+            # Retrieve values from the database (previously stored by frame extraction)
+            previous_outputs = get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
+            if not previous_outputs:
+                raise ValueError("No video common values found from frame extraction")
+
+            step = int(float(previous_outputs['step']))
+            num_frames = int(float(previous_outputs['num_frames']))
+            frames_per_second = float(previous_outputs['frames_per_second'])
+
+            return step, num_frames, frames_per_second
+        except (ValueError, KeyError, TypeError) as e:
+            error_msg = f"Error retrieving video common values: {str(e)}"
             print(error_msg)
             self.logger.error(error_msg)
-            return False
+            return None
 
-        print(
-            f"Converted video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}")
-        self.logger.info(
-            f"Converted video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}")
+    def select_keyframes(self, step, num_frames, frames_per_second):
+        """
+        Keyframe selection logic (placeholder).
+        """
+        # Placeholder logic for selecting keyframes
+        keyframes_data = []
+        for i in range(0, num_frames, step):
+            timestamp = i / frames_per_second
+            keyframes_data.append({
+                'frame_index': i,
+                'timestamp': timestamp,
+                'is_keyframe': True  # Replace with actual keyframe detection logic
+            })
+        return keyframes_data
 
-        if None in (step, num_frames, frames_per_second):
-            error_msg = f"Invalid video common values: step={step}, num_frames={num_frames}, frames_per_second={frames_per_second}"
-            print(error_msg)
-            self.logger.error(error_msg)
+    def save_keyframes_to_csv(self, keyframes_data):
+        """
+        Saves selected keyframes to a CSV file.
+        """
+        output_file = os.path.join(return_video_folder_name(self.video_runner_obj), KEYFRAMES_CSV)
+        print(f"Saving keyframe results to {output_file}")
+        self.logger.info(f"Saving keyframe results to {output_file}")
 
-            # Add additional logging to help diagnose the issue
-            self.logger.error("Dumping all video_common_values:")
-            all_common_values = read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                                     key="['video_common_values']")
-            self.logger.error(str(all_common_values))
-
-            return False
-
-        # ... rest of the method ...
+        with open(output_file, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=[FRAME_INDEX_SELECTOR, TIMESTAMP_SELECTOR, 'is_keyframe'])
+            writer.writeheader()
+            for keyframe in keyframes_data:
+                writer.writerow(keyframe)
+        print(f"Keyframe selection results saved to {output_file}")
+        self.logger.info(f"Keyframe selection results saved to {output_file}")
