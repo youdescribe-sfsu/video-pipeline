@@ -35,7 +35,7 @@ class PipelineRunner:
         ydx_server: Optional[str] = None,
         ydx_app_host: Optional[str] = None,
         userId: Optional[str] = None,
-        AI_USER_ID: Optional[str] = None,
+        AI_USER_ID: Optional[str] = "650506db3ff1c2140ea10ece",
     ):
         self.video_id = video_id
         self.video_start_time = video_start_time
