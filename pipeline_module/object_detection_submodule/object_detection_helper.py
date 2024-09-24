@@ -1,281 +1,154 @@
 import requests
 import os
 import csv
-import json
-import traceback
-from ..utils_module.utils import read_value_from_file, return_video_frames_folder, return_video_folder_name, OBJECTS_CSV, save_value_to_file
+from typing import Dict, Any
+from web_server_module.web_server_database import update_status, get_status_for_youtube_id, update_module_output
+from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, OBJECTS_CSV
 from ..utils_module.timeit_decorator import timeit
 
 DEFAULT_OBJECT_DETECTION_BATCH_SIZE = 100
 IMAGE_THRESHOLD = 0.25
 
+
 def get_object_from_YOLO_batch(files_path, threshold, logger=None):
-    print(f"Sending batch request to YOLO API for {len(files_path)} files")
     """
-    Use remote image object detection service provided by YOLO
+    Sends batch request to YOLO API for object detection.
+
+    Parameters:
+    files_path (str): The path to the folder containing video frames.
+    threshold (float): The confidence threshold for object detection.
+    logger (Logger): Optional logger for recording actions.
+
+    Returns:
+    List[Dict]: The results of the object detection for each frame.
     """
     token = os.getenv('ANDREW_YOLO_TOKEN')
     yolo_port = os.getenv('YOLO_PORT') or '8087'
-        
-    payload = json.dumps({
+
+    payload = {
         "files_path": files_path,
         "threshold": threshold
-    })
-    
-    headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
     }
-    
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
     url = f'http://localhost:{yolo_port}/detect_multiple_files'
-    
-    print("url :: ",url)
-    
-    return_val = None
+    print("YOLO API URL: ", url)
 
     if logger:
-        logger.info(f"Running object detection for {str(files_path)}")
         logger.info(f"Running object detection on URL {url}")
-        logger.info(f"=========================")
+
     try:
-        response = requests.request("POST", url, headers=headers, data=payload)
-        
+        response = requests.post(url, headers=headers, json=payload)
+
         if response.status_code != 200:
-            print("Server returned status {}.".format(response.status_code))
+            print(f"Server returned status {response.status_code}.")
             if logger:
                 logger.info(f"Server returned status {response.status_code}")
-            return_val = []
+            return []
 
-        response_data = eval(response.text)
-        response.close()
-        return_val = response_data['results']
+        response_data = response.json()
+        return response_data['results']
 
-    except requests.exceptions.Timeout:
-        print("Request timed out")
-        raise Exception('Request timed out')
-    except requests.exceptions.RequestException as e:
+    except requests.RequestException as e:
         print(f"Request error: {e}")
         raise Exception(f"Request error: {e}")
-    print(f"YOLO API batch response received for {len(return_val)} files")
-    return return_val
 
-def get_object_from_YOLO(filename, threshold, logger=None):
-    print(f"Sending single file request to YOLO API for {filename}")
-    """
-    Use remote image object detection service provided by YOLO
-    """
-    token = os.getenv('ANDREW_YOLO_TOKEN')
-    yolo_port = os.getenv('YOLO_PORT') or '8087'
-        
-    payload = json.dumps({
-        "filename": filename,
-        "threshold": threshold
-    })
-    
-    headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-    }
-    
-    url = f'http://localhost:{yolo_port}/detect_single_file'
-    
-    print("url :: ",url)
-    
-    return_val = None
-
-    if logger:
-        logger.info(f"Running object detection for {filename}")
-        logger.info(f"Running object detection on URL {url}")
-        logger.info(f"=========================")
-    try:
-        response = requests.request("POST", url, headers=headers, data=payload)
-        
-        if response.status_code != 200:
-            print("Server returned status {}.".format(response.status_code))
-            if logger:
-                logger.info(f"Server returned status {response.status_code}")
-            return_val = []
-
-        response_data = eval(response.text)
-        response.close()
-        return_val = response_data['results']
-
-    except requests.exceptions.Timeout:
-        print("Request timed out")
-        raise Exception('Request timed out')
-    except requests.exceptions.RequestException as e:
-        print(f"Request error: {e}")
-        raise Exception(f"Request error: {e}")
-    print(f"YOLO API response received for {filename}")
-    return return_val
-
-def detect_objects(video_files_path, threshold, video_runner_obj, logging=False, logger=None):
-    """
-    Detects objects in each frame and collates the results into a dictionary
-    The key is the name of the object, and each entry contains the frame index, detection confidence, and count
-    """
-    objects = {}
-    last_processed_frame = 0
-
-    if not read_value_from_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']"):
-        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=str(True))
-        step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
-        num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-    else:
-        last_processed_frame = read_value_from_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']")
-        num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-        step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
-
-    for frame_index in range(last_processed_frame, num_frames, step):
-        frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
-        obj_list = get_object_from_YOLO(frame_filename, threshold, logger=logger)
-        frame_objects = {}
-        for entry in obj_list:
-            name = entry['name']
-            prob = entry['confidence']
-            if name not in frame_objects:
-                frame_objects[name] = [frame_index, prob, 1]
-            else:
-                frame_objects[name][2] += 1
-        for name, data in frame_objects.items():
-            if name not in objects:
-                objects[name] = []
-            objects[name].append(data)
-        if logging:
-            print('\rOn frame {}/{} ({}% complete)          '.format(frame_index, num_frames, (frame_index*100)//num_frames), end='')
-        if logger:
-            logger.info(f"Frame Index: {frame_index}")
-        last_processed_frame = frame_index
-        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=str(last_processed_frame))
-
-    if logging:
-        print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
-    if logger:
-        logger.info(f"Frame Index: {frame_index}")
-    return objects
-
-def process_batch_response(batch_response, objects):
-    for response in batch_response:
-        frame_index = response['frame_number']
-        obj_list = response['confidences']
-        for entry in obj_list:
-            name = entry['name']
-            prob = entry['confidence']
-            if name not in objects:
-                objects[name] = []
-            objects[name].append([frame_index, prob, 1])
-    return objects
-
-def detect_objects_batch(video_files_path, threshold, video_runner_obj, logging=False, logger=None):
-    objects = {}
-    last_processed_frame = 0
-
-    if not read_value_from_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']"):
-        save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['started']", value=str(True))
-        step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
-        num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-    else:
-        last_processed_frame = read_value_from_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']")
-        num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-        step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
-
-    batch_size = DEFAULT_OBJECT_DETECTION_BATCH_SIZE
-
-    batched_frame_filenames = []
-
-    for frame_index in range(last_processed_frame, num_frames, step):
-        frame_filename = '{}/frame_{}.jpg'.format(video_files_path, frame_index)
-        batched_frame_filenames.append(frame_filename)
-
-        if len(batched_frame_filenames) == batch_size or frame_index == num_frames - 1:
-            batch_response = get_object_from_YOLO_batch(batched_frame_filenames, threshold, logger=logger)
-            objects = process_batch_response(batch_response=batch_response, objects=objects)
-
-            if logging:
-                print('\rOn frame {}/{} ({}% complete)          '.format(frame_index, num_frames, (frame_index * 100) // num_frames), end='')
-
-            if logger:
-                logger.info(f"Frame Index: {frame_index}")
-
-            last_processed_frame = frame_index
-            save_value_to_file(video_runner_obj=video_runner_obj, key="['ObjectDetection']['last_processed_frame']", value=str(last_processed_frame))
-
-            batched_frame_filenames = []
-
-    if len(batched_frame_filenames) > 0:
-        batch_response = get_object_from_YOLO_batch(batched_frame_filenames, threshold, logger=logger)
-        objects = process_batch_response(batch_response=batch_response, objects=objects)
-
-    if logging:
-        print('\rOn frame {}/{} (100% complete)          '.format(frame_index, num_frames))
-
-    if logger:
-        logger.info(f"Frame Index: {frame_index}")
-
-    return objects
 
 @timeit
-def object_detection_to_csv(video_runner_obj):
+def object_detection_to_csv(video_runner_obj: Dict[str, Any]) -> bool:
+    """
+    Performs object detection on video frames, writes detection results to a CSV file, and saves progress and output to the database.
+
+    Parameters:
+    video_runner_obj (Dict): A dictionary containing video processing details.
+
+    Returns:
+    bool: True if object detection and saving results were successful, False otherwise.
+    """
     print(f"Starting object_detection_to_csv for video: {video_runner_obj['video_id']}")
     video_frames_path = return_video_frames_folder(video_runner_obj)
     video_runner_obj["logger"].info(f"Running object detection for {video_runner_obj['video_id']}")
-    
+
     outcsvpath = return_video_folder_name(video_runner_obj) + "/" + OBJECTS_CSV
-    num_frames = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['num_frames']")
-    step = read_value_from_file(video_runner_obj=video_runner_obj, key="['video_common_values']['step']")
 
-    if not os.path.exists(outcsvpath):
-        try:
-            print("Detecting objects and writing to CSV")
-            objects = detect_objects_batch(video_frames_path, IMAGE_THRESHOLD, video_runner_obj=video_runner_obj, logging=True, logger=video_runner_obj["logger"])
-            print(f"Object detection completed. Writing results to {outcsvpath}")
-            video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")
-            video_runner_obj["logger"].info(f"video_frames_path: {video_frames_path}")
-
-            with open(outcsvpath, 'a', newline='') as outcsvfile:
-                writer = csv.writer(outcsvfile)
-                header = ['frame_index']
-                for name, data in objects.items():
-                    header.append(name)
-                    header.append('')
-                writer.writerow(header)
-                for frame_index in range(0, num_frames, step):
-                    row = [frame_index]
-                    for name, data in objects.items():
-                        found = False
-                        for entry in data:
-                            if entry[0] == frame_index:
-                                found = True
-                                row.append(entry[1])
-                                row.append(entry[2])
-                                break
-                            if entry[0] > frame_index:
-                                break
-                        if not found:
-                            row.append('')
-                            row.append('')
-                    writer.writerow(row)
-                    outcsvfile.flush()
-            print(f"Object detection results written to {outcsvpath}")
-            return True
-        except Exception as e:
-            print(f"Error in object_detection_to_csv: {str(e)}")
-            traceback.print_exc()
-            print(e)
-            return False
-
-    else:
+    if os.path.exists(outcsvpath):
         print(f"Object detection CSV already exists: {outcsvpath}")
         return True
 
+    try:
+        print("Detecting objects and writing to CSV")
+        objects = detect_objects_batch(video_frames_path, IMAGE_THRESHOLD, video_runner_obj=video_runner_obj,
+                                       logging=True, logger=video_runner_obj["logger"])
 
-if __name__ == "__main__":
-    # Test code
-    video_runner_obj = {
-        "video_id": "test_video",
-        "logger": print
-    }
+        print(f"Object detection completed. Writing results to {outcsvpath}")
+        video_runner_obj["logger"].info(f"Writing object detection results to {outcsvpath}")
 
-    # Test object_detection_to_csv
-    success = object_detection_to_csv(video_runner_obj)
-    print(f"object_detection_to_csv {'succeeded' if success else 'failed'}")
+        with open(outcsvpath, 'w', newline='') as outcsvfile:
+            writer = csv.writer(outcsvfile)
+            header = ['frame_index'] + list(objects.keys())
+            writer.writerow(header)
+
+            for frame_index in range(len(objects)):
+                row = [frame_index]
+                for obj, data in objects.items():
+                    row.extend([data.get('confidence', ''), data.get('count', '')])
+                writer.writerow(row)
+                outcsvfile.flush()
+
+        print(f"Object detection results written to {outcsvpath}")
+
+        # Save object detection results in the database for future use
+        update_module_output(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], 'object_detection_helper',
+                             {"objects": objects})
+
+        # Update progress to "done" in the database
+        update_status(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], "done")
+
+        return True
+    except Exception as e:
+        print(f"Error in object_detection_to_csv: {str(e)}")
+        video_runner_obj["logger"].error(f"Error in object_detection_to_csv: {str(e)}")
+        return False
+
+
+def detect_objects_batch(video_frames_path: str, threshold: float, video_runner_obj: Dict[str, Any],
+                         logging: bool = False, logger=None) -> Dict:
+    """
+    Detect objects in a batch of video frames using the YOLO model.
+
+    Parameters:
+    video_frames_path (str): The folder path where the video frames are stored.
+    threshold (float): The confidence threshold for object detection.
+    video_runner_obj (Dict): A dictionary containing video processing details.
+    logging (bool): Whether to log progress information.
+    logger (Logger): Optional logger for recording actions.
+
+    Returns:
+    Dict: A dictionary where keys are object names and values are detection results (confidence and count).
+    """
+    objects_detected = {}
+
+    frame_files = [os.path.join(video_frames_path, f) for f in os.listdir(video_frames_path) if f.endswith('.jpg')]
+
+    for i in range(0, len(frame_files), DEFAULT_OBJECT_DETECTION_BATCH_SIZE):
+        batch = frame_files[i:i + DEFAULT_OBJECT_DETECTION_BATCH_SIZE]
+
+        logger.info(f"Processing object detection batch {i // DEFAULT_OBJECT_DETECTION_BATCH_SIZE + 1}")
+        detection_results = get_object_from_YOLO_batch(video_frames_path, threshold, logger)
+
+        # Combine detection results from batches
+        for result in detection_results:
+            frame_index = result['frame_index']
+            for obj in result['objects']:
+                if obj['name'] not in objects_detected:
+                    objects_detected[obj['name']] = {'confidence': obj['confidence'], 'count': 1}
+                else:
+                    objects_detected[obj['name']]['confidence'] = max(objects_detected[obj['name']]['confidence'],
+                                                                      obj['confidence'])
+                    objects_detected[obj['name']]['count'] += 1
+
+    return objects_detected
