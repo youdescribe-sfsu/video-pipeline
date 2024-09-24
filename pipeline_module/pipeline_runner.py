@@ -5,8 +5,10 @@ from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from yt_dlp.compat import shutil
 
-from web_server_module.web_server_database import remove_sqlite_entry
-# Import all the necessary submodules
+from pipeline_module.utils_module.utils import PipelineTask, return_video_folder_name
+from web_server_module.web_server_database import update_status, get_status_for_youtube_id  # Modified import
+
+# Import all necessary submodules
 from .import_video_submodule.import_video import ImportVideo
 from .extract_audio_submodule.extract_audio import ExtractAudio
 from .speech_to_text_submodule.speech_to_text import SpeechToText
@@ -20,8 +22,6 @@ from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
 from .text_summarization_submodule.text_summary import TextSummaryCoordinator
 from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
-from .utils_module.utils import load_progress_from_file, save_progress_to_file, PipelineTask, return_video_folder_name, \
-    return_video_download_location
 
 
 class PipelineRunner:
@@ -64,23 +64,15 @@ class PipelineRunner:
         return logger
 
     def load_progress(self) -> Dict[str, Any]:
-        return load_progress_from_file({
-            "video_id": self.video_id,
-            "AI_USER_ID": self.AI_USER_ID,
-            "video_start_time": self.video_start_time,
-            "video_end_time": self.video_end_time
-        })
+        """Load pipeline progress from the SQLite database."""
+        progress = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
+        return progress or {}
 
     def save_progress(self):
-        save_progress_to_file({
-            "video_id": self.video_id,
-            "AI_USER_ID": self.AI_USER_ID,
-            "video_start_time": self.video_start_time,
-            "video_end_time": self.video_end_time
-        }, self.progress)
+        """Save pipeline progress to the SQLite database."""
+        update_status(self.video_id, self.AI_USER_ID, self.progress)
 
     async def run_task(self, task: str, *args, **kwargs) -> Any:
-        # Reload progress before starting the task
         self.progress = self.load_progress()
 
         if self.progress.get(task) == "completed":

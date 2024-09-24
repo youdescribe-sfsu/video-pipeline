@@ -3,7 +3,8 @@ import json
 import yt_dlp as ydl
 from typing import Dict, Union, Optional, Any
 from logging import Logger
-from ..utils_module.utils import read_value_from_file, return_video_download_location, return_video_folder_name, save_value_to_file
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status
+from ..utils_module.utils import return_video_download_location, return_video_folder_name
 from ..utils_module.timeit_decorator import timeit
 from datetime import timedelta
 import ffmpeg
@@ -27,9 +28,10 @@ class ImportVideo:
         print(f"Video ID: {video_id}, Start time: {video_start_time}, End time: {video_end_time}")
 
         try:
-            download_status = read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                                   key="['ImportVideo']['download_video']")
-            if download_status:
+            # Use the database to check the download status
+            download_status = get_status_for_youtube_id(video_id, self.video_runner_obj.get("AI_USER_ID"))
+
+            if download_status == "done":
                 print("Video already downloaded, skipping step.")
                 return True
 
@@ -63,8 +65,8 @@ class ImportVideo:
             if video_start_time and video_end_time:
                 self.trim_video(video_start_time, video_end_time)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['ImportVideo']['download_video']",
-                               value=True)
+            # Use the database to update the progress status
+            update_status(video_id, self.video_runner_obj.get("AI_USER_ID"), "done")
             print(f"Video downloaded to {return_video_download_location(self.video_runner_obj)}")
 
             return True
