@@ -1,9 +1,10 @@
 import csv
 import requests
 import os
-from typing import Dict, Any, List
-from ..utils_module.utils import CAPTION_SCORE, load_progress_from_file, read_value_from_file, return_video_folder_name, \
-    CAPTION_IMAGE_PAIR, OBJECTS_CSV, CAPTIONS_CSV, CAPTIONS_AND_OBJECTS_CSV, save_progress_to_file, save_value_to_file
+from typing import Dict, Any
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+from ..utils_module.utils import CAPTION_SCORE, return_video_folder_name, CAPTION_IMAGE_PAIR, OBJECTS_CSV, \
+    CAPTIONS_AND_OBJECTS_CSV
 from ..utils_module.timeit_decorator import timeit
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -17,14 +18,17 @@ class CaptionRating:
 
     @timeit
     def perform_caption_rating(self) -> bool:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['started']") == 'done':
-            self.logger.info("CaptionRating Already processed")
+        # Check progress using the database
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
+            self.logger.info("CaptionRating already processed")
             return True
 
         try:
             self.get_all_caption_rating()
             self.filter_captions()
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['started']", value='done')
+
+            # Mark the task as done in the database
+            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
             return True
         except Exception as e:
             self.logger.error(f"Error in caption rating: {str(e)}")
@@ -46,11 +50,6 @@ class CaptionRating:
         image_caption_csv_file = return_video_folder_name(self.video_runner_obj) + '/' + CAPTION_IMAGE_PAIR
         output_csv_file = return_video_folder_name(self.video_runner_obj) + '/' + CAPTION_SCORE
 
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['CaptionRating']['get_all_caption_rating']") == 1:
-            self.logger.info("Caption rating already processed")
-            return
-
         with open(image_caption_csv_file, 'r', newline='', encoding='utf-8') as captcsvfile, \
                 open(output_csv_file, 'w', newline='', encoding='utf-8') as output_csvfile:
             reader = csv.DictReader(captcsvfile)
@@ -69,10 +68,11 @@ class CaptionRating:
                     except Exception as e:
                         self.logger.error(f"Error processing row {row['frame_index']}: {str(e)}")
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['get_all_caption_rating']",
-                           value=str(1))
+        # Save caption ratings to the database
+        update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'caption_rating',
+                             {"ratings": "completed"})
 
-    def process_row(self, row: Dict[str, str]) -> Dict[str, Any]:
+    def process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         captions = [row[f'caption{i}'] for i in range(1, 5) if f'caption{i}' in row]
         best_caption = max(captions,
                            key=lambda c: self.get_caption_rating({'frame_url': row['frame_url'], 'caption': c}))
@@ -86,11 +86,6 @@ class CaptionRating:
         }
 
     def filter_captions(self) -> None:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['CaptionRating']['filter_captions']") == 1:
-            self.logger.info("Caption filtering already processed")
-            return
-
         caption_filter_csv = return_video_folder_name(self.video_runner_obj) + '/' + CAPTION_SCORE
         objects_csv = return_video_folder_name(self.video_runner_obj) + '/' + OBJECTS_CSV
         output_csv = return_video_folder_name(self.video_runner_obj) + '/' + CAPTIONS_AND_OBJECTS_CSV
@@ -122,16 +117,5 @@ class CaptionRating:
                     output_row.update({k: object_row.get(k, '') for k in fieldnames[4:]})
                     writer.writerow(output_row)
 
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['CaptionRating']['filter_captions']", value=str(1))
         self.logger.info(f"Caption filtering complete for {self.video_runner_obj['video_id']}")
 
-
-if __name__ == "__main__":
-    # For testing purposes
-    video_runner_obj = {
-        "video_id": "test_video",
-        "logger": print  # Use print as a simple logger for testing
-    }
-    caption_rater = CaptionRating(video_runner_obj)
-    success = caption_rater.perform_caption_rating()
-    print(f"Caption rating {'succeeded' if success else 'failed'}")
