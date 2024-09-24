@@ -1,13 +1,12 @@
 import csv
 import json
 import numpy as np
-from typing import Dict, Any, List, Tuple
-from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, read_value_from_file, \
-    return_video_folder_name, save_value_to_file
+from typing import Dict, Any, List
+from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, return_video_folder_name
+from web_server_module.web_server_database import update_status, get_status_for_youtube_id, update_module_output
 from ..utils_module.timeit_decorator import timeit
 from sklearn.cluster import KMeans
 from scipy.signal import find_peaks
-
 
 class SceneSegmentation:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -25,12 +24,10 @@ class SceneSegmentation:
     def run_scene_segmentation(self) -> bool:
         self.logger.info("Running scene segmentation")
 
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['SceneSegmentation']['run_scene_segmentation']") == 1:
+        # Check if scene segmentation has already been completed
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
             self.logger.info("Scene segmentation already processed")
             return True
-
-        save_value_to_file(video_runner_obj=self.video_runner_obj, key="['SceneSegmentation']['started']", value=str(True))
 
         try:
             frame_data = self.load_frame_data()
@@ -38,8 +35,12 @@ class SceneSegmentation:
             scenes = self.generate_scenes(frame_data, scene_boundaries)
             self.save_scenes(scenes)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj,
-                               key="['SceneSegmentation']['run_scene_segmentation']", value=str(1))
+            # Mark task as done in the database
+            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
+
+            # Save the segmented scenes to the database for future use
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'scene_segmentation', {"scenes": scenes})
+
             self.logger.info("Scene segmentation completed")
             return True
         except Exception as e:
@@ -65,16 +66,14 @@ class SceneSegmentation:
     def detect_scene_boundaries(self, frame_data: List[Dict[str, Any]]) -> List[int]:
         similarities = [frame['similarity'] for frame in frame_data]
         similarities = np.array(similarities)
-        similarities[np.isnan(similarities)] = np.nanmean(similarities)  # Replace NaNs with mean
+        similarities[np.isnan(similarities)] = np.nanmean(similarities)
 
         # Use both threshold-based and peak detection methods
         threshold_boundaries = self.threshold_based_detection(similarities)
         peak_boundaries = self.peak_based_detection(similarities)
 
-        # Combine and sort the boundaries
         all_boundaries = sorted(set(threshold_boundaries + peak_boundaries))
 
-        # Filter out boundaries that are too close to each other
         filtered_boundaries = self.filter_boundaries(all_boundaries, frame_data)
 
         return filtered_boundaries
@@ -84,9 +83,8 @@ class SceneSegmentation:
         return [i for i in range(1, len(similarities)) if similarities[i] < threshold]
 
     def peak_based_detection(self, similarities: np.ndarray) -> List[int]:
-        # Invert similarities for peak detection (low similarity = scene change)
         inverted_similarities = np.max(similarities) - similarities
-        peaks, _ = find_peaks(inverted_similarities, distance=self.min_scene_duration * 30)  # Assuming 30 fps
+        peaks, _ = find_peaks(inverted_similarities, distance=self.min_scene_duration * 30)
         return list(peaks)
 
     def filter_boundaries(self, boundaries: List[int], frame_data: List[Dict[str, Any]]) -> List[int]:
@@ -110,7 +108,6 @@ class SceneSegmentation:
             }
             scenes.append(scene)
 
-        # Add the last scene
         if scene_boundaries:
             last_start = scene_boundaries[-1]
             scenes.append({
@@ -126,7 +123,6 @@ class SceneSegmentation:
         if not descriptions:
             return "No description available"
 
-        # Use K-means clustering to group similar descriptions
         vectorizer = self.get_vectorizer()
         vectors = vectorizer.fit_transform(descriptions)
 
@@ -145,7 +141,6 @@ class SceneSegmentation:
         return " ".join(closest_descriptions)
 
     def get_vectorizer(self):
-        # You can replace this with a more sophisticated vectorizer if needed
         from sklearn.feature_extraction.text import TfidfVectorizer
         return TfidfVectorizer(stop_words='english')
 
@@ -157,14 +152,3 @@ class SceneSegmentation:
             writer.writerows(scenes)
 
         self.logger.info(f"Scene segmentation results saved to {scene_segmented_file}")
-
-
-if __name__ == "__main__":
-    # For testing purposes
-    video_runner_obj = {
-        "video_id": "test_video",
-        "logger": print  # Use print as a simple logger for testing
-    }
-    scene_segmentation = SceneSegmentation(video_runner_obj)
-    success = scene_segmentation.run_scene_segmentation()
-    print(f"Scene segmentation {'succeeded' if success else 'failed'}")
