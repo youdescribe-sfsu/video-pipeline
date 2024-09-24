@@ -5,7 +5,6 @@ import csv
 import string
 import traceback
 from ..utils_module.utils import (
-    read_value_from_file,
     return_video_folder_name,
     SUMMARIZED_SCENES,
     OCR_FILTER_REMOVE_SIMILAR,
@@ -14,9 +13,9 @@ from ..utils_module.utils import (
     OCR_HEADERS,
     TIMESTAMP_SELECTOR,
     OCR_TEXT_SELECTOR,
-    save_value_to_file,
 )
-from web_server_module.web_server_database import return_all_user_data_for_youtube_id_ai_user_id
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output, \
+    return_all_user_data_for_youtube_id_ai_user_id
 
 
 class UploadToYDX:
@@ -51,7 +50,8 @@ class UploadToYDX:
             return (False, "")
 
     def upload_to_ydx(self, ydx_server=None, AI_USER_ID=os.getenv("YDX_AI_USER_ID")):
-        if read_value_from_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']") == 'done':
+        # Check if upload is already done via the database
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'upload_to_YDX') == 'done':
             self.logger.info("Already uploaded to YDX")
             return
 
@@ -72,7 +72,11 @@ class UploadToYDX:
             if self.upload_to_server:
                 self.send_data_to_server(data, ydx_server, AI_USER_ID)
 
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['UploadToYDX']['started']", value='done')
+            # Mark the upload as done in the database
+            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'done')
+
+            # Store upload details in the database for future reference
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'upload_to_YDX', {"upload_data": data})
 
         except Exception as e:
             self.logger.error(f"Error in upload_to_ydx: {str(e)}")
