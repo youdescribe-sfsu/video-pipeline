@@ -1,17 +1,12 @@
 import json
 import csv
 from typing import List, Dict, Any
-from nltk.translate.bleu_score import sentence_bleu
-from nltk.translate.bleu_score import SmoothingFunction
-from ..utils_module.utils import (
-    read_value_from_file,
-    save_value_to_file,
-    return_video_folder_name,
-    SCENE_SEGMENTED_FILE_CSV,
-    SUMMARIZED_SCENES
-)
-from ..utils_module.timeit_decorator import timeit
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from transformers import pipeline
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+from ..utils_module.utils import return_video_folder_name, SCENE_SEGMENTED_FILE_CSV, SUMMARIZED_SCENES
+from ..utils_module.timeit_decorator import timeit
+
 
 class TextSummarization:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -21,13 +16,9 @@ class TextSummarization:
 
     def calculate_bleu_score(self, data: Dict[str, Any]) -> float:
         method1 = SmoothingFunction().method1
-        sentence = data['sentence']
-        reference = data['reference']
-
-        candidate = sentence.split()
-        reference_list = [ref.split() for ref in reference]
-
-        weights = (0.25, 0.25, 0.25, 0.25)  # equal weights for 1-gram to 4-gram
+        candidate = data['sentence'].split()
+        reference_list = [ref.split() for ref in data['reference']]
+        weights = (0.25, 0.25, 0.25, 0.25)  # Equal weights for 1-gram to 4-gram
         return sentence_bleu(reference_list, candidate, weights=weights, smoothing_function=method1)
 
     def group_similar_sentences(self, sentences: List[str], threshold: float = 0.4) -> List[List[int]]:
@@ -55,9 +46,6 @@ class TextSummarization:
         return sentence_groups
 
     def select_best_sentence(self, sentences: List[str], group: List[int]) -> str:
-        if len(group) == 1:
-            return sentences[group[0]]
-
         best_score = -1
         best_sentence = ''
 
@@ -76,8 +64,7 @@ class TextSummarization:
 
     @timeit
     def generate_text_summary(self) -> bool:
-        if read_value_from_file(video_runner_obj=self.video_runner_obj,
-                                key="['TextSummarization']['started']") == 'done':
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
             self.logger.info("Text summarization already processed")
             return True
 
@@ -119,20 +106,14 @@ class TextSummarization:
                 json.dump(summarized_scenes, f, indent=2)
 
             self.logger.info(f"Text summarization completed. Output saved to {output_file}")
-            save_value_to_file(video_runner_obj=self.video_runner_obj, key="['TextSummarization']['started']",
-                               value='done')
+
+            # Save the summarization results to the database
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                                 'text_summarization', {"summarized_scenes": summarized_scenes})
+
+            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
             return True
 
         except Exception as e:
             self.logger.error(f"Error in text summarization: {str(e)}")
             return False
-
-if __name__ == "__main__":
-    # For testing purposes
-    video_runner_obj = {
-        "video_id": "test_video",
-        "logger": print  # Use print as a simple logger for testing
-    }
-    text_summarization = TextSummarization(video_runner_obj)
-    success = text_summarization.generate_text_summary()
-    print(f"Text summarization {'succeeded' if success else 'failed'}")
