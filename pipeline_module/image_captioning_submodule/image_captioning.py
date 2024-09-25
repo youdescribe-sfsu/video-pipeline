@@ -165,36 +165,45 @@ class ImageCaptioning:
             csv_writer = csv.writer(csv_file)
             csv_writer.writerows(updated_rows)
 
-    def combine_image_caption(self) -> None:
+    def combine_image_caption(self) -> bool:
         """
         Combines image paths with their respective captions and saves them to a CSV file.
         """
         video_folder_path = return_video_folder_name(self.video_runner_obj)
         captcsvpath = os.path.join(video_folder_path, CAPTIONS_CSV)
 
-        with open(captcsvpath, 'r', newline='', encoding='utf-8') as captcsvfile:
-            data = csv.DictReader(captcsvfile)
-            video_frames_path = return_video_frames_folder(self.video_runner_obj)
-            image_caption_pairs = [
-                {
-                    "frame_index": row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]],
-                    "frame_url": f'{video_frames_path}/frame_{row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]}.jpg',
-                    "captions": json.loads(row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
-                } for row in data
-            ]
+        if not os.path.exists(captcsvpath):
+            self.logger.error(f"Captions file not found: {captcsvpath}")
+            return False
 
-        image_caption_csv_file = os.path.join(video_folder_path, CAPTION_IMAGE_PAIR)
-        with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
-            fieldnames = ["frame_index", "frame_url", "caption1", "caption2", "caption3", "caption4"]
-            csvDictWriter = csv.DictWriter(output_file, fieldnames=fieldnames)
-            csvDictWriter.writeheader()
-            for pair in image_caption_pairs:
-                row = {
-                    "frame_index": pair["frame_index"],
-                    "frame_url": pair["frame_url"],
-                }
-                for i, caption in enumerate(pair["captions"], start=1):
-                    row[f"caption{i}"] = caption
-                csvDictWriter.writerow(row)
+        try:
+            with open(captcsvpath, 'r', newline='', encoding='utf-8') as captcsvfile:
+                data = csv.DictReader(captcsvfile)
+                video_frames_path = return_video_frames_folder(self.video_runner_obj)
+                image_caption_pairs = [
+                    {
+                        "frame_index": row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]],
+                        "frame_url": f'{video_frames_path}/frame_{row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]}.jpg',
+                        "captions": json.loads(row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
+                    } for row in data
+                ]
 
-        self.logger.info(f"Completed Writing Image Caption Pair to CSV")
+            image_caption_csv_file = os.path.join(video_folder_path, CAPTION_IMAGE_PAIR)
+            with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
+                fieldnames = ["frame_index", "frame_url", "caption1", "caption2", "caption3", "caption4"]
+                csvDictWriter = csv.DictWriter(output_file, fieldnames=fieldnames)
+                csvDictWriter.writeheader()
+                for pair in image_caption_pairs:
+                    row = {
+                        "frame_index": pair["frame_index"],
+                        "frame_url": pair["frame_url"],
+                    }
+                    for i, caption in enumerate(pair["captions"], start=1):
+                        row[f"caption{i}"] = caption
+                    csvDictWriter.writerow(row)
+
+            self.logger.info(f"Completed Writing Image Caption Pair to CSV")
+
+        except Exception as e:
+            self.logger.error(f"Error reading captions file: {str(e)}")
+            return False
