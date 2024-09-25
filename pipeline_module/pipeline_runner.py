@@ -100,26 +100,26 @@ class PipelineRunner:
             raise
 
     async def run_import_video(self) -> None:
-        import_video =  ImportVideo({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        import_video =  ImportVideo({"video_id": self.video_id, "logger": self.logger})
         success = import_video.download_video()
         if not success:
             raise Exception("Video import failed")
 
     async def run_extract_audio(self) -> None:
-        extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
         success = extract_audio.extract_audio()
         if not success:
             raise Exception("Audio extraction failed")
 
     async def run_speech_to_text(self) -> None:
-        speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger})
         success = speech_to_text.get_speech_from_audio()
         if not success:
             raise Exception("Speech to text conversion failed")
 
     async def run_frame_extraction(self) -> None:
         frame_extraction = FrameExtraction(
-            {"video_id": self.video_id, "logger": self.logger,"AI_USER_ID": self.AI_USER_ID},
+            {"video_id": self.video_id, "logger": self.logger},
             int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
         )
         success = frame_extraction.extract_frames()
@@ -127,13 +127,13 @@ class PipelineRunner:
             raise Exception("Frame extraction failed")
 
     async def run_ocr_extraction(self) -> None:
-        ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger})
         success = ocr_extraction.run_ocr_detection()
         if not success:
             raise Exception("OCR extraction failed")
 
     async def run_object_detection(self) -> None:
-        object_detection = ObjectDetection({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        object_detection = ObjectDetection({"video_id": self.video_id, "logger": self.logger})
         success = object_detection.run_object_detection()
         if not success:
             raise Exception("Object detection failed")
@@ -151,7 +151,7 @@ class PipelineRunner:
             raise Exception("Keyframe selection failed")
 
     async def run_image_captioning(self) -> None:
-        image_captioning = ImageCaptioning({"video_id": self.video_id, "logger": self.logger,"AI_USER_ID": self.AI_USER_ID})
+        image_captioning = ImageCaptioning({"video_id": self.video_id, "logger": self.logger})
         success = image_captioning.run_image_captioning()
         if not success:
             raise Exception("Image captioning failed")
@@ -160,26 +160,26 @@ class PipelineRunner:
             raise Exception("Combining image captions failed")
 
     async def run_caption_rating(self) -> None:
-        caption_rating = CaptionRating({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        caption_rating = CaptionRating({"video_id": self.video_id, "logger": self.logger})
         success = caption_rating.perform_caption_rating()
         if not success:
             raise Exception("Caption rating failed")
 
     async def run_scene_segmentation(self) -> None:
-        scene_segmentation = SceneSegmentation({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        scene_segmentation = SceneSegmentation({"video_id": self.video_id, "logger": self.logger})
         success = scene_segmentation.run_scene_segmentation()
         if not success:
             raise Exception("Scene segmentation failed")
 
     async def run_text_summarization(self) -> None:
-        text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger,"AI_USER_ID": self.AI_USER_ID})
+        text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger})
         success = text_summarization.generate_text_summary()
         if not success:
             raise Exception("Text summarization failed")
 
     async def run_upload_to_ydx(self) -> None:
         upload_to_ydx = UploadToYDX(
-            {"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID},
+            {"video_id": self.video_id, "logger": self.logger},
             upload_to_server=self.upload_to_server
         )
         success = await upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
@@ -187,7 +187,7 @@ class PipelineRunner:
             raise Exception("Upload to YDX failed")
 
     async def run_generate_ydx_caption(self) -> None:
-        generate_ydx_caption = GenerateYDXCaption({"video_id": self.video_id, "logger": self.logger, "AI_USER_ID": self.AI_USER_ID})
+        generate_ydx_caption = GenerateYDXCaption({"video_id": self.video_id, "logger": self.logger})
         success = await generate_ydx_caption.generateYDXCaption(
             ydx_server=self.ydx_server,
             ydx_app_host=self.ydx_app_host,
