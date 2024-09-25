@@ -48,6 +48,8 @@ class ImageCaptioning:
             keyframes = self.load_keyframes(video_folder_path)
 
             outcsvpath = os.path.join(video_folder_path, CAPTIONS_CSV)
+            self.logger.info(f"Writing captions to: {outcsvpath}")
+
 
             with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
                 writer = csv.writer(outcsvfile)
