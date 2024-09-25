@@ -95,20 +95,26 @@ async def generate_ai_caption(post_data: WebServerRequest):
 async def process_queue():
     print("Queue processing started")
     while True:
+        task = None
         try:
-            task = await pipeline_queue.get()
+            task = await pipeline_queue.get()  # Fetch task from queue
             await run_pipeline_task(
                 youtube_id=task.youtube_id,
                 ai_user_id=task.AI_USER_ID,
                 ydx_server=task.ydx_server,
                 ydx_app_host=task.ydx_app_host
             )
+        except asyncio.CancelledError:
+            logger.info("Queue processing task was cancelled.")
+            if task:
+                logger.info(f"Cleaning up task: {task.youtube_id}, {task.AI_USER_ID}")
+            raise
         except Exception as e:
             logger.error(f"Error processing queue: {str(e)}")
             logger.error(traceback.format_exc())
         finally:
-            # Ensure task is removed from enqueued_tasks, even if an error occurred
-            enqueued_tasks.discard((task.youtube_id, task.AI_USER_ID))
+            if task:
+                enqueued_tasks.discard((task.youtube_id, task.AI_USER_ID))
         print("Queue processing iteration completed")
 
 
