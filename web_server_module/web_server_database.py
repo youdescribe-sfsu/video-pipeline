@@ -141,23 +141,18 @@ def get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id):
 
 def get_status_for_youtube_id(youtube_id, ai_user_id):
     try:
+        youtube_id = str(youtube_id)
+        ai_user_id = str(ai_user_id)
         with connection.return_connection() as con:
             cursor = con.cursor()
-
-            # Add logging to check the query inputs
-            print(f"Executing query for youtube_id: {youtube_id}, ai_user_id: {ai_user_id}")
-
+            print(f"Executing query with youtube_id: {youtube_id}, ai_user_id: {ai_user_id} (types: {type(youtube_id)}, {type(ai_user_id)})")
             cursor.execute('''
                 SELECT status FROM youtube_data
                 WHERE youtube_id = ? AND ai_user_id = ?
             ''', (youtube_id, ai_user_id))
-
             status = cursor.fetchone()
-
-            # Add logging to see what the query returns
             print(f"Query result: {status}")
             return status['status'] if status else None
-
     except sqlite3.Error as e:
         print(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
         logger.error(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
@@ -196,13 +191,12 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
         logger.error(f"Traceback: {traceback.format_exc()}")
 
 def update_status(youtube_id, ai_user_id, status):
-    """
-    Updates the status of the pipeline task in youtube_data.
-    """
     try:
+        # Ensure youtube_id and ai_user_id are strings
+        youtube_id = str(youtube_id)
+        ai_user_id = str(ai_user_id)
         with connection.return_connection() as con:
             cursor = con.cursor()
-
             cursor.execute('''
                 UPDATE youtube_data
                 SET status = ?
@@ -210,6 +204,7 @@ def update_status(youtube_id, ai_user_id, status):
             ''', (status, youtube_id, ai_user_id))
     except sqlite3.Error as e:
         logger.error(f"Error updating status: {e}")
+
 
 def update_ai_user_data(youtube_id, ai_user_id, user_id, status):
     """
