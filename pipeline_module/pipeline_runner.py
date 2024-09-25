@@ -231,7 +231,7 @@ async def run_pipeline(
         ydx_server: Optional[str] = None,
         ydx_app_host: Optional[str] = None,
         userId: Optional[str] = None,
-        AI_USER_ID: Optional[str] = None,
+        AI_USER_ID: Optional[str] = "650506db3ff1c2140ea10ece",
 ) -> None:
     try:
         pipeline_runner = PipelineRunner(
