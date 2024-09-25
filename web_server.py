@@ -176,6 +176,7 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
 
 
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
+    print("INFO ", youtube_id, ai_user_id, ydx_server, ydx_app_host)
     try:
         await run_pipeline(
             video_id=youtube_id,
