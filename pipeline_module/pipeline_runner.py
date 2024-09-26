@@ -133,6 +133,7 @@ class PipelineRunner:
         ocr_extraction = OcrExtraction(self.video_runner_obj)
         success = ocr_extraction.run_ocr_detection()
         if not success:
+            self.logger.error("OCR extraction failed")
             raise Exception("OCR extraction failed")
 
     async def run_object_detection(self) -> None:
