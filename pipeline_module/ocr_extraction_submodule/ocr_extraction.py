@@ -2,7 +2,7 @@ import os
 import csv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from google.cloud import vision
-from typing import Dict, Any
+from typing import Dict, Any, List
 import psutil
 import time
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
