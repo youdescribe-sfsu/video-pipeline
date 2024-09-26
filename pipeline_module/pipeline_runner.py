@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from yt_dlp.compat import shutil
 
 from pipeline_module.utils_module.utils import PipelineTask, return_video_folder_name
-from web_server_module.web_server_database import update_status, get_status_for_youtube_id  # Modified import
+from web_server_module.web_server_database import update_status, get_status_for_youtube_id
 
 # Import all necessary submodules
 from .import_video_submodule.import_video import ImportVideo
@@ -49,11 +49,17 @@ class PipelineRunner:
         self.logger = self.setup_logger()
         self.progress = self.load_progress()
 
+        # Fix: Include AI_USER_ID in video_runner_obj
+        self.video_runner_obj = {
+            "video_id": video_id,
+            "logger": self.logger,
+            "AI_USER_ID": self.AI_USER_ID  # Added this line
+        }
+
     def setup_logger(self) -> logging.Logger:
         logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
         logger.setLevel(logging.INFO)
 
-        # Create pipeline_logs directory if it doesn't exist
         log_dir = "pipeline_logs"
         os.makedirs(log_dir, exist_ok=True)
 
@@ -64,11 +70,9 @@ class PipelineRunner:
         return logger
 
     def load_progress(self) -> Dict[str, Any]:
-        """Load pipeline progress from the SQLite database."""
         status = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
 
         if isinstance(status, str):
-            # If status is a single string, return it as a dict for easier access
             return {"status": status}
         elif isinstance(status, dict):
             return status
@@ -76,7 +80,6 @@ class PipelineRunner:
             return {}
 
     def save_progress(self):
-        """Save pipeline progress to the SQLite database."""
         update_status(self.video_id, self.AI_USER_ID, self.progress)
 
     async def run_task(self, task: str, *args, **kwargs) -> Any:
@@ -100,26 +103,26 @@ class PipelineRunner:
             raise
 
     async def run_import_video(self) -> None:
-        import_video =  ImportVideo({"video_id": self.video_id, "logger": self.logger})
+        import_video = ImportVideo(self.video_runner_obj)
         success = import_video.download_video()
         if not success:
             raise Exception("Video import failed")
 
     async def run_extract_audio(self) -> None:
-        extract_audio = ExtractAudio({"video_id": self.video_id, "logger": self.logger})
+        extract_audio = ExtractAudio(self.video_runner_obj)
         success = extract_audio.extract_audio()
         if not success:
             raise Exception("Audio extraction failed")
 
     async def run_speech_to_text(self) -> None:
-        speech_to_text = SpeechToText({"video_id": self.video_id, "logger": self.logger})
+        speech_to_text = SpeechToText(self.video_runner_obj)
         success = speech_to_text.get_speech_from_audio()
         if not success:
             raise Exception("Speech to text conversion failed")
 
     async def run_frame_extraction(self) -> None:
         frame_extraction = FrameExtraction(
-            {"video_id": self.video_id, "logger": self.logger},
+            self.video_runner_obj,
             int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
         )
         success = frame_extraction.extract_frames()
@@ -127,31 +130,25 @@ class PipelineRunner:
             raise Exception("Frame extraction failed")
 
     async def run_ocr_extraction(self) -> None:
-        ocr_extraction = OcrExtraction({"video_id": self.video_id, "logger": self.logger})
+        ocr_extraction = OcrExtraction(self.video_runner_obj)
         success = ocr_extraction.run_ocr_detection()
         if not success:
             raise Exception("OCR extraction failed")
 
     async def run_object_detection(self) -> None:
-        object_detection = ObjectDetection({"video_id": self.video_id, "logger": self.logger})
+        object_detection = ObjectDetection(self.video_runner_obj)
         success = object_detection.run_object_detection()
         if not success:
             raise Exception("Object detection failed")
 
     async def run_keyframe_selection(self) -> None:
-        keyframe_selection = KeyframeSelection({
-            "video_id": self.video_id,
-            "logger": self.logger,
-            "AI_USER_ID": self.AI_USER_ID,
-            "video_start_time": self.video_start_time,
-            "video_end_time": self.video_end_time
-        })
+        keyframe_selection = KeyframeSelection(self.video_runner_obj)
         success = keyframe_selection.run_keyframe_selection()
         if not success:
             raise Exception("Keyframe selection failed")
 
     async def run_image_captioning(self) -> None:
-        image_captioning = ImageCaptioning({"video_id": self.video_id, "logger": self.logger})
+        image_captioning = ImageCaptioning(self.video_runner_obj)
         success = image_captioning.run_image_captioning()
         if not success:
             raise Exception("Image captioning failed")
@@ -160,26 +157,26 @@ class PipelineRunner:
             raise Exception("Combining image captions failed")
 
     async def run_caption_rating(self) -> None:
-        caption_rating = CaptionRating({"video_id": self.video_id, "logger": self.logger})
+        caption_rating = CaptionRating(self.video_runner_obj)
         success = caption_rating.perform_caption_rating()
         if not success:
             raise Exception("Caption rating failed")
 
     async def run_scene_segmentation(self) -> None:
-        scene_segmentation = SceneSegmentation({"video_id": self.video_id, "logger": self.logger})
+        scene_segmentation = SceneSegmentation(self.video_runner_obj)
         success = scene_segmentation.run_scene_segmentation()
         if not success:
             raise Exception("Scene segmentation failed")
 
     async def run_text_summarization(self) -> None:
-        text_summarization = TextSummaryCoordinator({"video_id": self.video_id, "logger": self.logger})
+        text_summarization = TextSummaryCoordinator(self.video_runner_obj)
         success = text_summarization.generate_text_summary()
         if not success:
             raise Exception("Text summarization failed")
 
     async def run_upload_to_ydx(self) -> None:
         upload_to_ydx = UploadToYDX(
-            {"video_id": self.video_id, "logger": self.logger},
+            self.video_runner_obj,
             upload_to_server=self.upload_to_server
         )
         success = await upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
@@ -187,7 +184,7 @@ class PipelineRunner:
             raise Exception("Upload to YDX failed")
 
     async def run_generate_ydx_caption(self) -> None:
-        generate_ydx_caption = GenerateYDXCaption({"video_id": self.video_id, "logger": self.logger})
+        generate_ydx_caption = GenerateYDXCaption(self.video_runner_obj)
         success = await generate_ydx_caption.generateYDXCaption(
             ydx_server=self.ydx_server,
             ydx_app_host=self.ydx_app_host,
@@ -212,14 +209,11 @@ async def cleanup_failed_pipeline(video_id, ai_user_id, error_message):
     logger = logging.getLogger(f"PipelineLogger-{video_id}")
     logger.error(f"Pipeline failed for video {video_id}: {error_message}")
 
-    # Delete the entire video folder
     video_folder = return_video_folder_name({"video_id": video_id})
     if os.path.exists(video_folder):
         shutil.rmtree(video_folder)
         logger.info(f"Removed video folder: {video_folder}")
 
-    # Remove SQLite database entry
-    # await remove_sqlite_entry(video_id, ai_user_id)
     logger.info(f"Removed SQLite entry for video {video_id}")
 
 async def run_pipeline(
