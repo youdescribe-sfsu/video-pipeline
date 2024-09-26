@@ -145,16 +145,15 @@ def get_status_for_youtube_id(youtube_id, ai_user_id):
         ai_user_id = str(ai_user_id)
         with connection.return_connection() as con:
             cursor = con.cursor()
-            print(f"Executing query with youtube_id: {youtube_id}, ai_user_id: {ai_user_id} (types: {type(youtube_id)}, {type(ai_user_id)})")
+            logger.info(f"Executing query with youtube_id: {youtube_id}, ai_user_id: {ai_user_id} (types: {type(youtube_id)}, {type(ai_user_id)})")
             cursor.execute('''
                 SELECT status FROM youtube_data
                 WHERE youtube_id = ? AND ai_user_id = ?
             ''', (youtube_id, ai_user_id))
             status = cursor.fetchone()
-            print(f"Query result: {status}")
+            logger.info(f"Query result: {status}")
             return status['status'] if status else None
     except sqlite3.Error as e:
-        print(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
         logger.error(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
         return None
 
@@ -192,19 +191,30 @@ def process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube
 
 def update_status(youtube_id, ai_user_id, status):
     try:
-        # Ensure youtube_id and ai_user_id are strings
-        youtube_id = str(youtube_id)
-        ai_user_id = str(ai_user_id)
+        # Ensure all parameters are strings and not None
+        youtube_id = str(youtube_id) if youtube_id is not None else None
+        ai_user_id = str(ai_user_id) if ai_user_id is not None else None
+        status = str(status) if status is not None else None
+
+        if youtube_id is None or ai_user_id is None or status is None:
+            logger.error(f"Cannot update status with None values. YouTube ID: {youtube_id}, AI User ID: {ai_user_id}, Status: {status}")
+            return
+
         with connection.return_connection() as con:
             cursor = con.cursor()
+            logger.info(f"Updating status for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}, New Status: {status}")
             cursor.execute('''
                 UPDATE youtube_data
                 SET status = ?
                 WHERE youtube_id = ? AND ai_user_id = ?
             ''', (status, youtube_id, ai_user_id))
+            logger.info(f"Status update complete. Rows affected: {cursor.rowcount}")
     except sqlite3.Error as e:
-        logger.error(f"Error updating status: {e}")
-
+        logger.error(f"SQLite error updating status for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}, Status: {status}")
+        logger.error(f"Error details: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error in update_status: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
 
 def update_ai_user_data(youtube_id, ai_user_id, user_id, status):
     """
@@ -252,7 +262,7 @@ def update_module_output(youtube_id, ai_user_id, module_name, output_data):
                 INSERT OR REPLACE INTO module_outputs (youtube_id, ai_user_id, module_name, output_data)
                 VALUES (?, ?, ?, ?)
             ''', (youtube_id, ai_user_id, module_name, json.dumps(output_data)))
-            print(f"Updated module output for {module_name} in the database.")
+            logger.info(f"Updated module output for {module_name} in the database.")
     except sqlite3.Error as e:
         logger.error(f"Error updating module output: {e}")
 
