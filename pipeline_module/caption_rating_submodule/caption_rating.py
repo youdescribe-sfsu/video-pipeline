@@ -36,7 +36,9 @@ class CaptionRating:
 
     def get_caption_rating(self, image_data: Dict[str, str]) -> float:
         try:
+            token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
             response = requests.post(self.caption_rating_endpoint, json={
+                'token': token,
                 'img_url': image_data['frame_url'],
                 'caption': image_data['caption']
             })
