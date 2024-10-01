@@ -88,22 +88,19 @@ class ImageCaptioning:
             self.logger.warning(f"Image file not found: {image_path}")
             return ["Image file not found"]
 
-        image = Image.open(image_path).convert('RGB')
-        inputs = self.processor(image, return_tensors="pt").to(self.device)
+        try:
+            image = Image.open(image_path).convert('RGB')
+            inputs = self.processor(image, return_tensors="pt").to(self.device)
 
-        captions = []
-        captions.append(self.generate_single_caption(inputs))
-        captions.append(self.generate_single_caption(inputs, prompt="Describe the scene in detail:"))
-        captions.append(self.generate_single_caption(inputs, prompt="What actions are happening in this image?"))
-        captions.append(self.generate_single_caption(inputs, prompt="List the main objects in this image:"))
+            captions = [self.generate_single_caption(inputs),
+                        self.generate_single_caption(inputs, prompt="Describe the scene in detail:"),
+                        self.generate_single_caption(inputs, prompt="What actions are happening in this image?"),
+                        self.generate_single_caption(inputs, prompt="List the main objects in this image:")]
 
-        captions = list(dict.fromkeys(captions))
-
-        self.caption_history.append(captions[0])
-        if len(self.caption_history) > 5:
-            self.caption_history.pop(0)
-
-        return captions
+            return list(dict.fromkeys(captions))
+        except Exception as e:
+            self.logger.error(f"Error in generate_captions: {str(e)}")
+            return ["Error in caption generation"]
 
     def generate_single_caption(self, inputs: Dict[str, torch.Tensor], prompt: Optional[str] = None) -> str:
         try:
@@ -117,7 +114,8 @@ class ImageCaptioning:
 
             if self.caption_history:
                 context = " ".join(self.caption_history[-3:])
-                context_input = self.processor(f"Context: {context}. {prompt or ''}", return_tensors="pt").to(self.device)
+                context_input = self.processor(f"Context: {context}. {prompt or ''}", return_tensors="pt").to(
+                    self.device)
                 inputs['input_ids'] = context_input.input_ids
                 inputs['attention_mask'] = context_input.attention_mask
 
