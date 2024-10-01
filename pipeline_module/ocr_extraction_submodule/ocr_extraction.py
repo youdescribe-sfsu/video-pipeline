@@ -13,8 +13,6 @@ from ..utils_module.utils import (
     OCR_TEXT_ANNOTATIONS_FILE_NAME
 )
 from ..utils_module.timeit_decorator import timeit
-from google.protobuf.json_format import MessageToDict
-
 
 class OcrExtraction:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -77,14 +75,13 @@ class OcrExtraction:
         self.logger.info(f"Found {len(frame_files)} frame files")
         return frame_files
 
-    def process_frames_in_parallel(self, frame_files: List[str]) -> Dict[int, str]:
+    def process_frames_in_parallel(self, frame_files: List[str]) -> Dict[int, List[Dict]]:
         """Process video frames in parallel using Google's Vision API for OCR detection."""
         results = {}
         self.logger.info(f"Processing {len(frame_files)} frames in parallel")
 
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            future_to_frame = {executor.submit(self.process_frame_with_retry, frame_file): frame_file for frame_file in
-                               frame_files}
+            future_to_frame = {executor.submit(self.process_frame_with_retry, frame_file): frame_file for frame_file in frame_files}
             for future in as_completed(future_to_frame):
                 frame_file = future_to_frame[future]
                 try:
@@ -123,7 +120,7 @@ class OcrExtraction:
         if response.error.message:
             raise Exception(f"{response.error.message}")
 
-        text_annotations = response.text_annotations
+        text_annotations = self.convert_annotations_to_dict(response.text_annotations)
         frame_index = int(os.path.splitext(frame_file)[0].split('_')[-1])
 
         process_time = time.time() - start_time
@@ -132,7 +129,23 @@ class OcrExtraction:
 
         return frame_index, text_annotations
 
-    def save_ocr_results(self, ocr_results: Dict[int, str]) -> None:
+    def convert_annotations_to_dict(self, annotations):
+        """Convert EntityAnnotation objects to dictionaries."""
+        return [
+            {
+                'description': annotation.description,
+                'bounding_poly': {
+                    'vertices': [
+                        {'x': vertex.x, 'y': vertex.y}
+                        for vertex in annotation.bounding_poly.vertices
+                    ]
+                },
+                'locale': annotation.locale
+            }
+            for annotation in annotations
+        ]
+
+    def save_ocr_results(self, ocr_results: Dict[int, List[Dict]]) -> None:
         """Saves the OCR results to a CSV file."""
         self.logger.info(f"Saving OCR results for {len(ocr_results)} frames")
         output_file = os.path.join(self.output_folder, OCR_TEXT_ANNOTATIONS_FILE_NAME)
@@ -143,9 +156,7 @@ class OcrExtraction:
                 writer.writerow(["Frame Index", "Text Annotations"])
 
                 for frame_index, text_annotations in ocr_results.items():
-                    # Convert RepeatedComposite to dict
-                    text_annotations_dict = [MessageToDict(annotation) for annotation in text_annotations]
-                    writer.writerow([frame_index, json.dumps(text_annotations_dict)])
+                    writer.writerow([frame_index, json.dumps(text_annotations)])
 
             self.logger.info(f"OCR results saved to {output_file}")
         except Exception as e:
