@@ -1,5 +1,6 @@
 import csv
-from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output, \
+    get_module_output
 from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS, KEYFRAMES_CSV, TIMESTAMP_SELECTOR, OBJECTS_CSV
 from ..utils_module.timeit_decorator import timeit
 import os
@@ -53,7 +54,7 @@ class KeyframeSelection:
         """
         try:
             # Retrieve values from the database (previously stored by frame extraction)
-            previous_outputs = get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
+            previous_outputs = get_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
             if not previous_outputs:
                 raise ValueError("No video common values found from frame extraction")
 
