@@ -13,6 +13,7 @@ from ..utils_module.utils import (
     OCR_TEXT_ANNOTATIONS_FILE_NAME
 )
 from ..utils_module.timeit_decorator import timeit
+from google.protobuf.json_format import MessageToDict
 
 
 class OcrExtraction:
@@ -142,7 +143,9 @@ class OcrExtraction:
                 writer.writerow(["Frame Index", "Text Annotations"])
 
                 for frame_index, text_annotations in ocr_results.items():
-                    writer.writerow([frame_index, json.dumps(text_annotations)])
+                    # Convert RepeatedComposite to dict
+                    text_annotations_dict = [MessageToDict(annotation) for annotation in text_annotations]
+                    writer.writerow([frame_index, json.dumps(text_annotations_dict)])
 
             self.logger.info(f"OCR results saved to {output_file}")
         except Exception as e:

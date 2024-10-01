@@ -93,3 +93,4 @@ ffmpeg-python
 aiohttp
 transformers
 psutil
+protobuf
