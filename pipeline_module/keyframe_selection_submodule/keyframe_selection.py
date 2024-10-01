@@ -58,9 +58,9 @@ class KeyframeSelection:
             if not previous_outputs:
                 raise ValueError("No video common values found from frame extraction")
 
-            step = int(float(previous_outputs['step']))
-            num_frames = int(float(previous_outputs['num_frames']))
-            frames_per_second = float(previous_outputs['frames_per_second'])
+            step = int(float(previous_outputs['steps']))
+            num_frames = int(float(previous_outputs['frames_extracted']))
+            frames_per_second = float(previous_outputs['adaptive_fps'])
 
             return step, num_frames, frames_per_second
         except (ValueError, KeyError, TypeError) as e:
