@@ -138,12 +138,17 @@ class ImageCaptioning:
         Generates a single caption with an optional prompt.
         """
         if prompt:
-            inputs['prompt'] = prompt
+            # Instead of passing prompt directly to generate, we'll use it to create a text input
+            text_input = self.processor(prompt, return_tensors="pt").to(self.device)
+            inputs['input_ids'] = text_input.input_ids
+            inputs['attention_mask'] = text_input.attention_mask
 
         # Use caption history for context if available
         if self.caption_history:
             context = " ".join(self.caption_history[-3:])
-            inputs['prompt'] = f"Context: {context}. {prompt or ''}"
+            context_input = self.processor(f"Context: {context}. {prompt or ''}", return_tensors="pt").to(self.device)
+            inputs['input_ids'] = context_input.input_ids
+            inputs['attention_mask'] = context_input.attention_mask
 
         outputs = self.model.generate(**inputs, max_new_tokens=50)
         return self.processor.decode(outputs[0], skip_special_tokens=True)
