@@ -103,21 +103,16 @@ class ImageCaptioning:
 
     def generate_single_caption(self, image: Image.Image, prompt: Optional[str] = None) -> str:
         try:
-            if self.caption_history:
-                context = " ".join(self.caption_history[-3:])
-                if prompt:
-                    prompt = f"Context: {context}. {prompt}"
-                else:
-                    prompt = f"Context: {context}"
-
-            if prompt:
-                inputs = self.processor(images=image, text=prompt, return_tensors="pt").to(self.device)
-            else:
-                inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+            self.logger.info(f"Processing image with prompt: {prompt}")
+            inputs = self.processor(images=image, text=prompt, return_tensors="pt").to(
+                self.device) if prompt else self.processor(images=image, return_tensors="pt").to(self.device)
+            self.logger.info(f"Input tensor shape: {inputs['pixel_values'].shape}")
 
             outputs = self.model.generate(**inputs, max_new_tokens=50)
+            self.logger.info(f"Output tensor shape: {outputs.shape}")
+
             caption = self.processor.decode(outputs[0], skip_special_tokens=True)
-            self.caption_history.append(caption)
+            self.logger.info(f"Generated caption: {caption}")
             return caption
         except Exception as e:
             self.logger.error(f"Error in generate_single_caption: {str(e)}")
