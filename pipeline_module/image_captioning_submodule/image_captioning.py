@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import torch
 from PIL import Image
-from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+from web_server_module.web_server_database import update_status, update_module_output, get_module_output
 from ..utils_module.timeit_decorator import timeit
 from ..utils_module.utils import (
     CAPTIONS_CSV, FRAME_INDEX_SELECTOR, IS_KEYFRAME_SELECTOR,
@@ -23,7 +23,8 @@ class ImageCaptioning:
         self.logger = video_runner_obj.get("logger")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(self.device)
+        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(
+            self.device)
         self.caption_history = []
 
     @timeit
@@ -31,16 +32,14 @@ class ImageCaptioning:
         video_frames_path = return_video_frames_folder(self.video_runner_obj)
         video_folder_path = return_video_folder_name(self.video_runner_obj)
 
-        # Check if image captioning is already done using the database
-        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
-            self.logger.info("Image captioning already done")
-            return True
-
         try:
             # Retrieve common video values from the database
             step = self.load_common_video_value('step')
             num_frames = self.load_common_video_value('num_frames')
             frames_per_second = self.load_common_video_value('frames_per_second')
+
+            if step is None or num_frames is None or frames_per_second is None:
+                raise ValueError("Failed to retrieve necessary video values")
 
             video_fps = step * frames_per_second
             seconds_per_frame = 1.0 / video_fps
@@ -49,7 +48,6 @@ class ImageCaptioning:
 
             outcsvpath = os.path.join(video_folder_path, CAPTIONS_CSV)
             self.logger.info(f"Writing captions to: {outcsvpath}")
-
 
             with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
                 writer = csv.writer(outcsvfile)
@@ -61,7 +59,8 @@ class ImageCaptioning:
                     captions = self.generate_captions(frame_filename)
 
                     if captions:
-                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, json.dumps(captions)]
+                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes,
+                               json.dumps(captions)]
                         writer.writerow(row)
 
                     self.logger.info(f"Frame index: {frame_index}, Captions: {captions}")
@@ -71,7 +70,8 @@ class ImageCaptioning:
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
 
             # Save the generated captions to the database
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'image_captioning', {"captions": captions})
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                                 'image_captioning', {"captions": captions})
 
             return True
 
@@ -81,14 +81,22 @@ class ImageCaptioning:
             return False
 
     def load_common_video_value(self, key: str) -> Optional[Any]:
-        """
-        Load common video values like step, num_frames, frames_per_second from the database.
-        """
         try:
-            value = get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'video_common_values')[key]
-            return value
-        except KeyError:
-            self.logger.error(f"Error: Could not retrieve {key} from video common values")
+            previous_outputs = get_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                                                 'frame_extraction')
+            if not previous_outputs:
+                raise ValueError("No video common values found from frame extraction")
+
+            if key == 'step':
+                return int(float(previous_outputs['steps']))
+            elif key == 'num_frames':
+                return int(float(previous_outputs['frames_extracted']))
+            elif key == 'frames_per_second':
+                return float(previous_outputs['adaptive_fps'])
+            else:
+                raise KeyError(f"Unknown key: {key}")
+        except (ValueError, KeyError, TypeError) as e:
+            self.logger.error(f"Error retrieving video common value for {key}: {str(e)}")
             return None
 
     def load_keyframes(self, video_folder_path: str) -> List[int]:
@@ -205,7 +213,8 @@ class ImageCaptioning:
                     csvDictWriter.writerow(row)
 
             self.logger.info(f"Completed Writing Image Caption Pair to CSV")
+            return True
 
         except Exception as e:
-            self.logger.error(f"Error reading captions file: {str(e)}")
+            self.logger.error(f"Error in combine_image_caption: {str(e)}")
             return False
