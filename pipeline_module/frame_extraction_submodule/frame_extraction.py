@@ -30,14 +30,14 @@ class FrameExtraction:
             vid, total_frames, video_fps, duration = self._get_video_info()
             adaptive_fps = self.calculate_adaptive_fps(duration)
             frames_to_extract = int(duration * adaptive_fps)
-            step = str(int(video_fps / adaptive_fps))
+            step = int(video_fps / adaptive_fps)
 
             print(f"Extracting frames at {adaptive_fps} fps")
             print(f"Total frames to extract: {frames_to_extract}")
             self.logger.info(f"Extracting frames at {adaptive_fps} fps")
             self.logger.info(f"Total frames to extract: {frames_to_extract}")
 
-            frame_indices = np.linspace(0, total_frames - 1, frames_to_extract, dtype=int)
+            frame_indices = np.arange(0, total_frames, step)
 
             self._extract_frames_parallel(frame_indices)
 
@@ -53,7 +53,6 @@ class FrameExtraction:
             return False
 
     def _is_extraction_complete(self) -> bool:
-        # Use the database to check if frame extraction is already completed
         if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
             print("Frames already extracted, skipping step.")
             self.logger.info("Frames already extracted, skipping step.")
@@ -93,7 +92,7 @@ class FrameExtraction:
                     print(f"Frame processing generated an exception: {exc}")
                     self.logger.error(f"Frame processing generated an exception: {exc}")
 
-    def _save_extraction_progress(self, adaptive_fps: float, frames_extracted: int, step: str) -> None:
+    def _save_extraction_progress(self, adaptive_fps: float, frames_extracted: int, step: int) -> None:
         print("Frame extraction completed, saving progress and output values")
         # Update progress status in the database
         update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
@@ -140,7 +139,8 @@ class FrameExtraction:
     @timeit
     def extract_frames_with_scene_detection(self) -> bool:
         # Use the database to check if scene detection and frame extraction are already completed
-        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
+        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"),
+                                     self.video_runner_obj.get("AI_USER_ID")) == "done":
             self.logger.info("Scene detection and keyframe extraction already completed, skipping step.")
             return True
 

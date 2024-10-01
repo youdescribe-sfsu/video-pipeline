@@ -1,6 +1,5 @@
 import csv
 import os
-import requests
 import json
 import traceback
 from typing import Dict, Any, List, Optional
@@ -16,15 +15,13 @@ from ..utils_module.utils import (
     return_video_frames_folder, CAPTION_IMAGE_PAIR
 )
 
-
 class ImageCaptioning:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(
-            self.device)
+        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(self.device)
         self.caption_history = []
 
     @timeit
@@ -33,13 +30,14 @@ class ImageCaptioning:
         video_folder_path = return_video_folder_name(self.video_runner_obj)
 
         try:
-            # Retrieve common video values from the database
-            step = self.load_common_video_value('step')
-            num_frames = self.load_common_video_value('num_frames')
-            frames_per_second = self.load_common_video_value('frames_per_second')
+            # Retrieve frame extraction data from the database
+            frame_extraction_data = get_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
+            if not frame_extraction_data:
+                raise ValueError("No frame extraction data found")
 
-            if step is None or num_frames is None or frames_per_second is None:
-                raise ValueError("Failed to retrieve necessary video values")
+            step = int(frame_extraction_data['steps'])
+            num_frames = int(frame_extraction_data['frames_extracted'])
+            frames_per_second = float(frame_extraction_data['adaptive_fps'])
 
             video_fps = step * frames_per_second
             seconds_per_frame = 1.0 / video_fps
@@ -56,22 +54,21 @@ class ImageCaptioning:
 
                 for frame_index in range(0, num_frames, step):
                     frame_filename = f'{video_frames_path}/frame_{frame_index}.jpg'
-                    captions = self.generate_captions(frame_filename)
-
-                    if captions:
-                        row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes,
-                               json.dumps(captions)]
-                        writer.writerow(row)
-
-                    self.logger.info(f"Frame index: {frame_index}, Captions: {captions}")
+                    if os.path.exists(frame_filename):
+                        captions = self.generate_captions(frame_filename)
+                        if captions:
+                            row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, json.dumps(captions)]
+                            writer.writerow(row)
+                        self.logger.info(f"Frame index: {frame_index}, Captions: {captions}")
+                    else:
+                        self.logger.warning(f"Frame {frame_index} does not exist, skipping.")
                     outcsvfile.flush()
 
             # Mark image captioning as done in the database
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
 
             # Save the generated captions to the database
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
-                                 'image_captioning', {"captions": captions})
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'image_captioning', {"captions_file": outcsvpath})
 
             return True
 
@@ -80,53 +77,28 @@ class ImageCaptioning:
             self.logger.error(traceback.format_exc())
             return False
 
-    def load_common_video_value(self, key: str) -> Optional[Any]:
-        try:
-            previous_outputs = get_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
-                                                 'frame_extraction')
-            if not previous_outputs:
-                raise ValueError("No video common values found from frame extraction")
-
-            if key == 'step':
-                return int(float(previous_outputs['steps']))
-            elif key == 'num_frames':
-                return int(float(previous_outputs['frames_extracted']))
-            elif key == 'frames_per_second':
-                return float(previous_outputs['adaptive_fps'])
-            else:
-                raise KeyError(f"Unknown key: {key}")
-        except (ValueError, KeyError, TypeError) as e:
-            self.logger.error(f"Error retrieving video common value for {key}: {str(e)}")
-            return None
-
     def load_keyframes(self, video_folder_path: str) -> List[int]:
-        """
-        Loads keyframes from the keyframes CSV file.
-        """
         with open(os.path.join(video_folder_path, KEYFRAMES_CSV), newline='', encoding='utf-8') as incsvfile:
             reader = csv.reader(incsvfile)
             next(reader)  # skip header
             return [int(row[0]) for row in reader]
 
     def generate_captions(self, image_path: str) -> List[str]:
-        """
-        Generate captions for a given image using the BLIP model.
-        """
+        if not os.path.exists(image_path):
+            self.logger.warning(f"Image file not found: {image_path}")
+            return ["Image file not found"]
+
         image = Image.open(image_path).convert('RGB')
         inputs = self.processor(image, return_tensors="pt").to(self.device)
 
-        # Generate multiple captions using different prompts
         captions = []
-
-        captions.append(self.generate_single_caption(inputs))  # Standard caption
+        captions.append(self.generate_single_caption(inputs))
         captions.append(self.generate_single_caption(inputs, prompt="Describe the scene in detail:"))
         captions.append(self.generate_single_caption(inputs, prompt="What actions are happening in this image?"))
         captions.append(self.generate_single_caption(inputs, prompt="List the main objects in this image:"))
 
-        # Remove duplicates
         captions = list(dict.fromkeys(captions))
 
-        # Maintain a history of the last 5 captions
         self.caption_history.append(captions[0])
         if len(self.caption_history) > 5:
             self.caption_history.pop(0)
@@ -134,25 +106,18 @@ class ImageCaptioning:
         return captions
 
     def generate_single_caption(self, inputs: Dict[str, torch.Tensor], prompt: Optional[str] = None) -> str:
-        """
-        Generates a single caption with an optional prompt.
-        """
         try:
+            if 'pixel_values' not in inputs:
+                raise ValueError("Image input (pixel_values) is missing from the inputs")
+
             if prompt:
-                # Instead of passing prompt directly to generate, we'll use it to create a text input
                 text_input = self.processor(prompt, return_tensors="pt").to(self.device)
                 inputs['input_ids'] = text_input.input_ids
                 inputs['attention_mask'] = text_input.attention_mask
 
-            # Validate that the inputs contain both the necessary image tensor and text input
-            if 'pixel_values' not in inputs or 'input_ids' not in inputs:
-                raise ValueError("Invalid inputs passed to the model. Ensure both image and text inputs are provided.")
-
-            # Use caption history for context if available
             if self.caption_history:
                 context = " ".join(self.caption_history[-3:])
-                context_input = self.processor(f"Context: {context}. {prompt or ''}", return_tensors="pt").to(
-                    self.device)
+                context_input = self.processor(f"Context: {context}. {prompt or ''}", return_tensors="pt").to(self.device)
                 inputs['input_ids'] = context_input.input_ids
                 inputs['attention_mask'] = context_input.attention_mask
 
@@ -160,13 +125,10 @@ class ImageCaptioning:
             return self.processor.decode(outputs[0], skip_special_tokens=True)
 
         except Exception as e:
-            self.logger.error(f"Error generating caption: {str(e)}")
+            self.logger.error(f"Error in generate_single_caption: {str(e)}")
             return "Error in caption generation"
 
     def filter_keyframes_from_caption(self) -> None:
-        """
-        Filters keyframes from the caption CSV file.
-        """
         video_folder_path = return_video_folder_name(self.video_runner_obj)
         keyframes = self.load_keyframes(video_folder_path)
 
@@ -191,9 +153,6 @@ class ImageCaptioning:
             csv_writer.writerows(updated_rows)
 
     def combine_image_caption(self) -> bool:
-        """
-        Combines image paths with their respective captions and saves them to a CSV file.
-        """
         video_folder_path = return_video_folder_name(self.video_runner_obj)
         captcsvpath = os.path.join(video_folder_path, CAPTIONS_CSV)
 
