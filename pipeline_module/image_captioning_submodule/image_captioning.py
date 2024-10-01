@@ -90,38 +90,35 @@ class ImageCaptioning:
 
         try:
             image = Image.open(image_path).convert('RGB')
-            inputs = self.processor(image, return_tensors="pt").to(self.device)
-
-            captions = [self.generate_single_caption(inputs),
-                        self.generate_single_caption(inputs, prompt="Describe the scene in detail:"),
-                        self.generate_single_caption(inputs, prompt="What actions are happening in this image?"),
-                        self.generate_single_caption(inputs, prompt="List the main objects in this image:")]
-
+            captions = [
+                self.generate_single_caption(image),
+                self.generate_single_caption(image, prompt="Describe the scene in detail."),
+                self.generate_single_caption(image, prompt="What actions are happening in this image?"),
+                self.generate_single_caption(image, prompt="List the main objects in this image.")
+            ]
             return list(dict.fromkeys(captions))
         except Exception as e:
             self.logger.error(f"Error in generate_captions: {str(e)}")
             return ["Error in caption generation"]
 
-    def generate_single_caption(self, inputs: Dict[str, torch.Tensor], prompt: Optional[str] = None) -> str:
+    def generate_single_caption(self, image: Image.Image, prompt: Optional[str] = None) -> str:
         try:
-            if 'pixel_values' not in inputs:
-                raise ValueError("Image input (pixel_values) is missing from the inputs")
-
-            if prompt:
-                text_input = self.processor(prompt, return_tensors="pt").to(self.device)
-                inputs['input_ids'] = text_input.input_ids
-                inputs['attention_mask'] = text_input.attention_mask
-
             if self.caption_history:
                 context = " ".join(self.caption_history[-3:])
-                context_input = self.processor(f"Context: {context}. {prompt or ''}", return_tensors="pt").to(
-                    self.device)
-                inputs['input_ids'] = context_input.input_ids
-                inputs['attention_mask'] = context_input.attention_mask
+                if prompt:
+                    prompt = f"Context: {context}. {prompt}"
+                else:
+                    prompt = f"Context: {context}"
+
+            if prompt:
+                inputs = self.processor(images=image, text=prompt, return_tensors="pt").to(self.device)
+            else:
+                inputs = self.processor(images=image, return_tensors="pt").to(self.device)
 
             outputs = self.model.generate(**inputs, max_new_tokens=50)
-            return self.processor.decode(outputs[0], skip_special_tokens=True)
-
+            caption = self.processor.decode(outputs[0], skip_special_tokens=True)
+            self.caption_history.append(caption)
+            return caption
         except Exception as e:
             self.logger.error(f"Error in generate_single_caption: {str(e)}")
             return "Error in caption generation"
