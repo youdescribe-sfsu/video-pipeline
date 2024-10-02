@@ -9,19 +9,19 @@ from ..utils_module.utils import CAPTION_SCORE, return_video_folder_name, CAPTIO
 from ..utils_module.timeit_decorator import timeit
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 class CaptionRating:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.caption_rating_endpoint = os.getenv('CAPTION_RATING_ENDPOINT', 'http://localhost:8082/api')
         self.caption_rating_threshold = float(os.getenv('CAPTION_RATING_THRESHOLD', '0.5'))
-        self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 
     @timeit
     def perform_caption_rating(self) -> bool:
         try:
             # Check progress using the database
-            if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
+            if get_status_for_youtube_id(self.video_runner_obj["video_id"],
+                                         self.video_runner_obj["AI_USER_ID"]) == "done":
                 self.logger.info("CaptionRating already processed")
                 return True
 
@@ -36,18 +36,25 @@ class CaptionRating:
             self.logger.error(traceback.format_exc())
             return False
 
-    def get_caption_rating(self, image_data: Dict[str, str]) -> float:
+    def get_caption_rating(self, image_data: Dict[str, str]) -> str:
+        token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
+        multipart_form_data = {
+            'token': token,
+            'img_url': image_data['frame_url'],
+            'caption': image_data['caption']
+        }
+        page = 'http://localhost:{}/api'.format(os.getenv('CAPTION_RATING_SERVICE') or '8082')
         try:
-            response = requests.post(self.caption_rating_endpoint, json={
-                'img_url': image_data['frame_url'],
-                'caption': image_data['caption'],
-                'token': self.token
-            })
-            response.raise_for_status()
-            return float(response.text.strip("[]"))
-        except requests.RequestException as e:
-            self.logger.error(f"Error in caption rating request: {str(e)}")
-            return 0.0
+            response = requests.post(page, data=multipart_form_data)
+            if response.status_code != 200:
+                self.logger.info("Server returned status {}.".format(response.status_code))
+
+            return response.text.lstrip("['").rstrip("']")
+        except:
+            response = requests.post(page, data=multipart_form_data)
+            if response.status_code != 200:
+                self.logger.info("Server returned status {}.".format(response.status_code))
+            return response.text.lstrip("['").rstrip("']")
 
     def get_all_caption_rating(self) -> None:
         try:
@@ -73,7 +80,8 @@ class CaptionRating:
                             self.logger.error(f"Error processing row {row['frame_index']}: {str(e)}")
 
             # Save caption ratings to the database
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'caption_rating',
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                                 'caption_rating',
                                  {"ratings": "completed"})
         except Exception as e:
             self.logger.error(f"Error in get_all_caption_rating: {str(e)}")
@@ -81,15 +89,12 @@ class CaptionRating:
 
     def process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            captions = [row[f'caption{i}'] for i in range(1, 5) if f'caption{i}' in row]
-            best_caption = max(captions,
-                               key=lambda c: self.get_caption_rating({'frame_url': row['frame_url'], 'caption': c}))
-            rating = self.get_caption_rating({'frame_url': row['frame_url'], 'caption': best_caption})
-            self.logger.info(f"Rating for caption '{best_caption}' is {rating}")
+            rating = self.get_caption_rating(row)
+            self.logger.info(f"Rating for caption '{row['caption']}' is {rating}")
             return {
                 'frame_index': row['frame_index'],
                 'frame_url': row['frame_url'],
-                'caption': best_caption,
+                'caption': row['caption'],
                 'rating': rating
             }
         except Exception as e:
@@ -124,8 +129,9 @@ class CaptionRating:
                             'caption': caption_row['caption'],
                             'rating': caption_row['rating']
                         }
-                        object_row = next((obj for obj in objects_data if obj['frame_index'] == caption_row['frame_index']),
-                                          {})
+                        object_row = next(
+                            (obj for obj in objects_data if obj['frame_index'] == caption_row['frame_index']),
+                            {})
                         output_row.update({k: object_row.get(k, '') for k in fieldnames[4:]})
                         writer.writerow(output_row)
 

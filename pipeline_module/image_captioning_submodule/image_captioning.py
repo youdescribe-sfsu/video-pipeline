@@ -13,12 +13,11 @@ from ..utils_module.utils import (
     return_video_frames_folder, CAPTION_IMAGE_PAIR
 )
 
+
 class ImageCaptioning:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.image_captioning_endpoint = os.getenv('GPU_LOCAL_PORT', 'http://localhost:8085/upload')
-        self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 
     @timeit
     def run_image_captioning(self) -> bool:
@@ -27,7 +26,8 @@ class ImageCaptioning:
 
         try:
             # Retrieve frame extraction data from the database
-            frame_extraction_data = get_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
+            frame_extraction_data = get_module_output(self.video_runner_obj["video_id"],
+                                                      self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
             if not frame_extraction_data:
                 raise ValueError("No frame extraction data found")
 
@@ -51,11 +51,12 @@ class ImageCaptioning:
                 for frame_index in range(0, num_frames, step):
                     frame_filename = f'{video_frames_path}/frame_{frame_index}.jpg'
                     if os.path.exists(frame_filename):
-                        captions = self.get_caption(frame_filename)
-                        if captions:
-                            row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, json.dumps(captions)]
+                        caption = self.get_caption(frame_filename)
+                        if caption:
+                            row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes,
+                                   caption]
                             writer.writerow(row)
-                        self.logger.info(f"Frame index: {frame_index}, Captions: {captions}")
+                        self.logger.info(f"Frame index: {frame_index}, Caption: {caption}")
                     else:
                         self.logger.warning(f"Frame {frame_index} does not exist, skipping.")
                     outcsvfile.flush()
@@ -64,7 +65,8 @@ class ImageCaptioning:
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
 
             # Save the generated captions to the database
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'image_captioning', {"captions_file": outcsvpath})
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                                 'image_captioning', {"captions_file": outcsvpath})
 
             return True
 
@@ -79,25 +81,35 @@ class ImageCaptioning:
             next(reader)  # skip header
             return [int(row[0]) for row in reader]
 
-    def get_caption(self, image_path: str) -> List[str]:
-        if not os.path.exists(image_path):
-            self.logger.warning(f"Image file not found: {image_path}")
-            return ["Image file not found"]
+    def get_caption(self, filename: str) -> str:
+        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8085')
+        token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 
+        caption_img = ""
         try:
-            with open(image_path, 'rb') as image_file:
-                files = {'image': (os.path.basename(image_path), image_file)}
-                data = {'token': self.token}
-                response = requests.post(self.image_captioning_endpoint, files=files, data=data)
-                response.raise_for_status()
-                captions = response.json()['captions']
-                return captions
-        except requests.RequestException as e:
-            self.logger.error(f"Error in get_caption request: {str(e)}")
-            return ["Error in caption generation"]
-        except Exception as e:
-            self.logger.error(f"Error in get_caption: {str(e)}")
-            return ["Error in caption generation"]
+            with open(filename, 'rb') as fileBuffer:
+                multipart_form_data = {
+                    'token': ('', str(token)),
+                    'image': (os.path.basename(filename), fileBuffer),
+                    'min_length': 25,
+                    'max_length': 50
+                }
+
+                self.logger.info(f"Running image captioning for {filename}")
+
+                response = requests.post(page, files=multipart_form_data, timeout=10)
+                if response.status_code == 200:
+                    json_obj = response.json()
+                    caption_img = json_obj['caption']
+                else:
+                    self.logger.info(f"Server returned status {response.status_code}")
+        except requests.exceptions.Timeout:
+            self.logger.error("Request timed out")
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Request error: {e}")
+
+        self.logger.info(f"caption: {caption_img}")
+        return caption_img.strip()
 
     def filter_keyframes_from_caption(self) -> None:
         video_folder_path = return_video_folder_name(self.video_runner_obj)
@@ -115,8 +127,7 @@ class ImageCaptioning:
                 frame_index = int(row[0])
                 is_keyframe = frame_index in keyframes
                 row[2] = is_keyframe
-                captions = json.loads(row[3])
-                if any(caption for caption in captions if '<unk>' not in caption):
+                if '<unk>' not in row[3]:
                     updated_rows.append(row)
 
         with open(csv_file_path, 'w', newline='', encoding='utf-8') as csv_file:
@@ -139,23 +150,16 @@ class ImageCaptioning:
                     {
                         "frame_index": row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]],
                         "frame_url": f'{video_frames_path}/frame_{row[KEY_FRAME_HEADERS[FRAME_INDEX_SELECTOR]]}.jpg',
-                        "captions": json.loads(row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]])
+                        "caption": row[KEY_FRAME_HEADERS[KEYFRAME_CAPTION_SELECTOR]]
                     } for row in data
                 ]
 
             image_caption_csv_file = os.path.join(video_folder_path, CAPTION_IMAGE_PAIR)
             with open(image_caption_csv_file, 'w', encoding='utf8', newline='') as output_file:
-                fieldnames = ["frame_index", "frame_url", "caption1", "caption2", "caption3", "caption4"]
+                fieldnames = ["frame_index", "frame_url", "caption"]
                 csvDictWriter = csv.DictWriter(output_file, fieldnames=fieldnames)
                 csvDictWriter.writeheader()
-                for pair in image_caption_pairs:
-                    row = {
-                        "frame_index": pair["frame_index"],
-                        "frame_url": pair["frame_url"],
-                    }
-                    for i, caption in enumerate(pair["captions"], start=1):
-                        row[f"caption{i}"] = caption
-                    csvDictWriter.writerow(row)
+                csvDictWriter.writerows(image_caption_pairs)
 
             self.logger.info(f"Completed Writing Image Caption Pair to CSV")
             return True
