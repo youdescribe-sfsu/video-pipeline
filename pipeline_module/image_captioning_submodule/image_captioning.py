@@ -17,7 +17,7 @@ class ImageCaptioning:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.gpu_server_url = os.getenv('GPU_SERVER_URL', 'http://localhost:8080/generate_caption')
+        self.image_captioning_endpoint = os.getenv('GPU_LOCAL_PORT', 'http://localhost:8085/upload')
         self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 
     @timeit
@@ -88,7 +88,7 @@ class ImageCaptioning:
             with open(image_path, 'rb') as image_file:
                 files = {'image': (os.path.basename(image_path), image_file)}
                 data = {'token': self.token}
-                response = requests.post(self.gpu_server_url, files=files, data=data)
+                response = requests.post(self.image_captioning_endpoint, files=files, data=data)
                 response.raise_for_status()
                 captions = response.json()['captions']
                 return captions
