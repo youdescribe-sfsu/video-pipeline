@@ -1,11 +1,9 @@
 import csv
 import os
 import json
+import requests
 import traceback
-from typing import Dict, Any, List, Optional
-from transformers import BlipProcessor, BlipForConditionalGeneration
-import torch
-from PIL import Image
+from typing import Dict, Any, List
 from web_server_module.web_server_database import update_status, update_module_output, get_module_output
 from ..utils_module.timeit_decorator import timeit
 from ..utils_module.utils import (
@@ -19,10 +17,8 @@ class ImageCaptioning:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
-        self.model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large").to(self.device)
-        self.caption_history = []
+        self.gpu_server_url = os.getenv('GPU_SERVER_URL', 'http://localhost:8080/generate_caption')
+        self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 
     @timeit
     def run_image_captioning(self) -> bool:
@@ -55,7 +51,7 @@ class ImageCaptioning:
                 for frame_index in range(0, num_frames, step):
                     frame_filename = f'{video_frames_path}/frame_{frame_index}.jpg'
                     if os.path.exists(frame_filename):
-                        captions = self.generate_captions(frame_filename)
+                        captions = self.get_caption(frame_filename)
                         if captions:
                             row = [frame_index, float(frame_index) * seconds_per_frame, frame_index in keyframes, json.dumps(captions)]
                             writer.writerow(row)
@@ -83,40 +79,25 @@ class ImageCaptioning:
             next(reader)  # skip header
             return [int(row[0]) for row in reader]
 
-    def generate_captions(self, image_path: str) -> List[str]:
+    def get_caption(self, image_path: str) -> List[str]:
         if not os.path.exists(image_path):
             self.logger.warning(f"Image file not found: {image_path}")
             return ["Image file not found"]
 
         try:
-            image = Image.open(image_path).convert('RGB')
-            captions = [
-                self.generate_single_caption(image),
-                self.generate_single_caption(image, prompt="Describe the scene in detail."),
-                self.generate_single_caption(image, prompt="What actions are happening in this image?"),
-                self.generate_single_caption(image, prompt="List the main objects in this image.")
-            ]
-            return list(dict.fromkeys(captions))
-        except Exception as e:
-            self.logger.error(f"Error in generate_captions: {str(e)}")
+            with open(image_path, 'rb') as image_file:
+                files = {'image': (os.path.basename(image_path), image_file)}
+                data = {'token': self.token}
+                response = requests.post(self.gpu_server_url, files=files, data=data)
+                response.raise_for_status()
+                captions = response.json()['captions']
+                return captions
+        except requests.RequestException as e:
+            self.logger.error(f"Error in get_caption request: {str(e)}")
             return ["Error in caption generation"]
-
-    def generate_single_caption(self, image: Image.Image, prompt: Optional[str] = None) -> str:
-        try:
-            self.logger.info(f"Processing image with prompt: {prompt}")
-            inputs = self.processor(images=image, text=prompt, return_tensors="pt").to(
-                self.device) if prompt else self.processor(images=image, return_tensors="pt").to(self.device)
-            self.logger.info(f"Input tensor shape: {inputs['pixel_values'].shape}")
-
-            outputs = self.model.generate(**inputs, max_new_tokens=50)
-            self.logger.info(f"Output tensor shape: {outputs.shape}")
-
-            caption = self.processor.decode(outputs[0], skip_special_tokens=True)
-            self.logger.info(f"Generated caption: {caption}")
-            return caption
         except Exception as e:
-            self.logger.error(f"Error in generate_single_caption: {str(e)}")
-            return "Error in caption generation"
+            self.logger.error(f"Error in get_caption: {str(e)}")
+            return ["Error in caption generation"]
 
     def filter_keyframes_from_caption(self) -> None:
         video_folder_path = return_video_folder_name(self.video_runner_obj)
