@@ -1,12 +1,14 @@
 import csv
 import json
 import numpy as np
+import os
 from typing import Dict, Any, List
 from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, return_video_folder_name
 from web_server_module.web_server_database import update_status, get_status_for_youtube_id, update_module_output
 from ..utils_module.timeit_decorator import timeit
 from sklearn.cluster import KMeans
 from scipy.signal import find_peaks
+from .generate_average_output import generate_average_output
 
 class SceneSegmentation:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -30,6 +32,13 @@ class SceneSegmentation:
             return True
 
         try:
+            # Generate average output if it doesn't exist
+            output_avg_csv = return_video_folder_name(self.video_runner_obj) + '/' + OUTPUT_AVG_CSV
+            if not os.path.exists(output_avg_csv):
+                self.logger.info("Generating average output")
+                if not generate_average_output(self.video_runner_obj):
+                    raise Exception("Failed to generate average output")
+
             frame_data = self.load_frame_data()
             scene_boundaries = self.detect_scene_boundaries(frame_data)
             scenes = self.generate_scenes(frame_data, scene_boundaries)

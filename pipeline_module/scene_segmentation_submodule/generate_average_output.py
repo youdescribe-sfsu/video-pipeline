@@ -1,6 +1,7 @@
 import csv
 import warnings
 import numpy as np
+import os
 from ..utils_module.utils import CAPTIONS_AND_OBJECTS_CSV, OUTPUT_AVG_CSV, return_video_folder_name, \
     return_int_if_possible
 from web_server_module.web_server_database import update_status, get_status_for_youtube_id, update_module_output
@@ -30,6 +31,11 @@ def generate_average_output(video_runner_obj: Dict[str, Any]) -> bool:
 
     captions_and_objects_csv = return_video_folder_name(video_runner_obj) + '/' + CAPTIONS_AND_OBJECTS_CSV
     output_avg_csv = return_video_folder_name(video_runner_obj) + '/' + OUTPUT_AVG_CSV
+
+    if not os.path.exists(captions_and_objects_csv):
+        logger.error(f"Required input file not found: {captions_and_objects_csv}")
+        return False
+
     jsonArray = []
 
     with open(captions_and_objects_csv, 'r') as csvFile:
@@ -63,6 +69,10 @@ def generate_average_output(video_runner_obj: Dict[str, Any]) -> bool:
         writer.writerow(
             ['frame', 'timestamp', 'Line1', 'Line2', 'Similarity', 'avgone', 'avgtwo', 'isKeyFrame', 'description'])
         writer.writerows(data)
+
+    if not os.path.exists(output_avg_csv):
+        logger.error(f"Failed to create output file: {output_avg_csv}")
+        return False
 
     logger.info(f"Output avg CSV file generated for video: {video_id}")
 
