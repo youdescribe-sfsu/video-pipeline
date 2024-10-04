@@ -1,6 +1,7 @@
 import csv
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output, get_module_output
-from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, FRAME_INDEX_SELECTOR, KEY_FRAME_HEADERS, KEYFRAMES_CSV, TIMESTAMP_SELECTOR, OBJECTS_CSV
+from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, FRAME_INDEX_SELECTOR, \
+    KEY_FRAME_HEADERS, KEYFRAMES_CSV, TIMESTAMP_SELECTOR, OBJECTS_CSV, return_video_download_location
 from ..utils_module.timeit_decorator import timeit
 import os
 import cv2
@@ -78,7 +79,7 @@ class KeyframeSelection:
         return keyframes_data
 
     def detect_scene_changes(self, frame_idx: int) -> bool:
-        vid = cv2.VideoCapture(self.video_runner_obj["video_path"])
+        vid = cv2.VideoCapture(return_video_download_location(self.video_runner_obj))
         vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, current_frame = vid.read()
         if not ret:
