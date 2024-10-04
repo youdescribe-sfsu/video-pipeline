@@ -2,7 +2,7 @@ import csv
 import requests
 import os
 import traceback
-from typing import Dict, Any
+from typing import cast, TextIO, Dict, Any
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.utils import CAPTION_SCORE, return_video_folder_name, CAPTION_IMAGE_PAIR, OBJECTS_CSV, \
     CAPTIONS_AND_OBJECTS_CSV
@@ -36,7 +36,7 @@ class CaptionRating:
             self.logger.error(traceback.format_exc())
             return False
 
-    def get_caption_rating(self, image_data: Dict[str, str]) -> str:
+    def get_caption_rating(self, image_data: Dict[str, str]) -> float:
         token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
         multipart_form_data = {
             'token': token,
@@ -47,14 +47,18 @@ class CaptionRating:
         try:
             response = requests.post(page, data=multipart_form_data)
             if response.status_code != 200:
-                self.logger.info("Server returned status {}.".format(response.status_code))
+                self.logger.info(f"Server returned status {response.status_code}")
+                return 0.0
 
-            return response.text.lstrip("['").rstrip("']")
-        except:
-            response = requests.post(page, data=multipart_form_data)
-            if response.status_code != 200:
-                self.logger.info("Server returned status {}.".format(response.status_code))
-            return response.text.lstrip("['").rstrip("']")
+            rating_str = response.text.lstrip("['").rstrip("']")
+            try:
+                return float(rating_str)
+            except ValueError:
+                self.logger.error(f"Invalid rating value received: {rating_str}")
+                return 0.0
+        except Exception as e:
+            self.logger.error(f"Error in caption rating request: {str(e)}")
+            return 0.0
 
     def get_all_caption_rating(self) -> None:
         try:
@@ -65,7 +69,7 @@ class CaptionRating:
                     open(output_csv_file, 'w', newline='', encoding='utf-8') as output_csvfile:
                 reader = csv.DictReader(captcsvfile)
                 fieldnames = ['frame_index', 'frame_url', 'caption', 'rating']
-                writer = csv.DictWriter(output_csvfile, fieldnames=fieldnames)
+                writer = csv.DictWriter(cast(Any, output_csvfile), fieldnames=fieldnames)
                 writer.writeheader()
 
                 with ThreadPoolExecutor(max_workers=10) as executor:
@@ -115,7 +119,7 @@ class CaptionRating:
                 objects_reader = csv.DictReader(objects_file)
 
                 fieldnames = ['frame_index', 'timestamp', 'caption', 'rating'] + list(next(objects_reader).keys())[2:]
-                writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+                writer = csv.DictWriter(cast(Any, output_file), fieldnames=fieldnames)
                 writer.writeheader()
 
                 objects_data = list(objects_reader)

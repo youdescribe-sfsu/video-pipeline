@@ -63,7 +63,7 @@ class ImportVideo:
             print(f"Metadata saved to {metadata_file}")
 
             if video_start_time and video_end_time:
-                self.trim_video(video_start_time, video_end_time)
+                self.trim_video(str(video_start_time), str(video_end_time))
 
             # Use the database to update the progress status
             update_status(video_id, self.video_runner_obj.get("AI_USER_ID"), "done")
