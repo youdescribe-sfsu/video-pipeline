@@ -17,6 +17,7 @@ class FrameExtraction:
         self.logger.info(f"Initialization complete. Video path: {self.video_path}, Frames folder: {self.frames_folder}")
 
     @timeit
+    @timeit
     def extract_frames(self) -> bool:
         if self._is_extraction_complete():
             return True
@@ -25,7 +26,7 @@ class FrameExtraction:
             return False
 
         try:
-            vid, total_frames, video_fps, duration = self._get_video_info()
+            video_capture, total_frames, video_fps, duration = self._get_video_info()
             adaptive_fps = self.calculate_adaptive_fps(duration)
             frames_to_extract = int(duration * adaptive_fps)
             step = max(1, int(video_fps / adaptive_fps))
@@ -34,11 +35,12 @@ class FrameExtraction:
             self.logger.info(f"Total frames to extract: {frames_to_extract}")
 
             frame_indices = np.arange(0, total_frames, step)
-            scene_changes = self.detect_scene_changes(vid, threshold=self.config.get('scene_threshold', 30.0))
+            scene_changes = self.detect_scene_changes(video_capture, threshold=self.config.get('scene_threshold', 30.0))
 
-            self._extract_frames_parallel(frame_indices, scene_changes)
+            self._extract_frames_parallel(video_capture, frame_indices, scene_changes)
             self._save_extraction_progress(adaptive_fps, frames_to_extract, step, scene_changes)
 
+            video_capture.release()  # Don't forget to release the video capture object
             self.logger.info("Frame extraction completed successfully.")
             return True
 
@@ -71,9 +73,10 @@ class FrameExtraction:
         self.logger.info(f"Video info: total frames={total_frames}, fps={video_fps}, duration={duration}")
         return vid, total_frames, video_fps, duration
 
-    def _extract_frames_parallel(self, frame_indices: np.ndarray, scene_changes: List[int]) -> None:
+    def _extract_frames_parallel(self, video_capture: cv2.VideoCapture, frame_indices: np.ndarray,
+                                 scene_changes: List[int]) -> None:
         with ThreadPoolExecutor(max_workers=self.config.get('max_workers', os.cpu_count())) as executor:
-            futures = [executor.submit(self.process_frame, frame_idx, frame_idx in scene_changes)
+            futures = [executor.submit(self.process_frame, video_capture, frame_idx, frame_idx in scene_changes)
                        for frame_idx in frame_indices]
             for future in as_completed(futures):
                 try:
@@ -93,11 +96,9 @@ class FrameExtraction:
                              'frame_extraction', module_outputs)
         self.logger.info("Frame extraction progress and outputs saved in the database.")
 
-    def process_frame(self, frame_idx: int, is_scene_change: bool) -> None:
-        vid = cv2.VideoCapture(self.video_path)
-        vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-        ret, frame = vid.read()
-        vid.release()
+    def process_frame(self, video_capture: cv2.VideoCapture, frame_idx: int, is_scene_change: bool) -> None:
+        video_capture.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = video_capture.read()
 
         if ret:
             frame_type = "keyframe" if is_scene_change else "frame"
@@ -118,13 +119,13 @@ class FrameExtraction:
         else:  # For videos longer than 15 minutes
             return max(1, min(base_fps - 3, int(duration / 300)))
 
-    def detect_scene_changes(self, vid: cv2.VideoCapture, threshold: float = 30.0) -> List[int]:
+    def detect_scene_changes(self, video_capture: cv2.VideoCapture, threshold: float = 30.0) -> List[int]:
         scene_changes = []
         previous_frame = None
         frame_count = 0
 
         while True:
-            ret, frame = vid.read()
+            ret, frame = video_capture.read()
             if not ret:
                 break
 
@@ -138,5 +139,5 @@ class FrameExtraction:
             previous_frame = frame
             frame_count += 1
 
-        vid.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset video to start
+        video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset video to start
         return scene_changes
