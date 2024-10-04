@@ -31,9 +31,6 @@ class CaptionRating:
             return False
 
     def get_caption_rating(self, image_data: Dict[str, str]) -> str:
-        """
-        Return the rating for a single caption. Keeps the data sending/receiving part similar to the older version.
-        """
         token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
         multipart_form_data = {
             'token': token,
@@ -44,8 +41,9 @@ class CaptionRating:
 
         try:
             response = requests.post(page, data=multipart_form_data)
-            response.raise_for_status()  # Improved error handling here
-            rating = response.text.lstrip("['").rstrip("']")
+            response.raise_for_status()  # Check for HTTP errors
+            rating = response.text.lstrip("['").rstrip("']")  # Clean the response
+            self.logger.info(f"Received response: {response.text}")  # Log the full response
             return rating
         except requests.RequestException as e:
             self.logger.error(f"Error in caption rating request: {str(e)}")
