@@ -3,12 +3,15 @@ import json
 import numpy as np
 import os
 from typing import Dict, Any, List
+import warnings
 from ..utils_module.utils import OUTPUT_AVG_CSV, SCENE_SEGMENTED_FILE_CSV, return_video_folder_name
 from web_server_module.web_server_database import update_status, get_status_for_youtube_id, update_module_output
 from ..utils_module.timeit_decorator import timeit
 from sklearn.cluster import KMeans
 from scipy.signal import find_peaks
 from .generate_average_output import generate_average_output
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 
 class SceneSegmentation:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -33,22 +36,30 @@ class SceneSegmentation:
 
         try:
             # Generate average output if it doesn't exist
-            output_avg_csv = return_video_folder_name(self.video_runner_obj) + '/' + OUTPUT_AVG_CSV
+            output_avg_csv = os.path.join(return_video_folder_name(self.video_runner_obj), OUTPUT_AVG_CSV)
             if not os.path.exists(output_avg_csv):
                 self.logger.info("Generating average output")
                 if not generate_average_output(self.video_runner_obj):
                     raise Exception("Failed to generate average output")
 
-            frame_data = self.load_frame_data()
-            scene_boundaries = self.detect_scene_boundaries(frame_data)
-            scenes = self.generate_scenes(frame_data, scene_boundaries)
-            self.save_scenes(scenes)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+
+                frame_data = self.load_frame_data()
+                scene_boundaries = self.detect_scene_boundaries(frame_data)
+                scenes = self.generate_scenes(frame_data, scene_boundaries)
+                self.save_scenes(scenes)
+
+                if len(w) > 0:
+                    for warning in w:
+                        self.logger.warning(f"Warning in scene segmentation: {warning.message}")
 
             # Mark task as done in the database
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
 
             # Save the segmented scenes to the database for future use
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'scene_segmentation', {"scenes": scenes})
+            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                                 'scene_segmentation', {"scenes": scenes})
 
             self.logger.info("Scene segmentation completed")
             return True
@@ -57,7 +68,7 @@ class SceneSegmentation:
             return False
 
     def load_frame_data(self) -> List[Dict[str, Any]]:
-        output_avg_csv = return_video_folder_name(self.video_runner_obj) + '/' + OUTPUT_AVG_CSV
+        output_avg_csv = os.path.join(return_video_folder_name(self.video_runner_obj), OUTPUT_AVG_CSV)
         frame_data = []
 
         with open(output_avg_csv, 'r') as csvfile:
@@ -132,11 +143,11 @@ class SceneSegmentation:
         if not descriptions:
             return "No description available"
 
-        vectorizer = self.get_vectorizer()
+        vectorizer = TfidfVectorizer(stop_words='english')
         vectors = vectorizer.fit_transform(descriptions)
 
         n_clusters = min(3, len(descriptions))
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
         kmeans.fit(vectors)
 
         cluster_centers = kmeans.cluster_centers_
@@ -149,12 +160,8 @@ class SceneSegmentation:
 
         return " ".join(closest_descriptions)
 
-    def get_vectorizer(self):
-        from sklearn.feature_extraction.text import TfidfVectorizer
-        return TfidfVectorizer(stop_words='english')
-
     def save_scenes(self, scenes: List[Dict[str, Any]]) -> None:
-        scene_segmented_file = return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
+        scene_segmented_file = os.path.join(return_video_folder_name(self.video_runner_obj), SCENE_SEGMENTED_FILE_CSV)
         with open(scene_segmented_file, "w", newline='') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=self.columns.values())
             writer.writeheader()
