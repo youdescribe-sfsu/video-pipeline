@@ -1,18 +1,23 @@
 import json
 import csv
 from typing import List, Dict, Any
+import warnings
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from transformers import pipeline
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.utils import return_video_folder_name, SCENE_SEGMENTED_FILE_CSV, SUMMARIZED_SCENES
 from ..utils_module.timeit_decorator import timeit
 
+# Suppress the specific warning
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 
 class TextSummarization:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+        self.summarizer = pipeline("summarization",
+                                   model="facebook/bart-large-cnn",
+                                   tokenizer_kwargs={"clean_up_tokenization_spaces": True})
 
     def calculate_bleu_score(self, data: Dict[str, Any]) -> float:
         method1 = SmoothingFunction().method1
