@@ -64,8 +64,14 @@ class TextSummarization:
         return best_sentence
 
     def summarize_text(self, text: str, max_length: int = 130, min_length: int = 30) -> str:
-        summary = self.summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
-        return summary[0]['summary_text']
+        self.logger.debug(f"Summarizing text of length {len(text)}")
+        try:
+            summary = self.summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
+            self.logger.debug(f"Summary generated, length: {len(summary[0]['summary_text'])}")
+            return summary[0]['summary_text']
+        except Exception as e:
+            self.logger.error(f"Error in summarize_text: {str(e)}")
+            raise
 
     @timeit
     def generate_text_summary(self) -> bool:
@@ -87,24 +93,36 @@ class TextSummarization:
                         'description': row['description']
                     })
 
+            if not scenes:
+                raise ValueError("No scenes found in the input file")
+
+            self.logger.info(f"Loaded {len(scenes)} scenes for summarization")
+
             summarized_scenes = []
-            for scene in scenes:
-                sentences = scene['description'].split('\n')
-                groups = self.group_similar_sentences(sentences)
+            for i, scene in enumerate(scenes):
+                self.logger.debug(f"Processing scene {i + 1}/{len(scenes)}")
+                try:
+                    sentences = scene['description'].split('\n')
+                    groups = self.group_similar_sentences(sentences)
 
-                summarized_description = []
-                for group in groups:
-                    best_sentence = self.select_best_sentence(sentences, group)
-                    summarized_description.append(best_sentence)
+                    summarized_description = []
+                    for group in groups:
+                        best_sentence = self.select_best_sentence(sentences, group)
+                        summarized_description.append(best_sentence)
 
-                full_description = ' '.join(summarized_description)
-                summarized_text = self.summarize_text(full_description)
+                    full_description = ' '.join(summarized_description)
+                    summarized_text = self.summarize_text(full_description)
 
-                summarized_scenes.append({
-                    'start_time': scene['start_time'],
-                    'end_time': scene['end_time'],
-                    'text': summarized_text
-                })
+                    summarized_scenes.append({
+                        'start_time': scene['start_time'],
+                        'end_time': scene['end_time'],
+                        'text': summarized_text
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error processing scene {i + 1}: {str(e)}")
+
+            if not summarized_scenes:
+                raise ValueError("No scenes were successfully summarized")
 
             output_file = return_video_folder_name(self.video_runner_obj) + "/" + SUMMARIZED_SCENES
             with open(output_file, 'w') as f:
@@ -121,4 +139,5 @@ class TextSummarization:
 
         except Exception as e:
             self.logger.error(f"Error in text summarization: {str(e)}")
+            self.logger.exception("Full traceback:")
             return False
