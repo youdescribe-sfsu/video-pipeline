@@ -13,7 +13,7 @@ from ..utils_module.utils import (
     OCR_FILTER_REMOVE_SIMILAR
 )
 from ..utils_module.timeit_decorator import timeit
-from filter_ocr import filter_ocr_remove_similarity
+from .filter_ocr import filter_ocr_remove_similarity
 
 class OcrExtraction:
     def __init__(self, video_runner_obj: Dict[str, Any]):
