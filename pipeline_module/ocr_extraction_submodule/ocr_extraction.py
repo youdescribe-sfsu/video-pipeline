@@ -4,15 +4,16 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from google.cloud import vision
 from typing import Dict, Any, List
-import psutil
 import time
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.utils import (
     return_video_folder_name,
     return_video_frames_folder,
-    OCR_TEXT_ANNOTATIONS_FILE_NAME
+    OCR_TEXT_ANNOTATIONS_FILE_NAME,
+    OCR_FILTER_REMOVE_SIMILAR
 )
 from ..utils_module.timeit_decorator import timeit
+from filter_ocr import filter_ocr_remove_similarity
 
 class OcrExtraction:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -21,7 +22,6 @@ class OcrExtraction:
         self.client = vision.ImageAnnotatorClient()
         self.frames_folder = return_video_frames_folder(video_runner_obj)
         self.output_folder = return_video_folder_name(video_runner_obj)
-        self.max_retries = 3
         self.logger.info(f"OcrExtraction initialized with video folder: {self.frames_folder}")
 
     @timeit
@@ -36,12 +36,17 @@ class OcrExtraction:
             return True
 
         try:
-            self.check_filesystem()
             frame_files = self.get_frame_files()
             self.logger.info(f"Found {len(frame_files)} frames to process")
 
             results = self.process_frames_in_parallel(frame_files)
             self.save_ocr_results(results)
+
+            self.logger.info("Starting OCR filtering process")
+            self.run_ocr_filtering()
+
+            if not self.verify_output_files():
+                raise Exception("Not all required output files were generated")
 
             update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
                                  'ocr_extraction', {"ocr_results": results})
@@ -54,19 +59,6 @@ class OcrExtraction:
             self.logger.error(f"Error in OCR detection: {str(e)}")
             self.logger.exception("Full traceback:")
             return False
-
-    def check_filesystem(self):
-        """Check filesystem permissions and available space."""
-        self.logger.info("Checking filesystem permissions and space")
-        if not os.access(self.frames_folder, os.R_OK):
-            raise PermissionError(f"No read permission for {self.frames_folder}")
-        if not os.access(self.output_folder, os.W_OK):
-            raise PermissionError(f"No write permission for {self.output_folder}")
-
-        free_space = psutil.disk_usage(self.output_folder).free
-        if free_space < 1_000_000_000:  # 1 GB
-            raise IOError(f"Insufficient disk space. Only {free_space / 1_000_000_000:.2f} GB available.")
-        self.logger.info("Filesystem check passed")
 
     def get_frame_files(self) -> List[str]:
         """Get list of frame files to process."""
@@ -81,7 +73,7 @@ class OcrExtraction:
         self.logger.info(f"Processing {len(frame_files)} frames in parallel")
 
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            future_to_frame = {executor.submit(self.process_frame_with_retry, frame_file): frame_file for frame_file in frame_files}
+            future_to_frame = {executor.submit(self.process_frame, frame_file): frame_file for frame_file in frame_files}
             for future in as_completed(future_to_frame):
                 frame_file = future_to_frame[future]
                 try:
@@ -93,17 +85,6 @@ class OcrExtraction:
 
         self.logger.info(f"Completed processing {len(results)} frames")
         return results
-
-    def process_frame_with_retry(self, frame_file: str, max_retries: int = 3) -> tuple:
-        """Process a single frame with retry logic."""
-        for attempt in range(max_retries):
-            try:
-                return self.process_frame(frame_file)
-            except Exception as e:
-                self.logger.warning(f"Attempt {attempt + 1} failed for frame {frame_file}: {str(e)}. Retrying...")
-                if attempt == max_retries - 1:
-                    raise
-                time.sleep(1)  # Wait before retrying
 
     def process_frame(self, frame_file: str) -> tuple:
         """Process a single frame using Google's Vision API."""
@@ -124,8 +105,7 @@ class OcrExtraction:
         frame_index = int(os.path.splitext(frame_file)[0].split('_')[-1])
 
         process_time = time.time() - start_time
-        memory_usage = psutil.virtual_memory().percent
-        self.logger.info(f"Frame {frame_index} processed in {process_time:.2f}s. Memory usage: {memory_usage}%")
+        self.logger.info(f"Frame {frame_index} processed in {process_time:.2f}s.")
 
         return frame_index, text_annotations
 
@@ -162,6 +142,26 @@ class OcrExtraction:
         except Exception as e:
             self.logger.error(f"Error saving OCR results: {str(e)}")
             raise
+
+    def run_ocr_filtering(self):
+        """Run OCR filtering process"""
+        self.logger.info("Starting OCR filtering process")
+        try:
+            filter_ocr_remove_similarity(self.video_runner_obj)
+            self.logger.info("OCR filtering process completed successfully")
+        except Exception as e:
+            self.logger.error(f"Error in OCR filtering process: {str(e)}")
+            raise
+
+    def verify_output_files(self):
+        """Verify that all required output files exist"""
+        required_files = [OCR_TEXT_ANNOTATIONS_FILE_NAME, OCR_FILTER_REMOVE_SIMILAR]
+        for file in required_files:
+            file_path = os.path.join(self.output_folder, file)
+            if not os.path.exists(file_path):
+                self.logger.error(f"Required file not found: {file_path}")
+                return False
+        return True
 
     def test_single_frame(self, frame_file: str) -> Dict[str, Any]:
         """Test OCR on a single frame. Used for debugging and isolated testing."""
