@@ -51,7 +51,7 @@ class UploadToYDX:
 
     def upload_to_ydx(self, ydx_server=None, AI_USER_ID=os.getenv("YDX_AI_USER_ID")):
         # Check if upload is already done via the database
-        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'upload_to_YDX') == 'done':
+        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == 'done':
             self.logger.info("Already uploaded to YDX")
             return
 
