@@ -1,5 +1,6 @@
 import json
 import csv
+import re
 from typing import List, Dict, Any
 import warnings
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
@@ -22,7 +23,11 @@ class TextSummarization:
     def calculate_bleu_score(self, data: Dict[str, Any]) -> float:
         method1 = SmoothingFunction().method1
         candidate = data['sentence'].split()
-        reference_list = [ref.split() for ref in data['reference']]
+        reference_list = [ref.split() for ref in data['reference'] if len(ref.split()) > 1]
+
+        if len(candidate) < 2 or not reference_list:
+            return 0.0  # Return 0 if candidate or references are too short
+
         weights = (0.25, 0.25, 0.25, 0.25)  # Equal weights for 1-gram to 4-gram
         return sentence_bleu(reference_list, candidate, weights=weights, smoothing_function=method1)
 
@@ -56,7 +61,11 @@ class TextSummarization:
 
         for idx in group:
             others = [sentences[i] for i in group if i != idx]
-            score = self.calculate_bleu_score({'sentence': sentences[idx], 'reference': others})
+            try:
+                score = self.calculate_bleu_score({'sentence': sentences[idx], 'reference': others})
+            except Exception as e:
+                self.logger.error(f"Error calculating BLEU score: {str(e)}")
+                score = 0.0
             if score > best_score:
                 best_score = score
                 best_sentence = sentences[idx]
@@ -102,7 +111,15 @@ class TextSummarization:
             for i, scene in enumerate(scenes):
                 self.logger.debug(f"Processing scene {i + 1}/{len(scenes)}")
                 try:
-                    sentences = scene['description'].split('\n')
+                    # Regular expression pattern to split before 'a', 'an', or 'the' not at the start
+                    pattern = re.compile(r'(?<!^)(?=\b(?:a|an|the)\b)', re.IGNORECASE)
+                    sentences = pattern.split(scene['description'])
+                    sentences = [s.strip() for s in sentences if s.strip()]
+
+                    if not sentences:
+                        self.logger.warning(f"No sentences found in scene {i + 1}")
+                        continue
+
                     groups = self.group_similar_sentences(sentences)
 
                     summarized_description = []
