@@ -2,10 +2,8 @@ from ..utils_module.utils import return_video_folder_name, OCR_TEXT_ANNOTATIONS_
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 import csv
 import json
-import sys
 
 csv.field_size_limit(2 ** 31 - 1)
-
 
 def detect_watermark(video_runner_obj):
     """
@@ -51,15 +49,12 @@ def detect_watermark(video_runner_obj):
 
         if len(count_obj) > 0:
             max_count = count_obj[0]["count"]
-            vertice_with_max_count = count_obj[0]["vertice"]
             count_obj[0]['percentage'] = max_count / row_count * 100
             video_runner_obj["logger"].info(f"Percentage of frames with watermark: {max_count / row_count * 100}")
 
         with open(return_video_folder_name(video_runner_obj) + "/" + COUNT_VERTICE, 'w', encoding='utf-8') as jsonf:
-            jsonString = json.dumps(count_obj)
-            jsonf.write(jsonString)
+            json.dump(count_obj, jsonf)
 
-        # Save output to the database for future use
         update_module_output(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], 'detect_watermark',
                              {"watermark_info": count_obj})
 
@@ -70,7 +65,6 @@ def detect_watermark(video_runner_obj):
     except Exception as e:
         video_runner_obj["logger"].error(f"Error in watermark detection: {str(e)}")
         return False
-
 
 def isSamePolygon(poly1, poly2, threshold=50):
     """
