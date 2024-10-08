@@ -9,6 +9,10 @@ from datetime import datetime
 import uvicorn
 import aiohttp
 from contextlib import asynccontextmanager
+import aiosmtplib
+from email.message import EmailMessage
+import os
+import traceback
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
@@ -170,9 +174,58 @@ async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_mes
 
 
 async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
-    # Implement email notification to admin
-    print(f"Admin notification: Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
-    # Add your implementation here
+    # SMTP Configuration
+    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+    SMTP_USERNAME = os.getenv("SMTP_USERNAME", "youdescribeadm@gmail.com")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+    SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
+
+    ADMIN_EMAIL = "smirani1@mail.sfsu.edu"
+    SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USERNAME)
+
+    if not SMTP_PASSWORD:
+        logger.error("SMTP password not set in environment variables.")
+        return
+
+    # Create the email message
+    message = EmailMessage()
+    message["From"] = SENDER_EMAIL
+    message["To"] = ADMIN_EMAIL
+    message["Subject"] = f"Video Pipeline Error: YouTube ID {youtube_id}"
+
+    # Construct the email content
+    email_content = f"""
+    Dear Admin,
+
+    An error occurred in the video pipeline.
+
+    Details:
+    - YouTube ID: {youtube_id}
+    - AI User ID: {ai_user_id}
+    - Error Message: {error_message}
+
+    Please investigate the issue.
+
+    Best regards,
+    Video Pipeline System
+    """
+    message.set_content(email_content)
+
+    try:
+        # Send the email asynchronously
+        await aiosmtplib.send(
+            message,
+            hostname=SMTP_HOST,
+            port=SMTP_PORT,
+            username=SMTP_USERNAME,
+            password=SMTP_PASSWORD,
+            start_tls=SMTP_USE_TLS,
+        )
+        logger.info(f"Admin notified via email about failure for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+    except Exception as e:
+        logger.error(f"Failed to send email notification to admin: {str(e)}")
+        logger.error(traceback.format_exc())
 
 
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):

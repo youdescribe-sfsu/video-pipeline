@@ -94,3 +94,5 @@ aiohttp
 transformers
 psutil
 protobuf
+aiosmtplib
+
