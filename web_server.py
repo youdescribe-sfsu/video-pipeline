@@ -178,7 +178,7 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
     SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
     SMTP_USERNAME = os.getenv("SMTP_USERNAME", "youdescribeadm@gmail.com")
-    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "Youdescribe@123")
     SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
 
     ADMIN_EMAIL = "smirani1@mail.sfsu.edu"
