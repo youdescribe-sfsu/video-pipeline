@@ -4,7 +4,7 @@ import re
 from typing import List, Dict, Any
 import warnings
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.utils import return_video_folder_name, SCENE_SEGMENTED_FILE_CSV, SUMMARIZED_SCENES
 from ..utils_module.timeit_decorator import timeit
@@ -16,9 +16,15 @@ class TextSummarization:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.summarizer = pipeline("summarization",
-                                   model="facebook/bart-large-cnn",
-                                   tokenizer_kwargs={"clean_up_tokenization_spaces": True})
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "facebook/bart-large-cnn",
+            clean_up_tokenization_spaces=True
+        )
+        self.summarizer = pipeline(
+            "summarization",
+            model="facebook/bart-large-cnn",
+            tokenizer=self.tokenizer
+        )
 
     def calculate_bleu_score(self, data: Dict[str, Any]) -> float:
         method1 = SmoothingFunction().method1
@@ -28,7 +34,7 @@ class TextSummarization:
         if len(candidate) < 2 or not reference_list:
             return 0.0  # Return 0 if candidate or references are too short
 
-        weights = (0.25, 0.25, 0.25, 0.25)  # Equal weights for 1-gram to 4-gram
+        weights = (0.25, 0.25, 0.25, 0.25)
         return sentence_bleu(reference_list, candidate, weights=weights, smoothing_function=method1)
 
     def group_similar_sentences(self, sentences: List[str], threshold: float = 0.4) -> List[List[int]]:
