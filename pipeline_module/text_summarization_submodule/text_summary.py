@@ -26,11 +26,11 @@ class TextSummaryCoordinator:
             # Mark the task as done
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
             self.logger.info("Text summarization process completed successfully")
+            return True
 
         except Exception as e:
             self.logger.error(f"Error in text summarization process: {str(e)}")
-            raise
-
+            return False
 
 if __name__ == "__main__":
     # Testing purposes
