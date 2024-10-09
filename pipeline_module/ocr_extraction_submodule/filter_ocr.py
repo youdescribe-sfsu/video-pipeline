@@ -96,9 +96,6 @@ def filter_ocr_remove_similarity(video_runner_obj, threshold=0.15, max_similar_l
     Removes non-ASCII characters from all chosen texts and also removes any line
     of text after it has occurred max_similar_lines times
     """
-    if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
-        video_runner_obj["logger"].info("OCR similarity removal already completed, skipping step.")
-        return True
 
     incsvpath = return_video_folder_name(video_runner_obj) + "/" + OCR_FILTER_CSV_FILE_NAME
     kept_rows = []
