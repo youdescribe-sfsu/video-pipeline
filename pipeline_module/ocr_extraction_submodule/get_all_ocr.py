@@ -48,14 +48,23 @@ def get_all_ocr(video_runner_obj):
 
             csvReader = csv.DictReader(csvf)
             for row in csvReader:
-                ocr_text = json.loads(row[OCR_HEADERS[OCR_TEXT_SELECTOR]])
-                frame_index = row[OCR_HEADERS[FRAME_INDEX_SELECTOR]]
-                timestamp = row[OCR_HEADERS[TIMESTAMP_SELECTOR]]
-                if ocr_text['textAnnotations']:
-                    text_description = ocr_text['textAnnotations'][0]['description']
-                    replaced_text_description = replace_all(text_description, description_to_remove)
-                    if replaced_text_description:
-                        ocr_text_csv_writer.writerow([frame_index, timestamp, replaced_text_description])
+                try:
+                    ocr_text = json.loads(row[OCR_HEADERS[OCR_TEXT_SELECTOR]])
+                    frame_index = row[OCR_HEADERS[FRAME_INDEX_SELECTOR]]
+                    timestamp = row[OCR_HEADERS[TIMESTAMP_SELECTOR]]
+                    if ocr_text and isinstance(ocr_text, list) and len(ocr_text) > 0:
+                        text_description = ocr_text[0]['description']
+                        replaced_text_description = replace_all(text_description, description_to_remove)
+                        if replaced_text_description:
+                            ocr_text_csv_writer.writerow([frame_index, timestamp, replaced_text_description])
+                    else:
+                        video_runner_obj["logger"].warning(f"Unexpected OCR text structure for frame {frame_index}")
+                except json.JSONDecodeError:
+                    video_runner_obj["logger"].error(f"Failed to parse OCR text JSON for frame {frame_index}")
+                except KeyError as e:
+                    video_runner_obj["logger"].error(f"Missing expected key in OCR data: {str(e)}")
+                except Exception as e:
+                    video_runner_obj["logger"].error(f"Unexpected error processing OCR data: {str(e)}")
 
         video_runner_obj["logger"].info(f"OCR extraction completed. Results saved to {ocr_text_csv}")
 
