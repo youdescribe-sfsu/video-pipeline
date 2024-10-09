@@ -78,10 +78,13 @@ class UploadToYDX:
             # Store upload details in the database for future reference
             update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], 'upload_to_YDX', {"upload_data": data})
 
+            return True
+
         except Exception as e:
             self.logger.error(f"Error in upload_to_ydx: {str(e)}")
             self.logger.error(traceback.format_exc())
             self.notify_error(ydx_server, str(e))
+            return False
             raise
 
     def prepare_dialogue_timestamps(self):
