@@ -26,7 +26,7 @@ def get_ocr_annotations(video_runner_obj):
             writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
 
             for frame_index in range(0, num_frames, step):
-                frame_filename = f'{video_runner_obj["frames_folder"]}/frame_{frame_index}.jpg'
+                frame_filename = f'{video_runner_obj["frames"]}/frame_{frame_index}.jpg'
                 if os.path.exists(frame_filename):
                     texts = detect_text(frame_filename, client)
                     if texts:
