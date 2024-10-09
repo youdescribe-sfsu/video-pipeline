@@ -63,7 +63,7 @@ def get_all_ocr_annotations(video_runner_obj):
         video_runner_obj["logger"].error(f"Error in OCR annotations extraction: {str(e)}")
         return False
 
-def detect_text(frame_file: str, client: vision.ImageAnnotatorClient) -> list:
+def detect_text(frame_file: str, client: vision.ImageAnnotatorClient) -> dict:
     """
     Detects text in an image file using Google Cloud Vision API.
     """
@@ -74,7 +74,8 @@ def detect_text(frame_file: str, client: vision.ImageAnnotatorClient) -> list:
     response = client.text_detection(image=image)
     texts = response.text_annotations
 
-    return [
+    # Prepare the annotations in the expected format
+    text_annotations = [
         {
             "description": text.description,
             "bounding_poly": {
@@ -86,3 +87,8 @@ def detect_text(frame_file: str, client: vision.ImageAnnotatorClient) -> list:
         }
         for text in texts
     ]
+
+    # Return a dictionary with 'Text Annotations' key
+    return {
+        "Text Annotations": text_annotations
+    }
