@@ -36,7 +36,7 @@ def generate_ocr_text_csv(video_runner_obj, ocr_annotations):
     output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_TEXT_CSV_FILE_NAME}"
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Frame Index", "Timestamp", "Text"])
+        writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
         for ann in ocr_annotations:
             for text in ann["texts"]:
                 writer.writerow([ann["frame_index"], ann["timestamp"], text["description"]])
@@ -78,7 +78,7 @@ def generate_ocr_filter_csv(video_runner_obj, filtered_data):
     output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_FILTER_CSV_FILE_NAME}"
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Frame Index", "Timestamp", "Text"])
+        writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
         for data in filtered_data:
             for text in data["texts"]:
                 writer.writerow([data["frame_index"], data["timestamp"], text["description"]])
@@ -104,7 +104,7 @@ def generate_ocr_filter_remove_similar(video_runner_obj, final_filtered_data):
     output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_FILTER_REMOVE_SIMILAR}"
     with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Frame Index", "Timestamp", "Text"])
+        writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
         for data in final_filtered_data:
             for text in data["texts"]:
                 writer.writerow([data["frame_index"], data["timestamp"], text["description"]])
