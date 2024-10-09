@@ -3,7 +3,7 @@ import csv
 import json
 from google.cloud import vision
 from ..utils_module.timeit_decorator import timeit
-from ..utils_module.utils import return_video_folder_name, OCR_TEXT_ANNOTATIONS_FILE_NAME
+from ..utils_module.utils import return_video_folder_name, OCR_TEXT_ANNOTATIONS_FILE_NAME, return_video_frames_folder
 from web_server_module.web_server_database import get_module_output, update_module_output
 
 @timeit
@@ -12,6 +12,8 @@ def get_ocr_annotations(video_runner_obj):
         frame_extraction_data = get_module_output(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"], 'frame_extraction')
         if not frame_extraction_data:
             raise ValueError("Frame extraction data not found in database")
+
+        video_frames_folder = return_video_frames_folder(video_runner_obj)
 
         step = int(frame_extraction_data['steps'])
         num_frames = int(frame_extraction_data['frames_extracted'])
@@ -26,7 +28,7 @@ def get_ocr_annotations(video_runner_obj):
             writer.writerow(["Frame Index", "Timestamp", "OCR Text"])
 
             for frame_index in range(0, num_frames, step):
-                frame_filename = f'{video_runner_obj["frames"]}/frame_{frame_index}.jpg'
+                frame_filename =  f'{video_frames_folder}/frame_{frame_index}.jpg'
                 if os.path.exists(frame_filename):
                     texts = detect_text(frame_filename, client)
                     if texts:
