@@ -18,7 +18,7 @@ def detect_watermark(video_runner_obj):
             csvReader = csv.DictReader(csvf)
             row_count = 0
             for row in csvReader:
-                ocr_text = json.loads(row["Text Annotations"])
+                ocr_text = json.loads(row["OCR Text"])
                 if len(ocr_text) > 0:
                     row_count += 1
                     for annotation in ocr_text:
