@@ -63,45 +63,26 @@ def get_all_ocr_annotations(video_runner_obj):
         video_runner_obj["logger"].error(f"Error in OCR annotations extraction: {str(e)}")
         return False
 
-def detect_text(frame_file: str, client: vision.ImageAnnotatorClient) -> dict:
+def detect_text(frame_file: str, client: vision.ImageAnnotatorClient) -> list:
     """
     Detects text in an image file using Google Cloud Vision API.
-
-    Parameters:
-    frame_file (str): The file path of the video frame image.
-    client (vision.ImageAnnotatorClient): The Vision API client.
-
-    Returns:
-    list: A list of detected text annotations.
     """
-    try:
-        with open(frame_file, 'rb') as image_file:
-            content = image_file.read()
+    with open(frame_file, 'rb') as image_file:
+        content = image_file.read()
 
-        image = vision.Image(content=content)
-        response = client.text_detection(image=image)
-        texts = response.text_annotations
+    image = vision.Image(content=content)
+    response = client.text_detection(image=image)
+    texts = response.text_annotations
 
-        text_annotations = [
-            {
-                "description": text.description,
-                "bounding_poly": {
-                    "vertices": [
-                        {"x": vertex.x if vertex.x is not None else 0,
-                         "y": vertex.y if vertex.y is not None else 0}
-                        for vertex in text.bounding_poly.vertices
-                    ]
-                }
+    return [
+        {
+            "description": text.description,
+            "bounding_poly": {
+                "vertices": [
+                    {"x": vertex.x, "y": vertex.y}
+                    for vertex in text.bounding_poly.vertices
+                ]
             }
-            for text in texts
-        ]
-
-        # Return a dictionary with 'Text Annotations' key
-        return {
-            "Text Annotations": text_annotations
         }
-
-    except Exception as e:
-        # Log the error and return an empty dictionary
-        print(f"Error in detect_text for file {frame_file}: {str(e)}")
-        return {}
+        for text in texts
+    ]
