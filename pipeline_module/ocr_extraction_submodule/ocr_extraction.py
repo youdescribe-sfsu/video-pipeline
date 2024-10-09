@@ -1,53 +1,29 @@
-import os
-from typing import Dict, Any
-from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
-from ..utils_module.utils import return_video_folder_name, return_video_frames_folder, OCR_TEXT_ANNOTATIONS_FILE_NAME
+from .get_ocr_annotations import get_ocr_annotations
+from .process_ocr_data import process_ocr_data
+from web_server_module.web_server_database import update_status, update_module_output
+from ..utils_module.utils import return_video_folder_name
 from ..utils_module.timeit_decorator import timeit
-from .detect_watermark import detect_watermark
-from .filter_ocr import filter_ocr, filter_ocr_remove_similarity
-from .get_all_ocr import get_all_ocr
-from .get_all_ocr_annotations import get_all_ocr_annotations
+import csv
+
 
 class OcrExtraction:
-    def __init__(self, video_runner_obj: Dict[str, Any]):
+    def __init__(self, video_runner_obj):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.frames_folder = return_video_frames_folder(video_runner_obj)
-        self.output_folder = return_video_folder_name(video_runner_obj)
-        self.logger.info(f"OcrExtraction initialized with video folder: {self.frames_folder}")
 
     @timeit
-    def run_ocr_detection(self) -> bool:
-        """
-        Runs the complete OCR detection process, including watermark detection,
-        OCR extraction, and filtering.
-        """
-        self.logger.info("Starting OCR detection process")
-
+    def run_ocr_detection(self):
         try:
-            # Step 1: Get all OCR annotations
-            if not get_all_ocr_annotations(self.video_runner_obj):
-                raise Exception("Failed to get OCR annotations")
+            self.logger.info("Starting OCR detection process")
 
-            # Step 2: Detect watermark
-            if not detect_watermark(self.video_runner_obj):
-                raise Exception("Failed to detect watermark")
+            # Step 1: Extract OCR annotations
+            ocr_annotations = get_ocr_annotations(self.video_runner_obj)
 
-            # Step 3: Get all OCR
-            if not get_all_ocr(self.video_runner_obj):
-                raise Exception("Failed to get all OCR")
+            # Step 2: Process OCR data (watermark detection, removal, and filtering)
+            filtered_ocr_data = process_ocr_data(self.video_runner_obj, ocr_annotations)
 
-            # Step 4: Filter OCR
-            if not filter_ocr(self.video_runner_obj):
-                raise Exception("Failed to filter OCR")
-
-            # Step 5: Remove similar OCR entries
-            if not filter_ocr_remove_similarity(self.video_runner_obj):
-                raise Exception("Failed to remove similar OCR entries")
-
-            # Verify all required files exist
-            if not self.verify_output_files():
-                raise Exception("Not all required output files were generated")
+            # Step 3: Save filtered OCR data
+            self.save_filtered_ocr_data(filtered_ocr_data)
 
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
             self.logger.info("OCR detection process completed successfully.")
@@ -57,17 +33,13 @@ class OcrExtraction:
             self.logger.error(f"Error in OCR detection: {str(e)}")
             return False
 
-    def verify_output_files(self):
-        """Verify that all required output files exist"""
-        required_files = [
-            OCR_TEXT_ANNOTATIONS_FILE_NAME,
-            "ocr_text.csv",
-            "ocr_filter.csv",
-            "ocr_filter_remove_similar.csv"
-        ]
-        for file in required_files:
-            file_path = os.path.join(self.output_folder, file)
-            if not os.path.exists(file_path):
-                self.logger.error(f"Required file not found: {file_path}")
-                return False
-        return True
+    def save_filtered_ocr_data(self, filtered_ocr_data):
+        output_file = f"{return_video_folder_name(self.video_runner_obj)}/filtered_ocr_data.csv"
+        with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['frame_index', 'timestamp', 'text'])
+            for row in filtered_ocr_data:
+                writer.writerow(row)
+        self.logger.info(f"Filtered OCR data saved to {output_file}")
+        update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
+                             'ocr_extraction', {"filtered_ocr_file": output_file})
