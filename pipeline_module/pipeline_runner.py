@@ -182,7 +182,7 @@ class PipelineRunner:
             self.video_runner_obj,
             upload_to_server=self.upload_to_server
         )
-        success = await upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
+        success = upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
         if not success:
             raise Exception("Upload to YDX failed")
 
