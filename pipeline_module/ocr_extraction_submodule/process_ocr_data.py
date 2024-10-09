@@ -1,4 +1,8 @@
+import csv
+import json
 from web_server_module.web_server_database import update_module_output
+from ..utils_module.utils import return_video_folder_name, OCR_TEXT_CSV_FILE_NAME, OCR_FILTER_CSV_FILE_NAME, \
+    OCR_FILTER_REMOVE_SIMILAR, COUNT_VERTICE
 from ..utils_module.timeit_decorator import timeit
 
 
@@ -6,89 +10,101 @@ from ..utils_module.timeit_decorator import timeit
 def process_ocr_data(video_runner_obj, ocr_annotations):
     logger = video_runner_obj.get("logger")
 
-    # Step 1: Detect and remove watermarks
-    ocr_data_without_watermarks = remove_watermarks(ocr_annotations, logger)
+    # Generate OCR_TEXT_CSV_FILE_NAME
+    generate_ocr_text_csv(video_runner_obj, ocr_annotations)
 
-    # Step 2: Filter and remove duplicates
-    filtered_ocr_data = filter_and_deduplicate(ocr_data_without_watermarks, logger)
+    # Detect watermarks and generate COUNT_VERTICE
+    watermarks = detect_watermarks(video_runner_obj, ocr_annotations)
 
-    # Save processed data to the database
+    # Remove watermarks and filter
+    filtered_data = remove_watermarks_and_filter(ocr_annotations, watermarks)
+
+    # Generate OCR_FILTER_CSV_FILE_NAME
+    generate_ocr_filter_csv(video_runner_obj, filtered_data)
+
+    # Remove similar entries and generate OCR_FILTER_REMOVE_SIMILAR
+    final_filtered_data = remove_similar_entries(filtered_data)
+    generate_ocr_filter_remove_similar(video_runner_obj, final_filtered_data)
+
     update_module_output(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"],
-                         'process_ocr_data', {"filtered_ocr_data": filtered_ocr_data})
+                         'process_ocr_data', {"ocr_processing_complete": True})
 
-    return filtered_ocr_data
+    return final_filtered_data
 
 
-def remove_watermarks(ocr_annotations, logger):
-    logger.info("Removing watermarks from OCR data")
-    watermark_threshold = 0.8  # 80% occurrence to be considered a watermark
-    total_frames = len(ocr_annotations)
+def generate_ocr_text_csv(video_runner_obj, ocr_annotations):
+    output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_TEXT_CSV_FILE_NAME}"
+    with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Frame Index", "Timestamp", "Text"])
+        for ann in ocr_annotations:
+            for text in ann["texts"]:
+                writer.writerow([ann["frame_index"], ann["timestamp"], text["description"]])
+
+
+def detect_watermarks(video_runner_obj, ocr_annotations):
+    watermarks = []
     text_count = {}
+    total_frames = len(ocr_annotations)
 
-    # Count occurrences of each text
-    for frame_index, timestamp, texts in ocr_annotations:
-        for text in texts:
-            description = text['description']
-            if description in text_count:
-                text_count[description] += 1
-            else:
-                text_count[description] = 1
+    for ann in ocr_annotations:
+        for text in ann["texts"]:
+            description = text["description"]
+            text_count[description] = text_count.get(description, 0) + 1
 
-    # Identify watermarks
-    watermarks = set(text for text, count in text_count.items() if count / total_frames >= watermark_threshold)
+    threshold = 0.8 * total_frames
+    watermarks = [text for text, count in text_count.items() if count > threshold]
 
-    # Remove watermarks from annotations
-    clean_annotations = []
-    for frame_index, timestamp, texts in ocr_annotations:
-        clean_texts = [text for text in texts if text['description'] not in watermarks]
-        if clean_texts:
-            clean_annotations.append([frame_index, timestamp, clean_texts])
+    output_file = f"{return_video_folder_name(video_runner_obj)}/{COUNT_VERTICE}"
+    with open(output_file, 'w', encoding='utf-8') as jsonfile:
+        json.dump({"watermarks": watermarks}, jsonfile)
 
-    return clean_annotations
+    return watermarks
 
 
-def filter_and_deduplicate(ocr_data, logger):
-    logger.info("Filtering and deduplicating OCR data")
+def remove_watermarks_and_filter(ocr_annotations, watermarks):
     filtered_data = []
-    previous_texts = set()
-
-    for frame_index, timestamp, texts in ocr_data:
-        unique_texts = []
-        for text in texts:
-            description = text['description']
-            if description not in previous_texts and not is_similar(description, previous_texts):
-                unique_texts.append(text)
-                previous_texts.add(description)
-
-        if unique_texts:
-            filtered_data.append([frame_index, timestamp, unique_texts])
-
+    for ann in ocr_annotations:
+        filtered_texts = [text for text in ann["texts"] if text["description"] not in watermarks]
+        if filtered_texts:
+            filtered_data.append({
+                "frame_index": ann["frame_index"],
+                "timestamp": ann["timestamp"],
+                "texts": filtered_texts
+            })
     return filtered_data
 
+def generate_ocr_filter_csv(video_runner_obj, filtered_data):
+    output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_FILTER_CSV_FILE_NAME}"
+    with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Frame Index", "Timestamp", "Text"])
+        for data in filtered_data:
+            for text in data["texts"]:
+                writer.writerow([data["frame_index"], data["timestamp"], text["description"]])
 
-def is_similar(text, previous_texts, threshold=0.8):
-    for prev_text in previous_texts:
-        if text_similarity(text, prev_text) > threshold:
-            return True
-    return False
+def remove_similar_entries(filtered_data):
+    final_filtered_data = []
+    seen_texts = set()
+    for data in filtered_data:
+        unique_texts = []
+        for text in data["texts"]:
+            if text["description"] not in seen_texts:
+                seen_texts.add(text["description"])
+                unique_texts.append(text)
+        if unique_texts:
+            final_filtered_data.append({
+                "frame_index": data["frame_index"],
+                "timestamp": data["timestamp"],
+                "texts": unique_texts
+            })
+    return final_filtered_data
 
-
-def text_similarity(text1, text2):
-    return 1 - levenshtein_dist(text1, text2) / max(len(text1), len(text2))
-
-
-def levenshtein_dist(s1, s2):
-    if len(s1) < len(s2):
-        return levenshtein_dist(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
+def generate_ocr_filter_remove_similar(video_runner_obj, final_filtered_data):
+    output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_FILTER_REMOVE_SIMILAR}"
+    with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Frame Index", "Timestamp", "Text"])
+        for data in final_filtered_data:
+            for text in data["texts"]:
+                writer.writerow([data["frame_index"], data["timestamp"], text["description"]])
