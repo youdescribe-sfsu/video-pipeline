@@ -6,9 +6,6 @@ from ..utils_module.timeit_decorator import timeit
 
 @timeit
 def filter_ocr(video_runner_obj, window_width=10, threshold=0.5):
-    if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
-        video_runner_obj["logger"].info("OCR filtering already completed, skipping step.")
-        return True
 
     incsvpath = return_video_folder_name(video_runner_obj) + "/" + OCR_TEXT_CSV_FILE_NAME
     filtered_rows = []

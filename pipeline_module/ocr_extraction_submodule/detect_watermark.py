@@ -9,9 +9,6 @@ def detect_watermark(video_runner_obj):
     """
     Detect watermarks in OCR data and save results to a JSON file and the database.
     """
-    if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
-        video_runner_obj["logger"].info("Watermark detection already completed, skipping step.")
-        return True
 
     path = return_video_folder_name(video_runner_obj) + "/" + OCR_TEXT_ANNOTATIONS_FILE_NAME
     count_obj = []

@@ -24,10 +24,6 @@ class OcrExtraction:
         """
         self.logger.info("Starting OCR detection process")
 
-        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
-            self.logger.info("OCR detection already completed, skipping step.")
-            return True
-
         try:
             # Step 1: Get all OCR annotations
             if not get_all_ocr_annotations(self.video_runner_obj):

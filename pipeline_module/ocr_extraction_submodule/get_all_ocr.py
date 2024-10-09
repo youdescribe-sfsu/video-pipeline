@@ -15,10 +15,6 @@ def get_all_ocr(video_runner_obj):
         The keys are "video_id", "video_start_time", and "video_end_time", and their values are integers.
     :return: bool: Returns True if successful, False otherwise.
     """
-    if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
-        video_runner_obj["logger"].info("Get all OCR already completed, skipping step.")
-        return True
-
     try:
         video_runner_obj["logger"].info(f"Getting all OCR for {video_runner_obj['video_id']}")
 

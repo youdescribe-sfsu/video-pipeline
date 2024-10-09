@@ -11,9 +11,6 @@ def get_all_ocr_annotations(video_runner_obj):
     """
     Extracts OCR annotations from video frames using the detected text from each frame and saves the results.
     """
-    if get_status_for_youtube_id(video_runner_obj["video_id"], video_runner_obj["AI_USER_ID"]) == "done":
-        video_runner_obj["logger"].info("OCR annotations extraction already completed, skipping step.")
-        return True
 
     try:
         video_frames_folder = return_video_frames_folder(video_runner_obj)
