@@ -3,7 +3,7 @@ import json
 from typing import Optional, Dict, Any
 from functools import lru_cache
 from google.cloud import speech_v1p1beta1, vision, storage
-from .custom_logger import setup_logger
+from web_server_module.custom_logger import setup_logger
 
 logger = setup_logger()
 
