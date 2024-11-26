@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 logger = setup_logger()
 
 # Load the .env file
-load_dotenv()
+load_dotenv(interpolate=True)
 
 class GoogleServiceError(Exception):
     """Custom exception for Google service errors"""
@@ -46,6 +46,10 @@ class GoogleServiceManager:
             'GOOGLE_TTS_CREDENTIALS',
             'GOOGLE_YOUTUBE_CREDENTIALS'
         ]
+        for var in required_vars:
+            value = os.getenv(var)
+            logger.debug(f"Environment variable {var}: {value}")
+
         missing = [var for var in required_vars if not os.getenv(var)]
         if missing:
             raise GoogleServiceError(f"Missing environment variables: {', '.join(missing)}")
