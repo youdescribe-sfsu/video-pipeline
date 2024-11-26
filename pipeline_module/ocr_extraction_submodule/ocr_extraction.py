@@ -20,7 +20,11 @@ class OcrExtraction:
             # Step 2: Process OCR data
             process_ocr_data(self.video_runner_obj, ocr_annotations)
 
-            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
+            update_status(
+                self.video_runner_obj["video_id"],
+                self.video_runner_obj["AI_USER_ID"],
+                "done"
+            )
             self.logger.info("OCR detection process completed successfully.")
             return True
 

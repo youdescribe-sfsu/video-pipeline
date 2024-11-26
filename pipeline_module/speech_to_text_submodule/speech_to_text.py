@@ -1,192 +1,162 @@
 import os
 import json
-from google.cloud import speech_v1p1beta1 as speech
-from google.cloud import storage
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import audio_metadata
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status
 from ..utils_module.utils import TRANSCRIPTS, return_audio_file_name, return_video_folder_name
 from ..utils_module.timeit_decorator import timeit
+from ..utils_module.google_services import (
+    service_manager,
+    GoogleServiceError
+)
 
 
 class SpeechToText:
     def __init__(self, video_runner_obj: Dict[str, Any]):
-        print("Initializing SpeechToText")
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.bucket_name = "ydx"
-        self.client = speech.SpeechClient()
-        self.storage_client = storage.Client()
-        print(f"SpeechToText initialized with video_runner_obj: {video_runner_obj}")
+        self.bucket_name = service_manager.bucket_name
+
+        try:
+            # Initialize clients through service manager
+            self.client = service_manager.speech_client
+            self.storage_client = service_manager.storage_client
+            self.logger.info("Speech-to-Text service initialized successfully")
+        except GoogleServiceError as e:
+            self.logger.error(f"Failed to initialize Speech-to-Text service: {str(e)}")
+            raise
 
     @timeit
     def get_speech_from_audio(self) -> bool:
-        print("Starting get_speech_from_audio method")
+        """Process audio file and generate transcription."""
         audio_file_name = return_audio_file_name(self.video_runner_obj)
         filepath = return_video_folder_name(self.video_runner_obj)
         file_name = os.path.join(filepath, audio_file_name)
-        print(f"Audio file: {file_name}")
+        self.logger.info(f"Processing audio file: {file_name}")
 
-        # Use the database to check if speech-to-text has already been completed
-        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
-            print("Speech to text already completed, skipping step.")
+        # Check if already processed
+        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"),
+                                     self.video_runner_obj.get("AI_USER_ID")) == "done":
+            self.logger.info("Speech to text already completed")
             return True
 
         try:
+            # Get audio metadata
             frame_rate, channels = self.get_audio_metadata(file_name)
 
-            print(f"Uploading {file_name} to cloud storage")
+            # Upload to GCS
             gcs_uri = self.upload_blob(file_name, audio_file_name)
+            self.logger.info(f"Audio uploaded to: {gcs_uri}")
 
-            print("Starting speech recognition")
+            # Process audio
             response = self.recognize_speech(gcs_uri, frame_rate, channels)
-            print("Response ", response)
+            self.logger.info("Speech recognition completed")
 
+            # Save results
             self.save_transcript(response)
 
-            print(f"Deleting {audio_file_name} from cloud storage")
+            # Cleanup
             self.delete_blob(audio_file_name)
 
-            # Use the database to update the progress status
-            update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
-            print("Speech to text completed successfully")
+            # Update status
+            update_status(self.video_runner_obj.get("video_id"),
+                          self.video_runner_obj.get("AI_USER_ID"),
+                          "done")
 
+            self.logger.info("Speech-to-Text processing completed successfully")
             return True
 
         except Exception as e:
-            print(f"Error in speech to text: {str(e)}")
+            self.logger.error(f"Speech-to-Text processing failed: {str(e)}")
             return False
 
-    def upload_blob(self, source_file_name: str, destination_blob_name: str) -> str:
-        print(f"Uploading {source_file_name} to {destination_blob_name}")
-        bucket = self.storage_client.get_bucket(self.bucket_name)
-        blob = bucket.blob(destination_blob_name)
-        blob.upload_from_filename(source_file_name)
-        print(f"File {source_file_name} uploaded to {destination_blob_name}")
-        return f"gs://{self.bucket_name}/{destination_blob_name}"
-
-    def delete_blob(self, blob_name: str) -> None:
-        print(f"Deleting blob {blob_name}")
-        bucket = self.storage_client.get_bucket(self.bucket_name)
-        blob = bucket.blob(blob_name)
-        blob.delete()
-        print(f"Blob {blob_name} deleted.")
-
-    def get_audio_metadata(self, audio_file_name: str) -> tuple:
-        print(f"Extracting Audio metadata from {audio_file_name}")
+    def get_audio_metadata(self, audio_file: str) -> tuple:
+        """Extract audio metadata."""
         try:
-            wave_file = audio_metadata.load(audio_file_name)
+            self.logger.info(f"Extracting metadata from: {audio_file}")
+            wave_file = audio_metadata.load(audio_file)
             frame_rate = wave_file["streaminfo"].sample_rate
             channels = wave_file["streaminfo"].channels
-            print(f"Audio frame_rate={frame_rate} and channels={channels}")
+            self.logger.info(f"Audio metadata: {frame_rate}Hz, {channels} channels")
             return frame_rate, channels
         except Exception as e:
-            print(f"Error extracting audio metadata: {str(e)}")
+            self.logger.error(f"Failed to extract audio metadata: {str(e)}")
             raise
 
-    def recognize_speech(self, gcs_uri: str, frame_rate: int, channels: int) -> Dict[str, Any]:
-        print(f"Recognizing speech from {gcs_uri}")
-        audio = speech.RecognitionAudio(uri=gcs_uri)
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.FLAC,
-            sample_rate_hertz=frame_rate,
-            audio_channel_count=channels,
-            language_code="en-US",
-            enable_word_time_offsets=True,
-            enable_automatic_punctuation=True,
-            use_enhanced=True,
-            model="video"
+    def upload_blob(self, source_file: str, destination_blob: str) -> str:
+        """Upload file to Google Cloud Storage."""
+        try:
+            bucket = self.storage_client.get_bucket(self.bucket_name)
+            blob = bucket.blob(destination_blob)
+            blob.upload_from_filename(source_file)
+            self.logger.info(f"File {source_file} uploaded to {destination_blob}")
+            return f"gs://{self.bucket_name}/{destination_blob}"
+        except Exception as e:
+            self.logger.error(f"Failed to upload file to GCS: {str(e)}")
+            raise
+
+    def recognize_speech(self, gcs_uri: str, frame_rate: int, channels: int) -> Dict:
+        """Perform speech recognition."""
+        try:
+            # Get recognition config from service manager
+            config = service_manager.get_speech_config(frame_rate, channels)
+
+            # Create recognition audio object
+            audio = {"uri": gcs_uri}
+
+            # Start recognition
+            self.logger.info("Starting speech recognition")
+            operation = self.client.long_running_recognize(
+                config=config,
+                audio=audio
+            )
+
+            # Wait for completion
+            self.logger.info("Waiting for operation to complete...")
+            response = operation.result(timeout=600)
+
+            self.logger.info("Speech recognition completed successfully")
+            return response.to_dict()
+        except Exception as e:
+            self.logger.error(f"Speech recognition failed: {str(e)}")
+            raise
+
+    def delete_blob(self, blob_name: str) -> None:
+        """Delete file from Google Cloud Storage."""
+        try:
+            bucket = self.storage_client.get_bucket(self.bucket_name)
+            blob = bucket.blob(blob_name)
+            blob.delete()
+            self.logger.info(f"Deleted {blob_name} from GCS")
+        except Exception as e:
+            self.logger.error(f"Failed to delete blob: {str(e)}")
+            # Don't raise - this is cleanup
+
+    def save_transcript(self, response: Dict) -> None:
+        """Save transcription results."""
+        transcript_file = os.path.join(
+            return_video_folder_name(self.video_runner_obj),
+            TRANSCRIPTS
         )
-
-        operation = self.client.long_running_recognize(config=config, audio=audio)
-        print("Waiting for speech recognition operation to complete...")
-        response = operation.result(timeout=600)  # 10 minutes timeout
-        print("Speech recognition completed")
-
-        # Convert the response to a dictionary
-        response_dict = speech.LongRunningRecognizeResponse.to_dict(response)
-        return response_dict
-
-    def save_transcript(self, response: Dict[str, Any]) -> None:
-        transcript_file = os.path.join(return_video_folder_name(self.video_runner_obj), TRANSCRIPTS)
-        print(f"Attempting to save transcript to {transcript_file}")
 
         try:
             with open(transcript_file, "w") as outfile:
                 json.dump(response, outfile, indent=2)
+            self.logger.info(f"Transcript saved to: {transcript_file}")
 
-            print(f"Transcript successfully saved to {transcript_file}")
-
+            # Verify file was written
             with open(transcript_file, "r") as infile:
                 content = infile.read()
-                print(f"File content (first 1000 characters): {content[:1000]}")
-
+                self.logger.info(f"Transcript file size: {len(content)} bytes")
         except Exception as e:
-            print(f"Error in save_transcript: {str(e)}")
-
-            # Try to save whatever we can
+            self.logger.error(f"Failed to save transcript: {str(e)}")
+            # Try to save error information
             try:
                 with open(transcript_file, "w") as outfile:
-                    json.dump({"error": str(e), "response": str(response)}, outfile, indent=2)
-                print(f"Error information saved to {transcript_file}")
+                    json.dump({
+                        "error": str(e),
+                        "response": str(response)
+                    }, outfile, indent=2)
+                self.logger.info("Error information saved")
             except Exception as inner_e:
-                print(f"Could not save error information: {str(inner_e)}")
-
-    def batch_recognize(self, gcs_uri: str, frame_rate: int, channels: int) -> List[Dict[str, Any]]:
-        print(f"Starting batch recognition for {gcs_uri}")
-        audio = speech.RecognitionAudio(uri=gcs_uri)
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.FLAC,
-            sample_rate_hertz=frame_rate,
-            audio_channel_count=channels,
-            language_code="en-US",
-            enable_word_time_offsets=True,
-            enable_automatic_punctuation=True,
-            use_enhanced=True,
-            model="video"
-        )
-
-        operation = self.client.long_running_recognize(config=config, audio=audio)
-        response = operation.result(timeout=600)  # 10 minutes timeout
-
-        results = []
-        for result in response.results:
-            results.append({
-                'transcript': result.alternatives[0].transcript,
-                'confidence': result.alternatives[0].confidence,
-                'words': [{'word': word.word, 'start_time': word.start_time.total_seconds(),
-                           'end_time': word.end_time.total_seconds()} for word in result.alternatives[0].words]
-            })
-
-        print(f"Batch recognition completed. Found {len(results)} results.")
-        return results
-
-    def process_long_audio(self, gcs_uri: str, frame_rate: int, channels: int) -> List[Dict[str, Any]]:
-        print(f"Starting long audio processing for {gcs_uri}")
-        audio = speech.RecognitionAudio(uri=gcs_uri)
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.FLAC,
-            sample_rate_hertz=frame_rate,
-            audio_channel_count=channels,
-            language_code="en-US",
-            enable_word_time_offsets=True,
-            enable_automatic_punctuation=True,
-            use_enhanced=True,
-            model="video"
-        )
-
-        operation = self.client.long_running_recognize(config=config, audio=audio)
-
-        response = operation.result(timeout=1800)  # 30 minutes timeout
-
-        results = []
-        for result in response.results:
-            results.append({
-                'transcript': result.alternatives[0].transcript,
-                'confidence': result.alternatives[0].confidence,
-                'words': [{'word': word.word, 'start_time': word.start_time.total_seconds(),
-                           'end_time': word.end_time.total_seconds()} for word in result.alternatives[0].words]
-            })
-
-        print(f"Long audio processing completed. Found {len(results)} results.")
-        return results
+                self.logger.error(f"Failed to save error information: {str(inner_e)}")

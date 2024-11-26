@@ -1,8 +1,13 @@
 import csv
 import json
 from web_server_module.web_server_database import update_module_output
-from ..utils_module.utils import return_video_folder_name, OCR_TEXT_CSV_FILE_NAME, OCR_FILTER_CSV_FILE_NAME, \
-    OCR_FILTER_REMOVE_SIMILAR, COUNT_VERTICE
+from ..utils_module.utils import (
+    return_video_folder_name,
+    OCR_TEXT_CSV_FILE_NAME,
+    OCR_FILTER_CSV_FILE_NAME,
+    OCR_FILTER_REMOVE_SIMILAR,
+    COUNT_VERTICE
+)
 from ..utils_module.timeit_decorator import timeit
 
 
