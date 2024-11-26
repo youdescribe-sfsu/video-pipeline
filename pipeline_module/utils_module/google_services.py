@@ -4,9 +4,12 @@ from typing import Optional, Dict, Any
 from functools import lru_cache
 from google.cloud import speech_v1p1beta1, vision, storage
 from web_server_module.custom_logger import setup_logger
+from dotenv import load_dotenv
 
 logger = setup_logger()
 
+# Load the .env file
+load_dotenv()
 
 class GoogleServiceError(Exception):
     """Custom exception for Google service errors"""
