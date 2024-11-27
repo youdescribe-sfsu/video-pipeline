@@ -29,45 +29,63 @@ class SpeechToText:
     @timeit
     def get_speech_from_audio(self) -> bool:
         """Process audio file and generate transcription."""
-        audio_file_name = return_audio_file_name(self.video_runner_obj)
-        filepath = return_video_folder_name(self.video_runner_obj)
-        file_name = os.path.join(filepath, audio_file_name)
-        self.logger.info(f"Processing audio file: {file_name}")
-
-        # Check if already processed
-        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"),
-                                     self.video_runner_obj.get("AI_USER_ID")) == "done":
-            self.logger.info("Speech to text already completed")
-            return True
-
         try:
-            # Get audio metadata
-            frame_rate, channels = self.get_audio_metadata(file_name)
+            # Step 1: Get file paths
+            audio_file_name = return_audio_file_name(self.video_runner_obj)
+            filepath = return_video_folder_name(self.video_runner_obj)
+            file_name = os.path.join(filepath, audio_file_name)
 
-            # Upload to GCS
-            gcs_uri = self.upload_blob(file_name, audio_file_name)
-            self.logger.info(f"Audio uploaded to: {gcs_uri}")
+            self.logger.info(f"Looking for audio file at: {file_name}")
+            if not os.path.exists(file_name):
+                self.logger.error(f"Audio file not found at: {file_name}")
+                return False
 
-            # Process audio
-            response = self.recognize_speech(gcs_uri, frame_rate, channels)
-            self.logger.info("Speech recognition completed")
+            self.logger.info(f"Audio file found, size: {os.path.getsize(file_name)} bytes")
 
-            # Save results
-            self.save_transcript(response)
+            # Step 2: Get audio metadata
+            try:
+                frame_rate, channels = self.get_audio_metadata(file_name)
+                self.logger.info(f"Audio metadata extracted: {frame_rate}Hz, {channels} channels")
+            except Exception as e:
+                self.logger.error(f"Failed to extract audio metadata: {str(e)}")
+                return False
 
-            # Cleanup
-            self.delete_blob(audio_file_name)
+            # Step 3: Upload to GCS
+            try:
+                gcs_uri = self.upload_blob(file_name, audio_file_name)
+                self.logger.info(f"Audio uploaded to: {gcs_uri}")
+            except Exception as e:
+                self.logger.error(f"Failed to upload to GCS: {str(e)}")
+                return False
 
-            # Update status
-            update_status(self.video_runner_obj.get("video_id"),
-                          self.video_runner_obj.get("AI_USER_ID"),
-                          "done")
+            # Step 4: Process audio
+            try:
+                response = self.recognize_speech(gcs_uri, frame_rate, channels)
+                self.logger.info("Speech recognition completed successfully")
+            except Exception as e:
+                self.logger.error(f"Speech recognition failed: {str(e)}")
+                return False
 
-            self.logger.info("Speech-to-Text processing completed successfully")
+            # Step 5: Save results
+            try:
+                self.save_transcript(response)
+                self.logger.info("Transcript saved successfully")
+            except Exception as e:
+                self.logger.error(f"Failed to save transcript: {str(e)}")
+                return False
+
+            # Step 6: Cleanup
+            try:
+                self.delete_blob(audio_file_name)
+                self.logger.info("GCS cleanup completed")
+            except Exception as e:
+                self.logger.error(f"Failed to cleanup GCS: {str(e)}")
+                # Don't fail the overall process for cleanup failure
+
             return True
 
         except Exception as e:
-            self.logger.error(f"Speech-to-Text processing failed: {str(e)}")
+            self.logger.error(f"Unexpected error in speech-to-text processing: {str(e)}")
             return False
 
     def get_audio_metadata(self, audio_file: str) -> tuple:
