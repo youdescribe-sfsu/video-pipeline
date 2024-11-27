@@ -95,6 +95,17 @@ class SpeechToText:
             self.logger.error(f"Failed to upload file to GCS: {str(e)}")
             raise
 
+    def delete_blob(self, blob_name: str) -> None:
+        """Delete file from Google Cloud Storage."""
+        try:
+            bucket = self.storage_client.get_bucket(self.bucket_name)
+            blob = bucket.blob(blob_name)
+            blob.delete()
+            self.logger.info(f"Deleted {blob_name} from GCS")
+        except Exception as e:
+            self.logger.error(f"Failed to delete blob: {str(e)}")
+            # Don't raise - this is cleanup
+
     def recognize_speech(self, gcs_uri: str, frame_rate: int, channels: int) -> Dict:
         """Perform speech recognition."""
         try:
@@ -115,22 +126,26 @@ class SpeechToText:
             self.logger.info("Waiting for operation to complete...")
             response = operation.result(timeout=600)
 
+            # Convert response to dictionary format manually
+            results_dict = {
+                'results': [{
+                    'alternatives': [{
+                        'transcript': result.alternatives[0].transcript,
+                        'confidence': result.alternatives[0].confidence,
+                        'words': [{
+                            'word': word.word,
+                            'start_time': word.start_time.total_seconds(),
+                            'end_time': word.end_time.total_seconds(),
+                        } for word in result.alternatives[0].words]
+                    } for alt in result.alternatives]
+                } for result in response.results]
+            }
+
             self.logger.info("Speech recognition completed successfully")
-            return response.to_dict()
+            return results_dict
         except Exception as e:
             self.logger.error(f"Speech recognition failed: {str(e)}")
             raise
-
-    def delete_blob(self, blob_name: str) -> None:
-        """Delete file from Google Cloud Storage."""
-        try:
-            bucket = self.storage_client.get_bucket(self.bucket_name)
-            blob = bucket.blob(blob_name)
-            blob.delete()
-            self.logger.info(f"Deleted {blob_name} from GCS")
-        except Exception as e:
-            self.logger.error(f"Failed to delete blob: {str(e)}")
-            # Don't raise - this is cleanup
 
     def save_transcript(self, response: Dict) -> None:
         """Save transcription results."""
@@ -140,23 +155,38 @@ class SpeechToText:
         )
 
         try:
-            with open(transcript_file, "w") as outfile:
-                json.dump(response, outfile, indent=2)
+            # Add metadata to the response
+            response['metadata'] = {
+                'processed_at': datetime.datetime.now().isoformat(),
+                'audio_file': return_audio_file_name(self.video_runner_obj),
+                'status': 'completed'
+            }
+
+            # Save with proper JSON formatting
+            with open(transcript_file, "w", encoding='utf-8') as outfile:
+                json.dump(response, outfile, indent=2, ensure_ascii=False)
+
             self.logger.info(f"Transcript saved to: {transcript_file}")
 
             # Verify file was written
-            with open(transcript_file, "r") as infile:
-                content = infile.read()
-                self.logger.info(f"Transcript file size: {len(content)} bytes")
+            file_size = os.path.getsize(transcript_file)
+            self.logger.info(f"Transcript file size: {file_size} bytes")
+
+            if file_size == 0:
+                raise ValueError("Transcript file is empty")
+
         except Exception as e:
             self.logger.error(f"Failed to save transcript: {str(e)}")
             # Try to save error information
             try:
+                error_info = {
+                    'error': str(e),
+                    'timestamp': datetime.datetime.now().isoformat(),
+                    'response_summary': str(response)[:1000]  # First 1000 chars only
+                }
                 with open(transcript_file, "w") as outfile:
-                    json.dump({
-                        "error": str(e),
-                        "response": str(response)
-                    }, outfile, indent=2)
+                    json.dump(error_info, outfile, indent=2)
                 self.logger.info("Error information saved")
             except Exception as inner_e:
                 self.logger.error(f"Failed to save error information: {str(inner_e)}")
+
