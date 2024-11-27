@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 
 logger = setup_logger()
 
+# Load environment variables with interpolation
 load_dotenv(interpolate=True)
+
 
 class GoogleServiceError(Exception):
     """Custom exception for Google service errors"""
@@ -88,18 +90,63 @@ class GoogleServiceManager:
             logger.error(f"Error validating credentials file: {str(e)}")
             return False
 
-    # Rest of the methods remain the same...
     @property
     @lru_cache(maxsize=1)
     def speech_client(self) -> speech_v1p1beta1.SpeechClient:
         """Get Speech-to-Text client with proper credentials"""
         if self._speech_client is None:
             creds_path = os.getenv('GOOGLE_SPEECH_CREDENTIALS')
+            if not creds_path:
+                raise GoogleServiceError("GOOGLE_SPEECH_CREDENTIALS environment variable not set")
+
             self._validate_credentials_file(creds_path)
             os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
             self._speech_client = speech_v1p1beta1.SpeechClient()
             logger.info("Speech-to-Text client initialized")
         return self._speech_client
+
+    @property
+    @lru_cache(maxsize=1)
+    def vision_client(self) -> vision.ImageAnnotatorClient:
+        """Get Vision API client with proper credentials"""
+        if self._vision_client is None:
+            creds_path = os.getenv('GOOGLE_VISION_CREDENTIALS')
+            if not creds_path:
+                raise GoogleServiceError("GOOGLE_VISION_CREDENTIALS environment variable not set")
+
+            self._validate_credentials_file(creds_path)
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
+            self._vision_client = vision.ImageAnnotatorClient()
+            logger.info("Vision API client initialized")
+        return self._vision_client
+
+    @property
+    @lru_cache(maxsize=1)
+    def storage_client(self) -> storage.Client:
+        """Get Storage client using Speech credentials"""
+        if self._storage_client is None:
+            creds_path = os.getenv('GOOGLE_SPEECH_CREDENTIALS')  # Using speech credentials for storage
+            if not creds_path:
+                raise GoogleServiceError("GOOGLE_SPEECH_CREDENTIALS environment variable not set")
+
+            self._validate_credentials_file(creds_path)
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = creds_path
+            self._storage_client = storage.Client()
+            logger.info("Storage client initialized")
+        return self._storage_client
+
+    def get_speech_config(self, frame_rate: int, channels: int) -> Dict[str, Any]:
+        """Get standard speech recognition config"""
+        return {
+            'encoding': speech_v1p1beta1.RecognitionConfig.AudioEncoding.FLAC,
+            'sample_rate_hertz': frame_rate,
+            'audio_channel_count': channels,
+            'language_code': "en-US",
+            'enable_word_time_offsets': True,
+            'enable_automatic_punctuation': True,
+            'use_enhanced': True,
+            'model': "video"
+        }
 
     @property
     def bucket_name(self) -> str:
