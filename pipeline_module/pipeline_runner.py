@@ -222,44 +222,34 @@ class PipelineRunner:
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
         try:
             for task in self.tasks:
-                try:
-                    await self.run_task(task)
-                except Exception as task_error:
-                    self.logger.error(f"Task {task} failed: {str(task_error)}")
-                    raise
-
-                self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
+                await self.run_task(task)
+            self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
         except Exception as e:
             self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}", exc_info=True)
-            await self.cleanup_failed_pipeline(str(e))
             raise
-        finally:
-            # Clean up any temporary files or resources
-            self.cleanup_resources()
+
+async def cleanup_failed_pipeline(self, error_message: str):
+    """Clean up resources on pipeline failure."""
+    try:
+        video_folder = return_video_folder_name({"video_id": self.video_id})
+        if os.path.exists(video_folder):
+            shutil.rmtree(video_folder)
+            self.logger.info(f"Cleaned up video folder: {video_folder}")
+
+        update_status(self.video_id, self.AI_USER_ID, "failed")
+        self.logger.info(f"Updated status to failed for video {self.video_id}")
+    except Exception as e:
+        self.logger.error(f"Cleanup error: {str(e)}")
 
 
-    async def cleanup_failed_pipeline(self, error_message: str):
-        """Clean up resources on pipeline failure."""
-        try:
-            video_folder = return_video_folder_name({"video_id": self.video_id})
-            if os.path.exists(video_folder):
-                shutil.rmtree(video_folder)
-                self.logger.info(f"Cleaned up video folder: {video_folder}")
-
-            update_status(self.video_id, self.AI_USER_ID, "failed")
-            self.logger.info(f"Updated status to failed for video {self.video_id}")
-        except Exception as e:
-            self.logger.error(f"Cleanup error: {str(e)}")
-
-
-    def cleanup_resources(self):
-        """Clean up temporary resources."""
-        try:
-            # Clean up service manager resources
-            service_manager.cleanup()
-            self.logger.info("Cleaned up service manager resources")
-        except Exception as e:
-            self.logger.error(f"Resource cleanup error: {str(e)}")
+def cleanup_resources(self):
+    """Clean up temporary resources."""
+    try:
+        # Clean up service manager resources
+        service_manager.cleanup()
+        self.logger.info("Cleaned up service manager resources")
+    except Exception as e:
+        self.logger.error(f"Resource cleanup error: {str(e)}")
 
 async def run_pipeline(
         video_id: str,
