@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import os
 # Constants
 FRAMES = '_frames'
 OCR_TEXT_ANNOTATIONS_FILE_NAME = 'ocr_text_annotations.csv'
@@ -19,8 +20,9 @@ TRANSCRIPTS = 'transcripts.json'
 DIALOGS = 'dialogs.json'
 VICR_CSV = 'vicr.csv'
 COUNT_VERTICE = 'count_vertice.json'
-PROD_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-prod/'
-DEV_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-dev/'
+
+PROD_ARTIFACTS_ROOT_FOLDER = os.path.expanduser('~/datasets/aiAudioDescriptionDataset-prod/')
+DEV_ARTIFACTS_ROOT_FOLDER = os.path.expanduser('~/datasets/aiAudioDescriptionDataset-dev/')
 
 ## OCR CSV HEADERS
 FRAME_INDEX_SELECTOR = 'frame_index'
@@ -53,18 +55,21 @@ import os
 
 
 class PipelineTask(Enum):
-    IMPORT_VIDEO = "import_video"
-    EXTRACT_AUDIO = "extract_audio"
-    SPEECH_TO_TEXT = "speech_to_text"
-    FRAME_EXTRACTION = "frame_extraction"
-    OCR_EXTRACTION = "ocr_extraction"
-    OBJECT_DETECTION = "object_detection"
-    KEYFRAME_SELECTION = "keyframe_selection"
-    IMAGE_CAPTIONING = "image_captioning"
-    CAPTION_RATING = "caption_rating"
-    SCENE_SEGMENTATION = "scene_segmentation"
-    TEXT_SUMMARIZATION = "text_summarization"
-    UPLOAD_TO_YDX = "upload_to_ydx"
+    # IMPORT_VIDEO = "import_video"
+    # EXTRACT_AUDIO = "extract_audio"
+    # SPEECH_TO_TEXT = "speech_to_text"
+    # FRAME_EXTRACTION = "frame_extraction"
+    # OCR_EXTRACTION = "ocr_extraction"
+    # OBJECT_DETECTION = "object_detection"
+    # KEYFRAME_SELECTION = "keyframe_selection"
+    # IMAGE_CAPTIONING = "image_captioning"
+    GPT_CAPTIONING = "gpt_captioning"
+    GPT_COLLAGE_CAPTIONING = "gpt_collage_captioning"
+    # GenerateCollage = "generate_collage"
+    # CAPTION_RATING = "caption_rating"
+    # SCENE_SEGMENTATION = "scene_segmentation"
+    # TEXT_SUMMARIZATION = "text_summarization"
+    # UPLOAD_TO_YDX = "upload_to_ydx"
 
 
 def return_artifacts_root_folder(current_env):

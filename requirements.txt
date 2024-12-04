@@ -34,6 +34,7 @@ httpcore
 httptools
 httpx
 idna
+imageio[ffmpeg]
 importlib_metadata
 importlib_resources
 jaraco.functools
@@ -49,7 +50,7 @@ openai
 opencv-python
 pandas
 pendulum
-pkg_resources
+# pkg_resources
 pprintpp
 proto-plus
 protobuf
@@ -66,6 +67,7 @@ PyYAML
 regex
 requests
 rsa
+setuptools
 six
 sniffio
 soupsieve

@@ -17,6 +17,8 @@ class KeyframeSelection:
 
     @timeit
     def run_keyframe_selection(self):
+        video_frames_path = return_video_frames_folder(self.video_runner_obj)
+        video_folder_path = return_video_folder_name(self.video_runner_obj)
         try:
             print("Starting run_keyframe_selection method")
             self.logger.info(f"Running keyframe selection for {self.video_runner_obj['video_id']}")
@@ -28,10 +30,24 @@ class KeyframeSelection:
 
             print("Reading video common values from the database")
             video_common_values = self.load_video_common_values()
-            if video_common_values is None:
-                return False
 
-            step, num_frames, frames_per_second = video_common_values
+            # Retrieve frame extraction data from the database
+            frame_extraction_data = get_module_output(self.video_runner_obj["video_id"],
+                                                    self.video_runner_obj["AI_USER_ID"], 'frame_extraction')
+            if not frame_extraction_data:
+                self.logger.warning("No frame extraction data found in the database. Using default values.")
+                frame_extraction_data = {
+                    'steps': 1,
+                    'frames_extracted': len(os.listdir(video_frames_path)),
+                    'adaptive_fps': 25.0
+                }
+
+            if video_common_values is None:
+                step = int(frame_extraction_data['steps'])
+                num_frames = int(frame_extraction_data['frames_extracted'])
+                frames_per_second = float(frame_extraction_data['adaptive_fps'])
+            else:
+                step, num_frames, frames_per_second = video_common_values
 
             print(f"Running keyframe selection logic with step={step}, num_frames={num_frames}, fps={frames_per_second}")
             self.logger.info(f"Running keyframe selection with step={step}, num_frames={num_frames}, fps={frames_per_second}")
@@ -68,9 +84,10 @@ class KeyframeSelection:
 
     def select_keyframes(self, step, num_frames, frames_per_second):
         keyframes_data = []
+        previous_hist = None
         for i in range(0, num_frames, step):
             timestamp = i / frames_per_second
-            is_keyframe = self.detect_scene_changes(i)
+            is_keyframe, previous_hist = self.detect_scene_changes(i, previous_hist)
             keyframes_data.append({
                 'frame_index': i,
                 'timestamp': timestamp,
@@ -78,23 +95,32 @@ class KeyframeSelection:
             })
         return keyframes_data
 
-    def detect_scene_changes(self, frame_idx: int) -> bool:
+    def detect_scene_changes(self, frame_idx: int, previous_hist: np.ndarray):
         vid = cv2.VideoCapture(return_video_download_location(self.video_runner_obj))
         vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, current_frame = vid.read()
         if not ret:
-            return False
+            print(f"Frame {frame_idx} could not be read.")
+            return False, previous_hist
 
-        vid.set(cv2.CAP_PROP_POS_FRAMES, frame_idx - 1)
-        ret, previous_frame = vid.read()
+        current_hist = self.compute_histogram(current_frame)
+
+        if previous_hist is None:
+            vid.release()
+            return True, current_hist
+
+        hist_diff = cv2.compareHist(previous_hist, current_hist, cv2.HISTCMP_BHATTACHARYYA)
         vid.release()
 
-        if not ret or previous_frame is None:
-            return False
+        # Dynamic threshold: lower value detects more subtle changes
+        is_keyframe = hist_diff > 0.1  # Adjust threshold as needed
+        return is_keyframe, current_hist
 
-        diff = cv2.absdiff(previous_frame, current_frame)
-        non_zero_count = np.count_nonzero(diff)
-        return non_zero_count > (30.0 * current_frame.size / 100)
+    def compute_histogram(self, frame):
+        frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        hist = cv2.calcHist([frame_hsv], [0, 1], None, [50, 60], [0, 180, 0, 256])
+        cv2.normalize(hist, hist)
+        return hist
 
     def save_keyframes_to_csv(self, keyframes_data):
         output_file = os.path.join(return_video_folder_name(self.video_runner_obj), KEYFRAMES_CSV)

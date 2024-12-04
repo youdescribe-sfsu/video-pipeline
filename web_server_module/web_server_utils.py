@@ -13,8 +13,8 @@ def return_pipeline_save_file_folder() -> str:
     Returns:
     str: The folder path for the pipeline progress files.
     """
-    CURRENT_ENV = os.environ.get("CURRENT_ENV", "production")
+    CURRENT_ENV = os.environ.get("CURRENT_ENV", "development")
     if CURRENT_ENV == "development":
-        return "/home/datasets/aiAudioDescriptionDataset-dev/aiAudioDescriptions_database.db"  # Placeholder for development folder
+        return "/home/wang.yu-e/datasets/aiAudioDescriptionDataset-dev/aiAudioDescriptions_database.db"  # Placeholder for development folder
     else:
-        return "/home/datasets/aiAudioDescriptionDataset-prod/aiAudioDescriptions_database.db"
+        return "/home/wang.yu-e/datasets/aiAudioDescriptionDataset-prod/aiAudioDescriptions_database.db"

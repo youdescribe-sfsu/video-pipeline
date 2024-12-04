@@ -33,6 +33,7 @@ class SQLiteConnection:
         return self.connection
 
 # Initialize the connection
+print(return_pipeline_save_file_folder()) # Debugging line
 connection = SQLiteConnection(return_pipeline_save_file_folder())
 connection.connection.execute('PRAGMA autocommit = ON')
 

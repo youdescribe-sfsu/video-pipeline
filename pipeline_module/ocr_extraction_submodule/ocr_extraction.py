@@ -13,14 +13,20 @@ class OcrExtraction:
     def run_ocr_detection(self):
         try:
             self.logger.info("Starting OCR detection process")
-
+            
             # Step 1: Extract OCR annotations
+            self.logger.info("Extracting OCR annotations")
             ocr_annotations = get_ocr_annotations(self.video_runner_obj)
-
+            self.logger.debug(f"OCR Annotations: {ocr_annotations}")
+            
             # Step 2: Process OCR data
+            self.logger.info("Processing OCR data")
             process_ocr_data(self.video_runner_obj, ocr_annotations)
-
+            
+            # Step 3: Update status
+            self.logger.info("Updating status in database")
             update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
+            
             self.logger.info("OCR detection process completed successfully.")
             return True
 

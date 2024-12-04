@@ -17,6 +17,9 @@ from .ocr_extraction_submodule.ocr_extraction import OcrExtraction
 from .object_detection_submodule.object_detection import ObjectDetection
 from .keyframe_selection_submodule.keyframe_selection import KeyframeSelection
 from .image_captioning_submodule.image_captioning import ImageCaptioning
+from .gpt_captioning_submodule.gpt_captioning import GptCaptioning
+from .gpt_captioning_submodule.gpt_collage_captioning import GptCollageCaptioning
+from .generate_collage_submodule.generate_collage import GenerateCollage
 from .caption_rating_submodule.caption_rating import CaptionRating
 from .scene_segmentation_submodule.scene_segmentation import SceneSegmentation
 from .text_summarization_submodule.text_summary import TextSummaryCoordinator
@@ -158,6 +161,43 @@ class PipelineRunner:
         combined_success = image_captioning.combine_image_caption()
         if not combined_success:
             raise Exception("Combining image captions failed")
+    
+    async def run_generate_collage(self) -> None:
+        generate_collage = GenerateCollage(self.video_runner_obj)
+        success = generate_collage.run_generate_collage()
+        if not success:
+            raise Exception("Generate Collage failed")
+
+    async def run_gpt_collage_captioning(self) -> None:
+        gpt_collage_captioning = GptCollageCaptioning(self.video_runner_obj)
+        success = gpt_collage_captioning.run_gpt_collage_captioning()
+        if not success:
+            raise Exception("Generate Collage Caption failed")
+   
+    async def run_gpt_captioning(self) -> None:
+        # Accessing video_id from the dictionary
+        video_id = self.video_runner_obj.get("video_id")
+        
+        if video_id is None:
+            logging.error("video_runner_obj does not contain a 'video_id'.")
+            raise Exception("'video_id' not found in video_runner_obj.")
+        
+        logging.debug(f"Starting GPT captioning for video_id: {video_id}")
+        
+        gpt_captioning = GptCaptioning(self.video_runner_obj)
+        success = gpt_captioning.run_image_captioning()
+        
+        if not success:
+            logging.error(f"Gpt captioning failed for video_id: {video_id}")
+            raise Exception(f"Gpt captioning failed for video_id: {video_id}")
+        
+        combined_success = gpt_captioning.combine_image_caption()
+        
+        if not combined_success:
+            logging.error(f"Gpt image captions failed for video_id: {video_id}")
+            raise Exception(f"Gpt image captions failed for video_id: {video_id}")
+        
+        logging.info(f"GPT captioning completed successfully for video_id: {video_id}")
 
     async def run_caption_rating(self) -> None:
         caption_rating = CaptionRating(self.video_runner_obj)
@@ -266,11 +306,13 @@ if __name__ == "__main__":
     parser.add_argument("--upload_to_server", help="Upload To YDX Server", action="store_true")
     parser.add_argument("--start_time", default=None, help="Start Time", type=str)
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
+    parser.add_argument("--AI_USER_ID", default= "650506db3ff1c2140ea10ece", type=str)
     args = parser.parse_args()
 
     asyncio.run(run_pipeline(
         video_id=args.video_id,
         video_start_time=args.start_time,
         video_end_time=args.end_time,
-        upload_to_server=args.upload_to_server
+        upload_to_server=args.upload_to_server,
+        AI_USER_ID = args.AI_USER_ID
     ))
