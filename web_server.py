@@ -46,80 +46,76 @@ enqueued_tasks = set()
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
     create_database()
-    logger.info("Database initialized")
-    asyncio.create_task(process_queue())
-    logger.info("Queue processing task started")
+
+    # Start the queue processor
+    asyncio.create_task(request_manager.process_queue())
+    logger.info("Queue processing started")
 
     yield
 
-    # Shutdown logic goes here
     logger.info("Application shutting down...")
-
-
-# Apply lifespan to the app
 
 # Setup FastAPI app
 app = FastAPI(lifespan=lifespan)
 
+class RequestManager:
+    def __init__(self, max_concurrent=3):
+        self.processing_semaphore = asyncio.Semaphore(max_concurrent)
+        self.pipeline_queue = asyncio.Queue()
+        self.active_tasks = {}
+        self.logger = setup_logger()
+
+    async def process_queue(self):
+        while True:
+            try:
+                task = await self.pipeline_queue.get()
+                task_key = (task.youtube_id, task.AI_USER_ID)
+
+                async with self.processing_semaphore:
+                    try:
+                        await run_pipeline_task(
+                            youtube_id=task.youtube_id,
+                            ai_user_id=task.AI_USER_ID,
+                            ydx_server=task.ydx_server,
+                            ydx_app_host=task.ydx_app_host
+                        )
+                    except Exception as e:
+                        self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
+                        await handle_pipeline_failure(
+                            task.youtube_id,
+                            task.AI_USER_ID,
+                            str(e),
+                            task.ydx_server,
+                            task.ydx_app_host
+                        )
+                    finally:
+                        self.active_tasks.pop(task_key, None)
+                        self.pipeline_queue.task_done()
+
+            except Exception as e:
+                self.logger.error(f"Queue processing error: {str(e)}")
+
+# Initialize the request manager
+request_manager = RequestManager(max_concurrent=3)
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
-        data_json = json.loads(post_data.model_dump_json())
-        if not post_data.youtube_id or not post_data.AI_USER_ID:
-            raise HTTPException(status_code=400, detail="Missing required fields")
-
-        print(f'data_json - {data_json}')
-
-        user_id = data_json['user_id']
-        ydx_server = data_json['ydx_server']
-        ydx_app_host = data_json['ydx_app_host']
-        ai_user_id = data_json['AI_USER_ID']
-        youtube_id = data_json['youtube_id']
-
-        print(f'INFORMATION - {user_id}, {ydx_server}, {ydx_app_host}, {ai_user_id}, {youtube_id}')
-
-        process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
-
-        # Add task to queue if not already enqueued
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
-        if task_key not in enqueued_tasks:
-            await pipeline_queue.put(post_data)
-            enqueued_tasks.add(task_key)
-            print(f"Task added to queue: {task_key}")
+
+        # If task is already being processed, don't add it again
+        if task_key not in request_manager.active_tasks:
+            request_manager.active_tasks[task_key] = "processing"
+            await request_manager.pipeline_queue.put(post_data)
+            logger.info(f"Added video {post_data.youtube_id} to processing queue")
+        else:
+            logger.info(f"Video {post_data.youtube_id} is already being processed")
 
         return {"status": "success", "message": "AI caption generation request queued"}
 
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
-        logger.error(traceback.format_exc())
         return {"status": "failure", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
-
-
-async def process_queue():
-    print("Queue processing started")
-    while True:
-        task = None
-        try:
-            task = await pipeline_queue.get()  # Fetch task from queue
-            await run_pipeline_task(
-                youtube_id=task.youtube_id,
-                ai_user_id=task.AI_USER_ID,
-                ydx_server=task.ydx_server,
-                ydx_app_host=task.ydx_app_host
-            )
-        except asyncio.CancelledError:
-            logger.info("Queue processing task was cancelled.")
-            if task:
-                logger.info(f"Cleaning up task: {task.youtube_id}, {task.AI_USER_ID}")
-            raise
-        except Exception as e:
-            logger.error(f"Error processing queue: {str(e)}")
-            logger.error(traceback.format_exc())
-        finally:
-            if task:
-                enqueued_tasks.discard((task.youtube_id, task.AI_USER_ID))
-        print("Queue processing iteration completed")
 
 
 async def clean_up_queue(youtube_id: str, ai_user_id: str):
