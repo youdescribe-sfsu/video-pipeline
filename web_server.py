@@ -168,8 +168,10 @@ async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_mes
                 logger.error(f"Failed to notify YouDescribe service: {await response.text()}")
 
 
-async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
-    # SMTP Configuration
+async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
+    """
+    Sends status update emails to admin about pipeline progress.
+    """
     SMTP_HOST = os.getenv("SMTP_HOST")
     SMTP_PORT = int(os.getenv("SMTP_PORT"))
     SMTP_USERNAME = os.getenv("SMTP_USERNAME")
@@ -183,32 +185,43 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
         logger.error("SMTP password not set in environment variables.")
         return
 
-    # Create the email message
     message = EmailMessage()
     message["From"] = SENDER_EMAIL
     message["To"] = ADMIN_EMAIL
-    message["Subject"] = f"Video Pipeline Error: YouTube ID {youtube_id}"
 
-    # Construct the email content
-    email_content = f"""
-    Dear Admin,
+    # Set appropriate subject and content based on status
+    if status == "started":
+        message["Subject"] = f"Pipeline Started: YouTube ID {youtube_id}"
+        email_content = f"""
+        Dear Admin,
 
-    An error occurred in the video pipeline.
+        Pipeline processing has started for:
+        - YouTube ID: {youtube_id}
+        - AI User ID: {ai_user_id}
 
-    Details:
-    - YouTube ID: {youtube_id}
-    - AI User ID: {ai_user_id}
-    - Error Message: {error_message}
+        You will be notified when processing completes.
 
-    Please investigate the issue.
+        Best regards,
+        Video Pipeline System
+        """
+    elif status == "completed":
+        message["Subject"] = f"Pipeline Completed: YouTube ID {youtube_id}"
+        email_content = f"""
+        Dear Admin,
 
-    Best regards,
-    Video Pipeline System
-    """
+        Pipeline processing has successfully completed for:
+        - YouTube ID: {youtube_id}
+        - AI User ID: {ai_user_id}
+
+        The video is now ready for review.
+
+        Best regards,
+        Video Pipeline System
+        """
+
     message.set_content(email_content)
 
     try:
-        # Send the email asynchronously
         await aiosmtplib.send(
             message,
             hostname=SMTP_HOST,
@@ -217,15 +230,19 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
             password=SMTP_PASSWORD,
             start_tls=SMTP_USE_TLS,
         )
-        logger.info(f"Admin notified via email about failure for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+        logger.info(f"Admin notified about {status} status for YouTube ID: {youtube_id}")
     except Exception as e:
-        logger.error(f"Failed to send email notification to admin: {str(e)}")
+        logger.error(f"Failed to send status email to admin: {str(e)}")
         logger.error(traceback.format_exc())
 
 
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
     print("INFO ", youtube_id, ai_user_id, ydx_server, ydx_app_host)
     try:
+        # Send starting notification
+        await notify_admin_status(youtube_id, ai_user_id, "started")
+
+        # Run the pipeline
         await run_pipeline(
             video_id=youtube_id,
             video_end_time=None,
@@ -237,7 +254,10 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
             userId=None,
             AI_USER_ID=ai_user_id,
         )
+
+        # Update status and send completion notification
         update_status(youtube_id, ai_user_id, StatusEnum.done.value)
+        await notify_admin_status(youtube_id, ai_user_id, "completed")
 
         user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
         for data in user_data:
@@ -256,7 +276,6 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
     finally:
         # Remove task from enqueued set
         enqueued_tasks.discard((youtube_id, ai_user_id))
-
 
 @app.get("/ai_description_status/{youtube_id}")
 async def ai_description_status(youtube_id: str):
