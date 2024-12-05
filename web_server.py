@@ -59,10 +59,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 class RequestManager:
-    def __init__(self, max_concurrent=3):
-        self.processing_semaphore = asyncio.Semaphore(max_concurrent)
+    def __init__(self):
         self.pipeline_queue = asyncio.Queue()
-        self.active_tasks = {}
+        self.active_tasks = set()
         self.logger = setup_logger()
 
     async def process_queue(self):
@@ -71,41 +70,41 @@ class RequestManager:
                 task = await self.pipeline_queue.get()
                 task_key = (task.youtube_id, task.AI_USER_ID)
 
-                async with self.processing_semaphore:
-                    try:
-                        await run_pipeline_task(
-                            youtube_id=task.youtube_id,
-                            ai_user_id=task.AI_USER_ID,
-                            ydx_server=task.ydx_server,
-                            ydx_app_host=task.ydx_app_host
-                        )
-                    except Exception as e:
-                        self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
-                        await handle_pipeline_failure(
-                            task.youtube_id,
-                            task.AI_USER_ID,
-                            str(e),
-                            task.ydx_server,
-                            task.ydx_app_host
-                        )
-                    finally:
-                        self.active_tasks.pop(task_key, None)
-                        self.pipeline_queue.task_done()
+                try:
+                    await run_pipeline_task(
+                        youtube_id=task.youtube_id,
+                        ai_user_id=task.AI_USER_ID,
+                        ydx_server=task.ydx_server,
+                        ydx_app_host=task.ydx_app_host
+                    )
+                except Exception as e:
+                    self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
+                    await handle_pipeline_failure(
+                        task.youtube_id,
+                        task.AI_USER_ID,
+                        str(e),
+                        task.ydx_server,
+                        task.ydx_app_host
+                    )
+                finally:
+                    self.active_tasks.discard(task_key)
+                    self.pipeline_queue.task_done()
 
             except Exception as e:
                 self.logger.error(f"Queue processing error: {str(e)}")
 
-# Initialize the request manager
-request_manager = RequestManager(max_concurrent=3)
+
+# Initialize request manager
+request_manager = RequestManager()
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
 
-        # If task is already being processed, don't add it again
+        # Only add to queue if not already being processed
         if task_key not in request_manager.active_tasks:
-            request_manager.active_tasks[task_key] = "processing"
+            request_manager.active_tasks.add(task_key)
             await request_manager.pipeline_queue.put(post_data)
             logger.info(f"Added video {post_data.youtube_id} to processing queue")
         else:
@@ -139,13 +138,13 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_messag
     logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
 
     # Cleanup failed pipeline
-    # await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
+    await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
 
     # Remove SQLite entry
-    # await remove_sqlite_entry(youtube_id, ai_user_id)
+    await remove_sqlite_entry(youtube_id, ai_user_id)
 
     # Clean up the queue
-    # await clean_up_queue(youtube_id, ai_user_id)
+    await clean_up_queue(youtube_id, ai_user_id)
 
     # Notify YouDescribe service about the failure
     await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
