@@ -167,12 +167,6 @@ class PipelineRunner:
         success = generate_collage.run_generate_collage()
         if not success:
             raise Exception("Generate Collage failed")
-
-    async def run_gpt_collage_captioning(self) -> None:
-        gpt_collage_captioning = GptCollageCaptioning(self.video_runner_obj)
-        success = gpt_collage_captioning.run_gpt_collage_captioning()
-        if not success:
-            raise Exception("Generate Collage Caption failed")
    
     async def run_gpt_captioning(self) -> None:
         # Accessing video_id from the dictionary
@@ -198,6 +192,12 @@ class PipelineRunner:
             raise Exception(f"Gpt image captions failed for video_id: {video_id}")
         
         logging.info(f"GPT captioning completed successfully for video_id: {video_id}")
+        
+    async def run_gpt_collage_captioning(self) -> None:
+        gpt_collage_captioning = GptCollageCaptioning(self.video_runner_obj)
+        success = gpt_collage_captioning.run_gpt_collage_captioning()
+        if not success:
+            raise Exception("Generate Collage Caption failed")
 
     async def run_caption_rating(self) -> None:
         caption_rating = CaptionRating(self.video_runner_obj)

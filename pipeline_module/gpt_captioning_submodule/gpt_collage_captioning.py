@@ -1,3 +1,4 @@
+import google.generativeai as genai
 import base64
 import csv
 import os
@@ -35,42 +36,65 @@ class GptCollageCaptioning:
 
         try:
             num_frames = len(os.listdir(video_frames_path))
+            json_path = os.path.join(video_folder_path, "summarized_scenes.json")
             incsvpath = os.path.join(video_folder_path, "scenesegmentedfile.csv")
             outcsvpath = os.path.join(video_folder_path, "gptcollagecaption.csv")
             
             self.logger.info(f"num_frames: {num_frames}")
             self.logger.info(f"Processing captions in: {outcsvpath}")
 
-            # Read existing rows
-            with open(incsvpath, 'r', encoding='utf-8') as incsvfile:
-                reader = csv.reader(incsvfile)
-                header = next(reader)
-                existing_rows = list(reader)
+            # Read JSON data
+            with open(json_path, 'r', encoding='utf-8') as json_file:
+                existing_rows = json.load(json_file)
+
+
+            # # Read existing rows
+            # with open(incsvpath, 'r', encoding='utf-8') as incsvfile:
+            #     reader = csv.reader(incsvfile)
+            #     header = next(reader)
+            #     existing_rows = list(reader)
                 
-            self.logger.info(f"existing_rows: {existing_rows}")
+            # self.logger.info(f"existing_rows: {existing_rows}")
                 
             # Write updated rows
             with open(outcsvpath, 'w', newline='', encoding='utf-8') as outcsvfile:
                 writer = csv.writer(outcsvfile)
                 writer.writerow([ "start_time",	"end_time",	"description"
-, "GPT4_Caption"])  # Add new columns
+, "GPT4_Caption", "Gemini_Caption"])  # Add new columns
                 
                 for i in range(0, num_frames):
-                    frame_filename = f'{video_frames_path}/scene_{i}_collage.png'
-                    
-                    existing_row = existing_rows[i]
+                    # Ensure the frame index does not exceed the number of rows in the JSON
+                    if i < len(existing_rows):
+                        existing_row = existing_rows[i]
+                    else:
+                        self.logger.warning(f"No data for frame {i} in summarized_scenes.json, skipping.")
+                        continue
+
+                    # Dynamically retrieve file names in the directory
+                    frame_filenames = sorted(
+                        [os.path.join(video_frames_path, file) for file in os.listdir(video_frames_path) if file.endswith('.png')]
+                    )
+
+                    # Ensure the frame index does not exceed the number of files
+                    if i < len(frame_filenames):
+                        frame_filename = frame_filenames[i]
+                    else:
+                        self.logger.warning(f"Frame {i} does not exist in {video_frames_path}, skipping.")
+                        continue
+        
                     # Prepare the row
-                    row = [None] * 4  # Initialize a 6-column row
-                    row[0:3] = existing_row[0:3]  # Preserve the existing caption in column 4
-                    # self.logger.info(f"existing_row[3]: {existing_row[3]}")
+                    row = [None] * 5  # Initialize a 6-column row
+                    row[0] = existing_row["start_time"]
+                    row[1] = existing_row["end_time"]
+                    row[2] = existing_row["text"]
+
                     if os.path.exists(frame_filename):                       
                         gpt4_caption = self.get_gpt_caption(frame_filename)  # GPT-4 Caption
+                        genai_caption = self.get_gemini_caption(frame_filename) # Gemini Caption
                         row[3] = gpt4_caption
-                        # gpt4_caption = ""
-                        # vertex_caption = self.get_vertex_caption(gs_frame_filename)  # Vertex AI Caption
-                        vertex_caption = ""
+                        row[4] = genai_caption
 
-                        self.logger.info(f"Frame index: {i}, GPT-4: {gpt4_caption}, Vertex: {vertex_caption}")
+                        self.logger.info(f"Frame index: {i}, GPT-4: {gpt4_caption}, Gemini: {genai_caption}")
                     else:
                         self.logger.warning(f"Frame {i} does not exist, skipping.")
                     writer.writerow(row)
@@ -84,15 +108,17 @@ class GptCollageCaptioning:
             return False
 
 
-    system_prompt = f"""Generate 10 unique, distinct, and concise descriptions for a video segment and text from a human describer. These descriptions should be tailored to be accessible for blind and visually impaired individuals following these guidelines. 
+    system_prompt = f"""Generate a unique, distinct, and concise description for a video segment. The description should be tailored to be accessible for blind and visually impaired individuals following these guidelines. 
 
     Guidelines - a Quality Description Must Be: 
     Accurate: There must be no errors in word selection, pronunciation, diction, or enunciation. Prioritized: Content essential to the intended learning and enjoyment outcomes is of primary importance. 
     Consistent: Both the description content and the voicing should match the style, tone, and pace of the program. 
-    Appropriate: Consider the intended audience, be objective, and seek simplicity and succinctness. 
+    Appropriate: Consider the intended audience, be objective, and seek simplicity and succinctness.
+    Clarity: If the image is unclear, describe it using a broader category rather than guessing specific details. Be objective.
     Equal: Equal access requires that the meaning and intention of the program be conveyed.
+    Length: Must be between 30 and 40 words.
 
-    The 8 frames are provided as a single image where frames are read from left to right. The original text description follows. Please make each description representative of the whole video clip and not frame by frame. Do not give titles to each descrpiton. Seperate each description with two newline characters. Do not print the number of the description. 
+    The 8 frames are provided as a single image where frames are read from left to right. Please make description representative of the whole video clip and not frame by frame. 
     """
     PROMPT = (
     "Generate a concise and accurate description of this video frame. "
@@ -115,10 +141,10 @@ class GptCollageCaptioning:
             payload = {
                 "model": "gpt-4o",
                 "messages": [
-                    {"role": "system", "content": (
-                        "Generate a concise and accurate description of this video frame. "
-                        "Prioritize accessibility for blind and visually impaired individuals."
-                    )},
+                    # {"role": "system", "content": (
+                    #     "Generate a concise and accurate description of this video frame. "
+                    #     "Prioritize accessibility for blind and visually impaired individuals."
+                    # )},
                     {"role": "user", "content": [
                         {
                             "type": "text",
@@ -154,5 +180,23 @@ class GptCollageCaptioning:
                 return ""
 
         except Exception as e:
-            self.logger.error(f"Error generating caption: {e}")
+            self.logger.error(f"Error generating GPT caption: {e}")
             return ""
+
+    def get_gemini_caption(self, filename: str) -> str:
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_api_key:
+            self.logger.error("GEMINI_API_KEY not set in the environment.")
+            return ""
+        try:
+            model = genai.GenerativeModel("gemini-1.5-pro")
+            with open(filename, "rb") as file:
+                image_base64 = base64.b64encode(file.read()).decode('utf-8')
+            response = model.generate_content([{'mime_type':'image/jpeg', 'data': image_base64}, self.system_prompt])
+
+            return response.text
+        except Exception as e:
+            self.logger.error(f"Error generating Gemini caption: {e}")
+            return ""
+
+        

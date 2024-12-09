@@ -40,7 +40,7 @@ class GenerateCollage:
 
             # Calculate total frames in the specified interval
             duration_frames = int((end_time - start_time) * container.streams.video[0].average_rate)
-            indices = set(np.linspace(0, duration_frames, num=n, endpoint=False).astype(int))
+            indices = set(np.linspace(0, duration_frames, num=n, endpoint=True).astype(int))
 
             frames = []
             for i, frame in enumerate(container.decode(video=0)):
@@ -93,16 +93,18 @@ class GenerateCollage:
             frame_width = (collage_width // cols) - (2 * border_size)
             frame_height = (collage_height // rows) - (2 * border_size)
             frame_size = (frame_width, frame_height)
+            fps = 25
 
             for idx, row in tqdm.tqdm(scenes.iterrows(), desc="Processing Scenes", total=len(scenes), unit="scene"):
                 self.logger.info(f"Number of scenes: {len(scenes)}")  # Log the number of scenes
                 self.logger.info(f"Processing scene {idx}: {row}")
                 start_time, end_time, description = row["start_time"], row["end_time"], row["description"]
+                scene_name = f"frames_{int(start_time * fps):03d}_{int(end_time * fps):03d}_collage.png"
                 video_id = self.video_runner_obj["video_id"]
                 ext = ".mp4"
 
                 frames = self.extract_n_frames_from_interval(video_folder_path, video_id, ext, n, start_time, end_time)
-                self.logger.debug(f"Extracted {len(frames)} frames for scene {idx}.")
+                self.logger.debug(f"Extracted {len(frames)} frames for scene {scene_name}.")
                 
                 if len(frames) < n:
                     self.logger.warning(f"Skipping scene {idx}: insufficient frames ({len(frames)}).")
@@ -127,7 +129,7 @@ class GenerateCollage:
 
                     collage_image.paste(bordered_frame, (x, y))
 
-                output_file = os.path.join(output_dir, f"scene_{idx}_collage.png")
+                output_file = os.path.join(output_dir, scene_name)
                 collage_image.save(output_file)
                 self.logger.info(f"Saved collage for scene {idx}: {output_file}")
 
