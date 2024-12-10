@@ -35,40 +35,52 @@ GPU_URL = os.getenv("GPU_URL")
 AI_USER_ID = os.getenv("AI_USER_ID")
 YDX_SERVER = os.getenv("YDX_SERVER")
 
-# Queue for managing pipeline tasks
-pipeline_queue = asyncio.Queue()
-
-# Set for tracking enqueued tasks
-enqueued_tasks = set()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
     create_database()
 
-    # Start the queue processor
-    asyncio.create_task(request_manager.process_queue())
+    queue_task = asyncio.create_task(request_manager.process_queue())
     logger.info("Queue processing started")
 
     yield
 
     logger.info("Application shutting down...")
+    await request_manager.stop()
+    queue_task.cancel()
+    try:
+        await queue_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("Queue processing stopped")
+
 
 # Setup FastAPI app
 app = FastAPI(lifespan=lifespan)
+
 
 class RequestManager:
     def __init__(self):
         self.pipeline_queue = asyncio.Queue()
         self.active_tasks = set()
+        self.processing = False
         self.logger = setup_logger()
 
     async def process_queue(self):
-        while True:
+        self.processing = True
+        while self.processing:
             try:
-                task = await self.pipeline_queue.get()
+                # Use timeout to allow for graceful shutdown
+                task = await asyncio.wait_for(self.pipeline_queue.get(), timeout=5.0)
                 task_key = (task.youtube_id, task.AI_USER_ID)
+
+                if task_key in self.active_tasks:
+                    self.logger.info(f"Task {task_key} already being processed, skipping")
+                    self.pipeline_queue.task_done()
+                    continue
+
+                self.active_tasks.add(task_key)
+                self.logger.info(f"Processing task for video {task.youtube_id}")
 
                 try:
                     await run_pipeline_task(
@@ -90,66 +102,72 @@ class RequestManager:
                     self.active_tasks.discard(task_key)
                     self.pipeline_queue.task_done()
 
+            except asyncio.TimeoutError:
+                continue
             except Exception as e:
                 self.logger.error(f"Queue processing error: {str(e)}")
+                await asyncio.sleep(1)
+
+    async def stop(self):
+        self.processing = False
+        if not self.pipeline_queue.empty():
+            await self.pipeline_queue.join()
 
 
 # Initialize request manager
 request_manager = RequestManager()
+
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
 
-        # Only add to queue if not already being processed
-        if task_key not in request_manager.active_tasks:
-            request_manager.active_tasks.add(task_key)
-            await request_manager.pipeline_queue.put(post_data)
-            logger.info(f"Added video {post_data.youtube_id} to processing queue")
-        else:
-            logger.info(f"Video {post_data.youtube_id} is already being processed")
+        if task_key in request_manager.active_tasks:
+            return {
+                "status": "success",
+                "message": "Video is already being processed",
+                "queue_position": None
+            }
 
-        return {"status": "success", "message": "AI caption generation request queued"}
+        queue_position = request_manager.pipeline_queue.qsize() + 1
+
+        await request_manager.pipeline_queue.put(post_data)
+        logger.info(f"Added video {post_data.youtube_id} to processing queue at position {queue_position}")
+
+        return {
+            "status": "success",
+            "message": "AI caption generation request queued",
+            "queue_position": queue_position
+        }
 
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
-        return {"status": "failure", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 async def clean_up_queue(youtube_id: str, ai_user_id: str):
-    global pipeline_queue
-    # Create a new queue without the failed task
     new_queue = asyncio.Queue()
-    while not pipeline_queue.empty():
-        task = await pipeline_queue.get()
+    while not request_manager.pipeline_queue.empty():
+        task = await request_manager.pipeline_queue.get()
         if task.youtube_id != youtube_id or task.AI_USER_ID != ai_user_id:
             await new_queue.put(task)
 
-    # Replace the old queue with the new one
-    pipeline_queue = new_queue
-
-    # Remove the task from enqueued_tasks set
-    enqueued_tasks.discard((youtube_id, ai_user_id))
+    request_manager.pipeline_queue = new_queue
+    request_manager.active_tasks.discard((youtube_id, ai_user_id))
 
 
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
                                   ydx_app_host: str):
     logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
 
-    # Cleanup failed pipeline
     await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
-
-    # Remove SQLite entry
     await remove_sqlite_entry(youtube_id, ai_user_id)
-
-    # Clean up the queue
     await clean_up_queue(youtube_id, ai_user_id)
-
-    # Notify YouDescribe service about the failure
     await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
-
-    # Notify admin (implement this based on your needs)
     await notify_admin(youtube_id, ai_user_id, error_message)
 
 
@@ -189,7 +207,6 @@ async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
     message["From"] = SENDER_EMAIL
     message["To"] = ADMIN_EMAIL
 
-    # Set appropriate subject and content based on status
     if status == "started":
         message["Subject"] = f"Pipeline Started: YouTube ID {youtube_id}"
         email_content = f"""
@@ -239,10 +256,8 @@ async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
     print("INFO ", youtube_id, ai_user_id, ydx_server, ydx_app_host)
     try:
-        # Send starting notification
         await notify_admin_status(youtube_id, ai_user_id, "started")
 
-        # Run the pipeline
         await run_pipeline(
             video_id=youtube_id,
             video_end_time=None,
@@ -255,7 +270,6 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
             AI_USER_ID=ai_user_id,
         )
 
-        # Update status and send completion notification
         update_status(youtube_id, ai_user_id, StatusEnum.done.value)
         await notify_admin_status(youtube_id, ai_user_id, "completed")
 
@@ -273,9 +287,7 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
         logger.error(traceback.format_exc())
         update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
         await handle_pipeline_failure(youtube_id, ai_user_id, str(e), ydx_server, ydx_app_host)
-    finally:
-        # Remove task from enqueued set
-        enqueued_tasks.discard((youtube_id, ai_user_id))
+
 
 @app.get("/ai_description_status/{youtube_id}")
 async def ai_description_status(youtube_id: str):
@@ -292,10 +304,18 @@ async def ai_description_status(youtube_id: str):
 @app.get("/health_check")
 async def health_check():
     try:
-        return {"status": "OK", "timestamp": datetime.now().isoformat(), "queue_size": pipeline_queue.qsize()}
+        return {
+            "status": "OK",
+            "timestamp": datetime.now().isoformat(),
+            "queue_size": request_manager.pipeline_queue.qsize(),
+            "active_tasks": len(request_manager.active_tasks)
+        }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
-        return {"status": "Error", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 if __name__ == "__main__":
