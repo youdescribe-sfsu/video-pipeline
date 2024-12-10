@@ -11,8 +11,8 @@ import aiohttp
 from contextlib import asynccontextmanager
 import aiosmtplib
 from email.message import EmailMessage
-import psutil
-import threading
+import os
+import traceback
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
@@ -35,125 +35,6 @@ GPU_URL = os.getenv("GPU_URL")
 AI_USER_ID = os.getenv("AI_USER_ID")
 YDX_SERVER = os.getenv("YDX_SERVER")
 
-
-class RequestManager:
-    def __init__(self, max_parallel_tasks=3):
-        self.pipeline_queue = asyncio.Queue()
-        self.active_tasks = {}  # Dict to track task status and metadata
-        self.processing = False
-        self.max_parallel_tasks = max_parallel_tasks
-        self.worker_tasks = []  # Track worker coroutines
-        self.logger = setup_logger()
-
-    async def process_queue(self):
-        self.processing = True
-        # Launch multiple worker tasks
-        self.worker_tasks = [
-            asyncio.create_task(self._worker(f"worker-{i}"))
-            for i in range(self.max_parallel_tasks)
-        ]
-
-        # Wait for all workers to complete
-        await asyncio.gather(*self.worker_tasks, return_exceptions=True)
-
-    async def _worker(self, worker_id: str):
-        """Individual worker that processes queue items"""
-        while self.processing:
-            try:
-                # Try to get a task with timeout
-                task = await asyncio.wait_for(self.pipeline_queue.get(), timeout=5.0)
-                task_key = (task.youtube_id, task.AI_USER_ID)
-
-                if task_key in self.active_tasks:
-                    self.logger.info(f"Task {task_key} already being processed, skipping")
-                    self.pipeline_queue.task_done()
-                    continue
-
-                # Update task metadata
-                self.active_tasks[task_key] = {
-                    'status': 'processing',
-                    'worker': worker_id,
-                    'start_time': datetime.now(),
-                    'retries': 0
-                }
-
-                try:
-                    self.logger.info(f"Worker {worker_id} processing video {task.youtube_id}")
-                    await run_pipeline_task(
-                        youtube_id=task.youtube_id,
-                        ai_user_id=task.AI_USER_ID,
-                        ydx_server=task.ydx_server,
-                        ydx_app_host=task.ydx_app_host
-                    )
-                    self.active_tasks[task_key]['status'] = 'completed'
-
-                except Exception as e:
-                    self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
-                    self.active_tasks[task_key]['status'] = 'failed'
-                    self.active_tasks[task_key]['error'] = str(e)
-
-                    # Implement retry logic for recoverable errors
-                    if self.active_tasks[task_key]['retries'] < 2:  # Max 2 retries
-                        self.active_tasks[task_key]['retries'] += 1
-                        await self.pipeline_queue.put(task)  # Re-queue for retry
-                        self.logger.info(
-                            f"Requeuing task {task_key} for retry #{self.active_tasks[task_key]['retries']}")
-                    else:
-                        await handle_pipeline_failure(
-                            task.youtube_id,
-                            task.AI_USER_ID,
-                            str(e),
-                            task.ydx_server,
-                            task.ydx_app_host
-                        )
-                finally:
-                    if self.active_tasks[task_key]['retries'] == 0:  # Only remove if not being retried
-                        del self.active_tasks[task_key]
-                    self.pipeline_queue.task_done()
-
-            except asyncio.TimeoutError:
-                continue
-            except Exception as e:
-                self.logger.error(f"Worker {worker_id} error: {str(e)}")
-                await asyncio.sleep(1)
-
-    async def stop(self):
-        """Graceful shutdown with task completion tracking"""
-        self.processing = False
-        self.logger.info("Initiating graceful shutdown...")
-
-        # Wait for current tasks to complete with timeout
-        try:
-            await asyncio.wait_for(self.pipeline_queue.join(), timeout=300)  # 5 minutes timeout
-        except asyncio.TimeoutError:
-            self.logger.warning("Shutdown timeout reached, some tasks may not have completed")
-
-        # Cancel all workers
-        for task in self.worker_tasks:
-            task.cancel()
-
-        # Wait for workers to properly shut down
-        await asyncio.gather(*self.worker_tasks, return_exceptions=True)
-        self.logger.info("All workers shut down successfully")
-
-    def get_queue_stats(self):
-        """Get detailed queue and processing statistics"""
-        return {
-            'queue_size': self.pipeline_queue.qsize(),
-            'active_tasks': len(self.active_tasks),
-            'worker_count': len(self.worker_tasks),
-            'processing_state': self.processing,
-            'active_task_details': {
-                str(k): {
-                    'status': v['status'],
-                    'worker': v['worker'],
-                    'duration': str(datetime.now() - v['start_time']),
-                    'retries': v['retries']
-                } for k, v in self.active_tasks.items()
-            }
-        }
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
@@ -174,11 +55,67 @@ async def lifespan(app: FastAPI):
     logger.info("Queue processing stopped")
 
 
-# Initialize request manager with 3 parallel workers
-request_manager = RequestManager(max_parallel_tasks=3)
-
 # Setup FastAPI app
 app = FastAPI(lifespan=lifespan)
+
+
+class RequestManager:
+    def __init__(self):
+        self.pipeline_queue = asyncio.Queue()
+        self.active_tasks = set()
+        self.processing = False
+        self.logger = setup_logger()
+
+    async def process_queue(self):
+        self.processing = True
+        while self.processing:
+            try:
+                # Use timeout to allow for graceful shutdown
+                task = await asyncio.wait_for(self.pipeline_queue.get(), timeout=5.0)
+                task_key = (task.youtube_id, task.AI_USER_ID)
+
+                if task_key in self.active_tasks:
+                    self.logger.info(f"Task {task_key} already being processed, skipping")
+                    self.pipeline_queue.task_done()
+                    continue
+
+                self.active_tasks.add(task_key)
+                self.logger.info(f"Processing task for video {task.youtube_id}")
+
+                try:
+                    await run_pipeline_task(
+                        youtube_id=task.youtube_id,
+                        ai_user_id=task.AI_USER_ID,
+                        ydx_server=task.ydx_server,
+                        ydx_app_host=task.ydx_app_host
+                    )
+                except Exception as e:
+                    self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
+                    await handle_pipeline_failure(
+                        task.youtube_id,
+                        task.AI_USER_ID,
+                        str(e),
+                        task.ydx_server,
+                        task.ydx_app_host
+                    )
+                finally:
+                    self.active_tasks.discard(task_key)
+                    self.pipeline_queue.task_done()
+
+            except asyncio.TimeoutError:
+                continue
+            except Exception as e:
+                self.logger.error(f"Queue processing error: {str(e)}")
+                await asyncio.sleep(1)
+
+    async def stop(self):
+        self.processing = False
+        if not self.pipeline_queue.empty():
+            await self.pipeline_queue.join()
+
+
+# Initialize request manager
+request_manager = RequestManager()
 
 
 @app.post("/generate_ai_caption")
@@ -190,7 +127,6 @@ async def generate_ai_caption(post_data: WebServerRequest):
             return {
                 "status": "success",
                 "message": "Video is already being processed",
-                "task_info": request_manager.active_tasks[task_key],
                 "queue_position": None
             }
 
@@ -213,12 +149,24 @@ async def generate_ai_caption(post_data: WebServerRequest):
         )
 
 
+async def clean_up_queue(youtube_id: str, ai_user_id: str):
+    new_queue = asyncio.Queue()
+    while not request_manager.pipeline_queue.empty():
+        task = await request_manager.pipeline_queue.get()
+        if task.youtube_id != youtube_id or task.AI_USER_ID != ai_user_id:
+            await new_queue.put(task)
+
+    request_manager.pipeline_queue = new_queue
+    request_manager.active_tasks.discard((youtube_id, ai_user_id))
+
+
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
                                   ydx_app_host: str):
     logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
 
     await cleanup_failed_pipeline(youtube_id, ai_user_id, error_message)
     await remove_sqlite_entry(youtube_id, ai_user_id)
+    await clean_up_queue(youtube_id, ai_user_id)
     await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
     await notify_admin(youtube_id, ai_user_id, error_message)
 
@@ -239,7 +187,9 @@ async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_mes
 
 
 async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
-    """Sends status update emails to admin about pipeline progress."""
+    """
+    Sends status update emails to admin about pipeline progress.
+    """
     SMTP_HOST = os.getenv("SMTP_HOST")
     SMTP_PORT = int(os.getenv("SMTP_PORT"))
     SMTP_USERNAME = os.getenv("SMTP_USERNAME")
@@ -354,16 +304,11 @@ async def ai_description_status(youtube_id: str):
 @app.get("/health_check")
 async def health_check():
     try:
-        stats = request_manager.get_queue_stats()
         return {
             "status": "OK",
             "timestamp": datetime.now().isoformat(),
-            **stats,  # Include all detailed statistics
-            "system_info": {
-                "memory_usage": psutil.Process().memory_info().rss / 1024 / 1024,  # MB
-                "cpu_percent": psutil.Process().cpu_percent(),
-                "thread_count": threading.active_count()
-            }
+            "queue_size": request_manager.pipeline_queue.qsize(),
+            "active_tasks": len(request_manager.active_tasks)
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
