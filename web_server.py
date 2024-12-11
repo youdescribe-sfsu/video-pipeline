@@ -49,28 +49,28 @@ class RequestManager:
                 task = await self.pipeline_queue.get()
                 task_key = (task.youtube_id, task.AI_USER_ID)
 
-                if task_key not in self.active_tasks:
-                    self.active_tasks.add(task_key)
-                    try:
-                        self.logger.info(f"Processing video {task.youtube_id}")
-                        await run_pipeline_task(
-                            youtube_id=task.youtube_id,
-                            ai_user_id=task.AI_USER_ID,
-                            ydx_server=task.ydx_server,
-                            ydx_app_host=task.ydx_app_host
-                        )
-                    except Exception as e:
-                        self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
-                        await handle_pipeline_failure(
-                            task.youtube_id,
-                            task.AI_USER_ID,
-                            str(e),
-                            task.ydx_server,
-                            task.ydx_app_host
-                        )
-                    finally:
-                        self.active_tasks.discard(task_key)
-                        self.pipeline_queue.task_done()
+                try:
+                    self.logger.info(f"Processing video {task.youtube_id}")
+                    await run_pipeline_task(
+                        youtube_id=task.youtube_id,
+                        ai_user_id=task.AI_USER_ID,
+                        ydx_server=task.ydx_server,
+                        ydx_app_host=task.ydx_app_host
+                    )
+                except Exception as e:
+                    self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
+                    await handle_pipeline_failure(
+                        task.youtube_id,
+                        task.AI_USER_ID,
+                        str(e),
+                        task.ydx_server,
+                        task.ydx_app_host
+                    )
+                finally:
+                    # Always clean up
+                    self.active_tasks.discard(task_key)
+                    self.pipeline_queue.task_done()
+                    self.logger.info(f"Task for video {task.youtube_id} completed and removed from active tasks")
 
             except Exception as e:
                 self.logger.error(f"Queue processing error: {str(e)}")
@@ -233,6 +233,11 @@ async def generate_ai_caption(post_data: WebServerRequest):
     try:
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
 
+        # First check if task is already being processed
+        if task_key in request_manager.active_tasks:
+            logger.info(f"Video {post_data.youtube_id} is already being processed")
+            return {"status": "success", "message": "Video is already being processed"}
+
         # Process incoming data first
         process_incoming_data(
             post_data.user_id,
@@ -242,20 +247,16 @@ async def generate_ai_caption(post_data: WebServerRequest):
             post_data.youtube_id
         )
 
-        # Only add to queue if not already being processed
-        if task_key not in request_manager.active_tasks:
-            request_manager.active_tasks.add(task_key)
-            await request_manager.pipeline_queue.put(post_data)
-            logger.info(f"Added video {post_data.youtube_id} to processing queue")
-        else:
-            logger.info(f"Video {post_data.youtube_id} is already being processed")
+        # Only now add to active tasks and queue
+        request_manager.active_tasks.add(task_key)
+        await request_manager.pipeline_queue.put(post_data)
+        logger.info(f"Added video {post_data.youtube_id} to processing queue")
 
         return {"status": "success", "message": "AI caption generation request queued"}
 
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
         return {"status": "failure", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
-
 
 @app.get("/ai_description_status/{youtube_id}")
 async def ai_description_status(youtube_id: str):
