@@ -236,27 +236,60 @@ async def generate_ai_caption(post_data: WebServerRequest):
         # First check if task is already being processed
         if task_key in request_manager.active_tasks:
             logger.info(f"Video {post_data.youtube_id} is already being processed")
-            return {"status": "success", "message": "Video is already being processed"}
+            # Return proper response with status code
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "in_progress",
+                    "message": "Video is already being processed"
+                }
+            )
 
-        # Process incoming data first
-        process_incoming_data(
-            post_data.user_id,
-            post_data.ydx_server,
-            post_data.ydx_app_host,
-            post_data.AI_USER_ID,
-            post_data.youtube_id
-        )
+        try:
+            # Process incoming data first
+            process_incoming_data(
+                post_data.user_id,
+                post_data.ydx_server,
+                post_data.ydx_app_host,
+                post_data.AI_USER_ID,
+                post_data.youtube_id
+            )
 
-        # Only now add to active tasks and queue
-        request_manager.active_tasks.add(task_key)
-        await request_manager.pipeline_queue.put(post_data)
-        logger.info(f"Added video {post_data.youtube_id} to processing queue")
+            # Add to queue and active tasks
+            request_manager.active_tasks.add(task_key)
+            await request_manager.pipeline_queue.put(post_data)
+            logger.info(f"Added video {post_data.youtube_id} to processing queue")
 
-        return {"status": "success", "message": "AI caption generation request queued"}
+            # Return immediate response
+            return JSONResponse(
+                status_code=202,  # Accepted
+                content={
+                    "status": "queued",
+                    "message": "AI caption generation request queued",
+                    "youtube_id": post_data.youtube_id
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to queue task: {str(e)}")
+            # Return error response
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "message": f"Failed to process request: {str(e)}"
+                }
+            )
 
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
-        return {"status": "failure", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": str(e)
+            }
+        )
 
 @app.get("/ai_description_status/{youtube_id}")
 async def ai_description_status(youtube_id: str):
