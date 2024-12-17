@@ -1,27 +1,26 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-import os
-import json
+from fastapi.responses import JSONResponse
+from typing import Optional, Dict, Any
 import asyncio
 import traceback
 from datetime import datetime
 import uvicorn
 import aiohttp
+import os
 from contextlib import asynccontextmanager
 import aiosmtplib
 from email.message import EmailMessage
-import os
-import traceback
+from dotenv import load_dotenv
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import setup_logger
 from pipeline_module.pipeline_runner import run_pipeline, cleanup_failed_pipeline
 from web_server_module.web_server_database import (
-    create_database, process_incoming_data, update_status, update_ai_user_data,
-    get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id,
-    StatusEnum, remove_sqlite_entry
+    create_database, process_incoming_data, update_status,
+    update_ai_user_data, get_data_for_youtube_id_ai_user_id,
+    get_data_for_youtube_id_and_user_id, StatusEnum, remove_sqlite_entry
 )
 
 # Load environment variables
@@ -36,207 +35,227 @@ AI_USER_ID = os.getenv("AI_USER_ID")
 YDX_SERVER = os.getenv("YDX_SERVER")
 
 
-class RequestManager:
+class EnhancedRequestManager:
     def __init__(self):
         self.pipeline_queue = asyncio.Queue()
         self.active_tasks = set()
+        self.processing_history = {}
         self.logger = setup_logger()
+        self.max_retries = 3
+        self.retry_delay = 5  # seconds
+
+    async def add_task(self, task: WebServerRequest) -> bool:
+        """Add task to queue with duplicate checking"""
+        task_key = (task.youtube_id, task.AI_USER_ID)
+
+        if task_key in self.active_tasks:
+            self.logger.info(f"Task {task.youtube_id} already in processing")
+            return False
+
+        if task_key in self.processing_history:
+            last_processed = self.processing_history[task_key]
+            if (datetime.now() - last_processed).seconds < 3600:
+                self.logger.info(f"Task {task.youtube_id} processed too recently")
+                return False
+
+        await self.pipeline_queue.put(task)
+        self.active_tasks.add(task_key)
+        return True
 
     async def process_queue(self):
+        """Main queue processing loop with enhanced error handling"""
         while True:
             try:
-                # Get task from queue
                 task = await self.pipeline_queue.get()
                 task_key = (task.youtube_id, task.AI_USER_ID)
 
-                try:
-                    self.logger.info(f"Processing video {task.youtube_id}")
-                    await run_pipeline_task(
-                        youtube_id=task.youtube_id,
-                        ai_user_id=task.AI_USER_ID,
-                        ydx_server=task.ydx_server,
-                        ydx_app_host=task.ydx_app_host
-                    )
-                except Exception as e:
-                    self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
-                    await handle_pipeline_failure(
-                        task.youtube_id,
-                        task.AI_USER_ID,
-                        str(e),
-                        task.ydx_server,
-                        task.ydx_app_host
-                    )
-                finally:
-                    # Always clean up
-                    self.active_tasks.discard(task_key)
-                    self.pipeline_queue.task_done()
-                    self.logger.info(f"Task for video {task.youtube_id} completed and removed from active tasks")
+                for attempt in range(self.max_retries):
+                    try:
+                        self.logger.info(f"Processing video {task.youtube_id} (attempt {attempt + 1})")
+
+                        await run_pipeline(
+                            youtube_id=task.youtube_id,
+                            video_end_time=None,
+                            video_start_time=None,
+                            upload_to_server=True,
+                            tasks=None,
+                            ydx_server=task.ydx_server,
+                            ydx_app_host=task.ydx_app_host,
+                            userId=task.user_id,
+                            AI_USER_ID=task.AI_USER_ID,
+                        )
+
+                        self.processing_history[task_key] = datetime.now()
+                        update_status(task.youtube_id, task.AI_USER_ID, StatusEnum.done.value)
+
+                        # Notify users about completion
+                        await self.notify_completion(task)
+                        break  # Success, exit retry loop
+
+                    except Exception as e:
+                        self.logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
+                        if attempt == self.max_retries - 1:  # Last attempt
+                            await self.handle_pipeline_failure(task, str(e))
+                        else:
+                            await asyncio.sleep(self.retry_delay * (attempt + 1))
 
             except Exception as e:
                 self.logger.error(f"Queue processing error: {str(e)}")
+                await asyncio.sleep(5)
+
+            finally:
+                if task_key in self.active_tasks:
+                    self.active_tasks.discard(task_key)
+                self.pipeline_queue.task_done()
+
+    async def handle_pipeline_failure(self, task: WebServerRequest, error_message: str):
+        """Handle pipeline failure with cleanup and notifications"""
+        self.logger.error(f"Pipeline failed for video {task.youtube_id}: {error_message}")
+
+        try:
+            # Update status to failed
+            update_status(task.youtube_id, task.AI_USER_ID, StatusEnum.failed.value)
+
+            # Cleanup database entries
+            await remove_sqlite_entry(task.youtube_id, task.AI_USER_ID)
+
+            # Notify service about failure
+            await self.notify_youdescribe_service(
+                task.youtube_id,
+                task.AI_USER_ID,
+                error_message,
+                task.ydx_server,
+                task.ydx_app_host
+            )
+
+            # Cleanup pipeline artifacts
+            await cleanup_failed_pipeline(task.youtube_id, task.AI_USER_ID)
+
+        except Exception as e:
+            self.logger.error(f"Error in failure handling: {str(e)}")
+            self.logger.error(traceback.format_exc())
+
+    async def notify_youdescribe_service(self, youtube_id: str, ai_user_id: str,
+                                         error_message: str, ydx_server: str,
+                                         ydx_app_host: str):
+        """Notify YouDescribe service about pipeline failure"""
+        url = f"{ydx_server}/api/users/pipeline-failure"
+        data = {
+            "youtube_id": youtube_id,
+            "ai_user_id": ai_user_id,
+            "error_message": error_message,
+            "ydx_app_host": ydx_app_host
+        }
+
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, json=data) as response:
+                    if response.status != 200:
+                        self.logger.error(f"Failed to notify YouDescribe service: {await response.text()}")
+            except Exception as e:
+                self.logger.error(f"Error notifying YouDescribe service: {str(e)}")
+
+    async def notify_completion(self, task: WebServerRequest):
+        """Notify users about successful pipeline completion"""
+        try:
+            user_data = get_data_for_youtube_id_and_user_id(task.youtube_id, task.AI_USER_ID)
+            for data in user_data:
+                update_ai_user_data(
+                    youtube_id=task.youtube_id,
+                    ai_user_id=task.AI_USER_ID,
+                    user_id=data.get("user_id"),
+                    status=StatusEnum.done.value
+                )
+
+            await self.send_completion_email(task)
+
+        except Exception as e:
+            self.logger.error(f"Error in completion notification: {str(e)}")
+
+    async def send_completion_email(self, task: WebServerRequest):
+        """Send completion email to user"""
+        try:
+            SMTP_HOST = os.getenv("SMTP_HOST")
+            SMTP_PORT = int(os.getenv("SMTP_PORT"))
+            SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+            SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+            SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
+
+            if not all([SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD]):
+                self.logger.error("Missing SMTP configuration")
+                return
+
+            message = EmailMessage()
+            message["From"] = SMTP_USERNAME
+            message["To"] = task.user_id  # Assuming user_id is email
+            message["Subject"] = "AI Description Generation Complete"
+
+            message.set_content(
+                f"Your AI description for video {task.youtube_id} is now ready.\n"
+                f"You can view it at: {task.ydx_app_host}/video/{task.youtube_id}"
+            )
+
+            await aiosmtplib.send(
+                message,
+                hostname=SMTP_HOST,
+                port=SMTP_PORT,
+                username=SMTP_USERNAME,
+                password=SMTP_PASSWORD,
+                start_tls=SMTP_USE_TLS
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error sending completion email: {str(e)}")
+
+    async def get_queue_status(self) -> Dict[str, Any]:
+        """Get current queue status"""
+        return {
+            'queue_size': self.pipeline_queue.qsize(),
+            'active_tasks': len(self.active_tasks),
+            'total_processed': len(self.processing_history)
+        }
 
 
 # Initialize request manager
-request_manager = RequestManager()
+request_manager = EnhancedRequestManager()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
     logger.info("Starting application...")
     create_database()
 
-    # Start the queue processor
+    # Start queue processor
     asyncio.create_task(request_manager.process_queue())
-    logger.info("Queue processing started")
+    logger.info("Queue processor started")
 
     yield
 
-    logger.info("Application shutting down...")
+    logger.info("Shutting down...")
 
 
 app = FastAPI(lifespan=lifespan)
 
-
-async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
-    """
-    Sends status update emails to admin about pipeline progress.
-    """
-    SMTP_HOST = os.getenv("SMTP_HOST")
-    SMTP_PORT = int(os.getenv("SMTP_PORT"))
-    SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-    SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
-
-    ADMIN_EMAIL = "smirani1@mail.sfsu.edu"
-    SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USERNAME)
-
-    if not SMTP_PASSWORD:
-        logger.error("SMTP password not set in environment variables.")
-        return
-
-    message = EmailMessage()
-    message["From"] = SENDER_EMAIL
-    message["To"] = ADMIN_EMAIL
-
-    # Set appropriate subject and content based on status
-    if status == "started":
-        message["Subject"] = f"Pipeline Started: YouTube ID {youtube_id}"
-        email_content = f"""
-        Dear Admin,
-        Pipeline processing has started for:
-        - YouTube ID: {youtube_id}
-        - AI User ID: {ai_user_id}
-        You will be notified when processing completes.
-        Best regards,
-        Video Pipeline System
-        """
-    elif status == "completed":
-        message["Subject"] = f"Pipeline Completed: YouTube ID {youtube_id}"
-        email_content = f"""
-        Dear Admin,
-        Pipeline processing has successfully completed for:
-        - YouTube ID: {youtube_id}
-        - AI User ID: {ai_user_id}
-        The video is now ready for review.
-        Best regards,
-        Video Pipeline System
-        """
-
-    message.set_content(email_content)
-
-    try:
-        await aiosmtplib.send(
-            message,
-            hostname=SMTP_HOST,
-            port=SMTP_PORT,
-            username=SMTP_USERNAME,
-            password=SMTP_PASSWORD,
-            start_tls=SMTP_USE_TLS,
-        )
-        logger.info(f"Admin notified about {status} status for YouTube ID: {youtube_id}")
-    except Exception as e:
-        logger.error(f"Failed to send status email to admin: {str(e)}")
-        logger.error(traceback.format_exc())
-
-
-async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
-    print("INFO ", youtube_id, ai_user_id, ydx_server, ydx_app_host)
-    try:
-        # Send starting notification
-        await notify_admin_status(youtube_id, ai_user_id, "started")
-
-        # Run the pipeline
-        await run_pipeline(
-            video_id=youtube_id,
-            video_end_time=None,
-            video_start_time=None,
-            upload_to_server=True,
-            tasks=None,
-            ydx_server=ydx_server,
-            ydx_app_host=ydx_app_host,
-            userId=None,
-            AI_USER_ID=ai_user_id,
-        )
-
-        # Update status and send completion notification
-        update_status(youtube_id, ai_user_id, StatusEnum.done.value)
-        await notify_admin_status(youtube_id, ai_user_id, "completed")
-
-        user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
-        for data in user_data:
-            update_ai_user_data(
-                youtube_id=youtube_id,
-                ai_user_id=ai_user_id,
-                user_id=data.get("user_id", None),
-                status=StatusEnum.done.value,
-            )
-        print(f"Pipeline completed for YouTube ID: {youtube_id}")
-    except Exception as e:
-        logger.error(f"Pipeline failed for YouTube ID {youtube_id}: {str(e)}")
-        logger.error(traceback.format_exc())
-        update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
-        await handle_pipeline_failure(youtube_id, ai_user_id, str(e), ydx_server, ydx_app_host)
-
-
-async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
-                                  ydx_app_host: str):
-    logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
-
-    try:
-        # Remove SQLite entry
-        await remove_sqlite_entry(youtube_id, ai_user_id)
-
-        # Notify YouDescribe service about the failure
-        await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
-
-    except Exception as e:
-        logger.error(f"Error in handle_pipeline_failure: {str(e)}")
-
-
-async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
-                                     ydx_app_host: str):
-    url = f"{ydx_server}/api/users/pipeline-failure"
-    data = {
-        "youtube_id": youtube_id,
-        "ai_user_id": ai_user_id,
-        "error_message": error_message,
-        "ydx_app_host": ydx_app_host
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=data) as response:
-            if response.status != 200:
-                logger.error(f"Failed to notify YouDescribe service: {await response.text()}")
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
+    """Handle AI caption generation requests"""
     try:
-        task_key = (post_data.youtube_id, post_data.AI_USER_ID)
+        # Try to add task to queue
+        was_queued = await request_manager.add_task(post_data)
 
-        # First check if task is already being processed
-        if task_key in request_manager.active_tasks:
-            logger.info(f"Video {post_data.youtube_id} is already being processed")
-            # Return proper response with status code
+        if not was_queued:
+            # Task already being processed
             return JSONResponse(
                 status_code=200,
                 content={
@@ -245,41 +264,23 @@ async def generate_ai_caption(post_data: WebServerRequest):
                 }
             )
 
-        try:
-            # Process incoming data first
-            process_incoming_data(
-                post_data.user_id,
-                post_data.ydx_server,
-                post_data.ydx_app_host,
-                post_data.AI_USER_ID,
-                post_data.youtube_id
-            )
+        # Process incoming data
+        process_incoming_data(
+            post_data.user_id,
+            post_data.ydx_server,
+            post_data.ydx_app_host,
+            post_data.AI_USER_ID,
+            post_data.youtube_id
+        )
 
-            # Add to queue and active tasks
-            request_manager.active_tasks.add(task_key)
-            await request_manager.pipeline_queue.put(post_data)
-            logger.info(f"Added video {post_data.youtube_id} to processing queue")
-
-            # Return immediate response
-            return JSONResponse(
-                status_code=202,  # Accepted
-                content={
-                    "status": "queued",
-                    "message": "AI caption generation request queued",
-                    "youtube_id": post_data.youtube_id
-                }
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to queue task: {str(e)}")
-            # Return error response
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "status": "error",
-                    "message": f"Failed to process request: {str(e)}"
-                }
-            )
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "message": "AI caption generation request queued",
+                "youtube_id": post_data.youtube_id
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
@@ -291,8 +292,10 @@ async def generate_ai_caption(post_data: WebServerRequest):
             }
         )
 
+
 @app.get("/ai_description_status/{youtube_id}")
 async def ai_description_status(youtube_id: str):
+    """Get AI description status"""
     try:
         status = get_data_for_youtube_id_ai_user_id(youtube_id, AI_USER_ID)
         if not status:
@@ -305,12 +308,13 @@ async def ai_description_status(youtube_id: str):
 
 @app.get("/health_check")
 async def health_check():
+    """Health check endpoint"""
     try:
+        queue_status = await request_manager.get_queue_status()
         return {
             "status": "OK",
             "timestamp": datetime.now().isoformat(),
-            "queue_size": request_manager.pipeline_queue.qsize(),
-            "active_tasks": len(request_manager.active_tasks)
+            **queue_status
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")

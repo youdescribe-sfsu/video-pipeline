@@ -1,15 +1,22 @@
 import logging
 import os
 import asyncio
+import traceback
 from typing import List, Dict, Any, Optional
+from datetime import datetime
+from pathlib import Path
 from dotenv import load_dotenv
 from yt_dlp.compat import shutil
 
+# Import utility modules
 from pipeline_module.utils_module.utils import PipelineTask, return_video_folder_name
-from web_server_module.web_server_database import update_status, get_status_for_youtube_id
+from web_server_module.web_server_database import (
+    update_status, get_status_for_youtube_id, update_module_output,
+    get_module_output, StatusEnum
+)
 from pipeline_module.utils_module.google_services import service_manager, GoogleServiceError
 
-# Import all submodules
+# Import pipeline step modules
 from .import_video_submodule.import_video import ImportVideo
 from .extract_audio_submodule.extract_audio import ExtractAudio
 from .speech_to_text_submodule.speech_to_text import SpeechToText
@@ -25,7 +32,18 @@ from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
 
 
+class PipelineError(Exception):
+    """Custom exception for pipeline errors"""
+
+    def __init__(self, message: str, step: str, recoverable: bool = True):
+        super().__init__(message)
+        self.step = step
+        self.recoverable = recoverable
+
+
 class PipelineRunner:
+    """Manages the video processing pipeline"""
+
     def __init__(
             self,
             video_id: str,
@@ -38,6 +56,7 @@ class PipelineRunner:
             userId: Optional[str] = None,
             AI_USER_ID: Optional[str] = None,
     ):
+        """Initialize pipeline with configuration"""
         self.video_id = video_id
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
@@ -47,9 +66,68 @@ class PipelineRunner:
         self.ydx_app_host = ydx_app_host
         self.userId = userId
         self.AI_USER_ID = AI_USER_ID
+
+        # Set up logging
         self.logger = self.setup_logger()
 
-        # Initialize Google Services
+        # Initialize video runner object
+        self.video_runner_obj = {
+            "video_id": video_id,
+            "logger": self.logger,
+            "AI_USER_ID": self.AI_USER_ID
+        }
+
+        # Load configuration
+        self.config = self.load_config()
+
+        # Initialize progress tracking
+        self.progress = self.load_progress()
+
+        # Initialize Google services
+        self.init_google_services()
+
+    def setup_logger(self) -> logging.Logger:
+        """Configure logging for this pipeline instance"""
+        logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
+        logger.setLevel(logging.INFO)
+
+        # Create logs directory
+        log_dir = Path("pipeline_logs")
+        log_dir.mkdir(exist_ok=True)
+
+        # Set up file handler
+        log_file = log_dir / f"{self.video_id}_{self.AI_USER_ID}_pipeline.log"
+        handler = logging.FileHandler(log_file)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        return logger
+
+    def load_config(self) -> Dict[str, Any]:
+        """Load pipeline configuration"""
+        config = {
+            "max_retries": int(os.getenv("PIPELINE_MAX_RETRIES", "3")),
+            "retry_delay": int(os.getenv("PIPELINE_RETRY_DELAY", "5")),
+            "cleanup_on_failure": os.getenv("CLEANUP_ON_FAILURE", "True").lower() == "true",
+            "frame_extraction_rate": int(os.getenv("FRAME_EXTRACTION_RATE", "3"))
+        }
+        self.logger.info(f"Loaded configuration: {config}")
+        return config
+
+    def load_progress(self) -> Dict[str, Any]:
+        """Load progress from database"""
+        status = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
+        progress = {"status": status} if isinstance(status, str) else (
+            status if isinstance(status, dict) else {}
+        )
+        self.logger.info(f"Loaded progress: {progress}")
+        return progress
+
+    def init_google_services(self) -> None:
+        """Initialize Google API services"""
         try:
             service_manager.validate_credentials()
             self.logger.info("Google services initialized successfully")
@@ -57,199 +135,205 @@ class PipelineRunner:
             self.logger.error(f"Failed to initialize Google services: {str(e)}")
             raise
 
-        self.progress = self.load_progress()
-        self.video_runner_obj = {
-            "video_id": video_id,
-            "logger": self.logger,
-            "AI_USER_ID": self.AI_USER_ID
-        }
-
-    def setup_logger(self) -> logging.Logger:
-        logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
-        logger.setLevel(logging.INFO)
-
-        log_dir = "pipeline_logs"
-        os.makedirs(log_dir, exist_ok=True)
-
-        handler = logging.FileHandler(f"{log_dir}/{self.video_id}_{self.AI_USER_ID}_pipeline.log")
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        return logger
-
-    def load_progress(self) -> Dict[str, Any]:
-        status = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
-        return {"status": status} if isinstance(status, str) else status if isinstance(status, dict) else {}
-
-    def save_progress(self):
-        update_status(self.video_id, self.AI_USER_ID, self.progress)
-
     async def run_task(self, task: str, *args, **kwargs) -> Any:
-        """Execute a single task with proper error handling and progress tracking."""
+        """Execute a single pipeline task with retries"""
         self.progress = self.load_progress()
 
+        # Skip completed tasks
         if self.progress.get(task) == "completed":
             self.logger.info(f"Skipping completed task: {task}")
             return
 
         self.logger.info(f"Starting task: {task}")
-        try:
-            result = await getattr(self, f"run_{task}")(*args, **kwargs)
-            self.progress[task] = "completed"
-            self.save_progress()
-            self.logger.info(f"Completed task: {task}")
-            return result
-        except Exception as e:
-            self.logger.error(f"Error in task {task}: {str(e)}", exc_info=True)
-            self.progress[task] = "failed"
-            self.save_progress()
-            raise
 
-    # Task implementations with dependencies ensured
+        # Initialize retry counter
+        retries = 0
+        last_error = None
+
+        while retries < self.config["max_retries"]:
+            try:
+                # Execute task
+                result = await getattr(self, f"run_{task}")(*args, **kwargs)
+
+                # Update progress
+                self.progress[task] = "completed"
+                self.save_progress()
+
+                self.logger.info(f"Completed task: {task}")
+                return result
+
+            except Exception as e:
+                retries += 1
+                last_error = e
+                self.logger.error(
+                    f"Error in task {task} (attempt {retries}): {str(e)}",
+                    exc_info=True
+                )
+
+                if retries < self.config["max_retries"]:
+                    # Wait before retry
+                    await asyncio.sleep(self.config["retry_delay"] * retries)
+                    self.logger.info(f"Retrying task: {task}")
+                else:
+                    # Max retries reached
+                    self.progress[task] = "failed"
+                    self.save_progress()
+                    raise PipelineError(
+                        f"Task {task} failed after {retries} attempts: {str(e)}",
+                        task
+                    )
+
+    def save_progress(self) -> None:
+        """Save progress to database"""
+        update_status(self.video_id, self.AI_USER_ID, self.progress)
+
+    async def cleanup_resources(self) -> None:
+        """Clean up temporary resources"""
+        try:
+            # Clean up service manager
+            service_manager.cleanup()
+
+            # Clean up video folder if configured
+            if self.config["cleanup_on_failure"]:
+                video_folder = return_video_folder_name(self.video_runner_obj)
+                if os.path.exists(video_folder):
+                    shutil.rmtree(video_folder)
+                    self.logger.info(f"Cleaned up video folder: {video_folder}")
+
+            self.logger.info("Resource cleanup completed")
+
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {str(e)}")
+
+    async def run_pipeline_step(self, step_name: str,
+                                step_class: Any) -> bool:
+        """Run a single pipeline step"""
+        try:
+            # Initialize step
+            step = step_class(self.video_runner_obj)
+
+            # Run main step method
+            method_name = f"run_{step_name.lower()}"
+            success = getattr(step, method_name)()
+
+            if not success:
+                raise PipelineError(
+                    f"{step_name} failed",
+                    step_name
+                )
+
+            return True
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in {step_name}: {str(e)}",
+                exc_info=True
+            )
+            raise PipelineError(str(e), step_name)
+
+    # Pipeline step implementations
 
     async def run_import_video(self) -> None:
-        """Step 1: Import video"""
-        import_video = ImportVideo(self.video_runner_obj)
-        success = import_video.download_video()
-        if not success:
-            raise Exception("Video import failed")
+        """Import video step"""
+        await self.run_pipeline_step("import_video", ImportVideo)
 
     async def run_extract_audio(self) -> None:
-        """Step 2: Extract audio (Depends on import_video)"""
-        extract_audio = ExtractAudio(self.video_runner_obj)
-        success = extract_audio.extract_audio()
-        if not success:
-            raise Exception("Audio extraction failed")
-        # Verify FLAC format for Speech-to-Text
-        if not extract_audio.check_audio_format():
-            raise Exception("Audio not in required FLAC format")
+        """Extract audio step"""
+        success = await self.run_pipeline_step("extract_audio", ExtractAudio)
+
+        # Verify audio format
+        if success and not ExtractAudio(self.video_runner_obj).check_audio_format():
+            raise PipelineError("Audio not in required format", "extract_audio")
 
     async def run_speech_to_text(self) -> None:
-        """Step 3: Speech to text (Depends on extract_audio)"""
-        try:
-            speech_to_text = SpeechToText(self.video_runner_obj)
-            success = speech_to_text.get_speech_from_audio()
-            if not success:
-                raise Exception("Speech to text conversion failed")
-            self.logger.info("Speech to text completed successfully")
-        except Exception as e:
-            self.logger.error(f"Speech to text error: {str(e)}")
-            raise
+        """Speech to text step"""
+        await self.run_pipeline_step("speech_to_text", SpeechToText)
 
     async def run_frame_extraction(self) -> None:
-        """Step 4: Frame extraction"""
-        frame_extraction = FrameExtraction(
+        """Frame extraction step"""
+        extractor = FrameExtraction(
             self.video_runner_obj,
-            int(os.environ.get("FRAME_EXTRACTION_RATE", 3))
+            self.config["frame_extraction_rate"]
         )
-        success = frame_extraction.extract_frames()
-        if not success:
-            raise Exception("Frame extraction failed")
+        if not extractor.extract_frames():
+            raise PipelineError("Frame extraction failed", "frame_extraction")
 
     async def run_ocr_extraction(self) -> None:
-        """Step 5: OCR extraction (Depends on frame_extraction)"""
-        self.logger.info("Starting OCR extraction process")
-        try:
-            ocr_extraction = OcrExtraction(self.video_runner_obj)
-            success = ocr_extraction.run_ocr_detection()
-            if not success:
-                raise Exception("OCR extraction failed")
-            self.logger.info("OCR extraction completed successfully")
-        except Exception as e:
-            self.logger.error(f"OCR extraction error: {str(e)}")
-            raise
+        """OCR extraction step"""
+        await self.run_pipeline_step("ocr_extraction", OcrExtraction)
 
     async def run_object_detection(self) -> None:
-        object_detection = ObjectDetection(self.video_runner_obj)
-        success = object_detection.run_object_detection()
-        if not success:
-            raise Exception("Object detection failed")
+        """Object detection step"""
+        await self.run_pipeline_step("object_detection", ObjectDetection)
 
     async def run_keyframe_selection(self) -> None:
-        keyframe_selection = KeyframeSelection(self.video_runner_obj)
-        success = keyframe_selection.run_keyframe_selection()
-        if not success:
-            raise Exception("Keyframe selection failed")
+        """Keyframe selection step"""
+        await self.run_pipeline_step("keyframe_selection", KeyframeSelection)
 
     async def run_image_captioning(self) -> None:
-        image_captioning = ImageCaptioning(self.video_runner_obj)
-        success = image_captioning.run_image_captioning()
-        if not success:
-            raise Exception("Image captioning failed")
-        combined_success = image_captioning.combine_image_caption()
-        if not combined_success:
-            raise Exception("Combining image captions failed")
+        """Image captioning step"""
+        captioner = ImageCaptioning(self.video_runner_obj)
+
+        if not captioner.run_image_captioning():
+            raise PipelineError("Image captioning failed", "image_captioning")
+
+        if not captioner.combine_image_caption():
+            raise PipelineError("Caption combination failed", "image_captioning")
 
     async def run_caption_rating(self) -> None:
-        caption_rating = CaptionRating(self.video_runner_obj)
-        success = caption_rating.perform_caption_rating()
-        if not success:
-            raise Exception("Caption rating failed")
+        """Caption rating step"""
+        await self.run_pipeline_step("caption_rating", CaptionRating)
 
     async def run_scene_segmentation(self) -> None:
-        scene_segmentation = SceneSegmentation(self.video_runner_obj)
-        success = scene_segmentation.run_scene_segmentation()
-        if not success:
-            raise Exception("Scene segmentation failed")
+        """Scene segmentation step"""
+        await self.run_pipeline_step("scene_segmentation", SceneSegmentation)
 
     async def run_text_summarization(self) -> None:
-        text_summarization = TextSummaryCoordinator(self.video_runner_obj)
-        success = text_summarization.generate_text_summary()
-        if not success:
-            raise Exception("Text summarization failed")
+        """Text summarization step"""
+        await self.run_pipeline_step("text_summarization", TextSummaryCoordinator)
 
     async def run_upload_to_ydx(self) -> None:
-        upload_to_ydx = UploadToYDX(
+        """Upload to YDX step"""
+        uploader = UploadToYDX(
             self.video_runner_obj,
             upload_to_server=self.upload_to_server
         )
-        success = upload_to_ydx.upload_to_ydx(ydx_server=self.ydx_server, AI_USER_ID=self.AI_USER_ID)
-        if not success:
-            raise Exception("Upload to YDX failed")
+        if not uploader.upload_to_ydx(
+                ydx_server=self.ydx_server,
+                AI_USER_ID=self.AI_USER_ID
+        ):
+            raise PipelineError("Upload to YDX failed", "upload_to_ydx")
 
     async def run_generate_ydx_caption(self) -> None:
-        generate_ydx_caption = GenerateYDXCaption(self.video_runner_obj)
-        success = await generate_ydx_caption.generateYDXCaption(
-            ydx_server=self.ydx_server,
-            ydx_app_host=self.ydx_app_host,
-            userId=self.userId,
-            AI_USER_ID=self.AI_USER_ID,
-        )
-        if not success:
-            raise Exception("Generate YDX caption failed")
+        """Generate YDX caption step"""
+        generator = GenerateYDXCaption(self.video_runner_obj)
+        if not await generator.generateYDXCaption(
+                ydx_server=self.ydx_server,
+                ydx_app_host=self.ydx_app_host,
+                userId=self.userId,
+                AI_USER_ID=self.AI_USER_ID,
+        ):
+            raise PipelineError("Caption generation failed", "generate_ydx_caption")
 
     async def run_full_pipeline(self) -> None:
+        """Run complete pipeline"""
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
+
         try:
+            # Run each task in sequence
             for task in self.tasks:
                 await self.run_task(task)
-            self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
+
+            self.logger.info(f"Pipeline completed for video: {self.video_id}")
+
         except Exception as e:
-            self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}", exc_info=True)
+            self.logger.error(
+                f"Pipeline failed: {str(e)}",
+                exc_info=True
+            )
+            await self.cleanup_resources()
             raise
 
-async def cleanup_failed_pipeline(self, error_message: str):
-    """Clean up resources on pipeline failure."""
-    try:
-        video_folder = return_video_folder_name({"video_id": self.video_id})
-        if os.path.exists(video_folder):
-            shutil.rmtree(video_folder)
-            self.logger.info(f"Cleaned up video folder: {video_folder}")
-
-        update_status(self.video_id, self.AI_USER_ID, "failed")
-        self.logger.info(f"Updated status to failed for video {self.video_id}")
-    except Exception as e:
-        self.logger.error(f"Cleanup error: {str(e)}")
-
-
-def cleanup_resources(self):
-    """Clean up temporary resources."""
-    try:
-        # Clean up service manager resources
-        service_manager.cleanup()
-        self.logger.info("Cleaned up service manager resources")
-    except Exception as e:
-        self.logger.error(f"Resource cleanup error: {str(e)}")
 
 async def run_pipeline(
         video_id: str,
@@ -262,9 +346,10 @@ async def run_pipeline(
         userId: Optional[str] = None,
         AI_USER_ID: Optional[str] = None,
 ) -> None:
-    """Main pipeline execution function."""
+    """Main pipeline execution function"""
     try:
-        pipeline_runner = PipelineRunner(
+        # Initialize pipeline
+        pipeline = PipelineRunner(
             video_id=video_id,
             video_start_time=video_start_time,
             video_end_time=video_end_time,
@@ -276,31 +361,65 @@ async def run_pipeline(
             AI_USER_ID=AI_USER_ID,
         )
 
-        if isinstance(pipeline_runner.progress, dict):
-            if all(pipeline_runner.progress.get(task) == "completed" for task in pipeline_runner.tasks):
-                pipeline_runner.logger.info(f"Pipeline already completed for video: {video_id}")
+        # Check if pipeline already complete
+        if isinstance(pipeline.progress, dict):
+            if all(pipeline.progress.get(task) == "completed" for task in pipeline.tasks):
+                pipeline.logger.info(f"Pipeline already completed for video: {video_id}")
                 return
         else:
-            pipeline_runner.logger.error(f"Invalid progress data for video: {video_id}")
-            raise ValueError("Progress data is not a valid dictionary.")
+            pipeline.logger.error(f"Invalid progress data for video: {video_id}")
+            raise ValueError("Progress data is not a valid dictionary")
 
-        await pipeline_runner.run_full_pipeline()
+        # Run the pipeline
+        await pipeline.run_full_pipeline()
 
     except Exception as e:
-        pipeline_runner.logger.error(f"Pipeline failed: {str(e)}")
+        logger = logging.getLogger(f"PipelineLogger-{video_id}")
+        logger.error(f"Pipeline execution failed: {str(e)}", exc_info=True)
         raise
 
+
+async def cleanup_failed_pipeline(video_id: str, ai_user_id: str) -> None:
+    """Clean up resources after pipeline failure"""
+    logger = logging.getLogger(f"PipelineLogger-{video_id}")
+
+    try:
+        # Clean up video folder
+        video_folder = return_video_folder_name({
+            "video_id": video_id,
+            "AI_USER_ID": ai_user_id
+        })
+        if os.path.exists(video_folder):
+            shutil.rmtree(video_folder)
+            logger.info(f"Cleaned up video folder: {video_folder}")
+
+        # Update status to failed
+        update_status(video_id, ai_user_id, StatusEnum.FAILED.value)
+        logger.info(f"Updated status to failed for video {video_id}")
+
+    except Exception as e:
+        logger.error(f"Cleanup error: {str(e)}")
+        logger.error(traceback.format_exc())
+
+
 if __name__ == "__main__":
+    # Load environment variables
     load_dotenv()
+
     import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--video_id", help="Video Id", type=str)
-    parser.add_argument("--upload_to_server", help="Upload To YDX Server", action="store_true")
-    parser.add_argument("--start_time", default=None, help="Start Time", type=str)
-    parser.add_argument("--end_time", default=None, help="End Time", type=str)
+    parser = argparse.ArgumentParser(description="Run video processing pipeline")
+
+    # Add command line arguments
+    parser.add_argument("--video_id", help="Video ID to process", type=str, required=True)
+    parser.add_argument("--upload_to_server", help="Upload to YDX Server", action="store_true")
+    parser.add_argument("--start_time", help="Start Time", type=str, default=None)
+    parser.add_argument("--end_time", help="End Time", type=str, default=None)
+
+    # Parse arguments
     args = parser.parse_args()
 
+    # Run pipeline
     asyncio.run(run_pipeline(
         video_id=args.video_id,
         video_start_time=args.start_time,
