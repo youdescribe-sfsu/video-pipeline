@@ -218,6 +218,23 @@ def process_incoming_data(user_id: str, ydx_server: str, ydx_app_host: str,
         logger.error(f"Error processing incoming data: {str(e)}")
         raise DatabaseError(f"Failed to process incoming data: {str(e)}")
 
+def get_status_for_youtube_id(youtube_id, ai_user_id):
+    try:
+        youtube_id = str(youtube_id)
+        ai_user_id = str(ai_user_id)
+        with connection.return_connection() as con:
+            cursor = con.cursor()
+            logger.info(f"Executing query with youtube_id: {youtube_id}, ai_user_id: {ai_user_id} (types: {type(youtube_id)}, {type(ai_user_id)})")
+            cursor.execute('''
+                SELECT status FROM youtube_data
+                WHERE youtube_id = ? AND ai_user_id = ?
+            ''', (youtube_id, ai_user_id))
+            status = cursor.fetchone()
+            logger.info(f"Query result: {status}")
+            return status['status'] if status else None
+    except sqlite3.Error as e:
+        logger.error(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
+        return None
 
 def update_status(youtube_id: str, ai_user_id: str, status: str,
                   error_message: Optional[str] = None) -> None:
