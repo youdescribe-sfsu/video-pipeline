@@ -236,6 +236,25 @@ def get_status_for_youtube_id(youtube_id, ai_user_id):
         logger.error(f"Error getting status for YouTube ID {youtube_id} and AI User ID {ai_user_id}: {e}")
         return None
 
+def return_all_user_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id):
+    """
+    Returns all the user data for a particular youtube_id and ai_user_id.
+    """
+    try:
+        with connection.return_connection() as con:
+            cursor = con.cursor()
+
+            cursor.execute('''
+                SELECT * FROM ai_user_data
+                WHERE youtube_id = ? AND ai_user_id = ?
+            ''', (youtube_id, ai_user_id))
+
+            data = cursor.fetchall()
+            return data
+    except sqlite3.Error as e:
+        logger.error(f"Error getting data for YouTube ID and AI User ID: {e}")
+        return None
+
 def update_status(youtube_id: str, ai_user_id: str, status: str,
                   error_message: Optional[str] = None) -> None:
     """Update task status"""
