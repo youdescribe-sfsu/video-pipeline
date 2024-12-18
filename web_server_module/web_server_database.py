@@ -338,6 +338,24 @@ def get_data_for_youtube_id_ai_user_id(youtube_id: str, ai_user_id: str
         logger.error(f"Error getting data: {str(e)}")
         raise DatabaseError(f"Failed to get data: {str(e)}")
 
+def get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id):
+    """
+    Retrieves all data for the specified YouTube ID and AI User ID.
+    """
+    try:
+        with connection.return_connection() as con:
+            cursor = con.cursor()
+
+            cursor.execute('''
+                SELECT * FROM ai_user_data
+                WHERE youtube_id = ? AND ai_user_id = ?
+            ''', (youtube_id, ai_user_id))
+
+            data = cursor.fetchall()
+            return data
+    except sqlite3.Error as e:
+        logger.error(f"Error getting data for YouTube ID and AI User ID: {e}")
+        return []
 
 def get_pending_tasks() -> List[Dict[str, Any]]:
     """Get all pending tasks"""
