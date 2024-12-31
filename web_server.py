@@ -46,75 +46,80 @@ enqueued_tasks = set()
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
     create_database()
-
-    # Start the queue processor
-    asyncio.create_task(request_manager.process_queue())
-    logger.info("Queue processing started")
+    logger.info("Database initialized")
+    asyncio.create_task(process_queue())
+    logger.info("Queue processing task started")
 
     yield
 
+    # Shutdown logic goes here
     logger.info("Application shutting down...")
+
+
+# Apply lifespan to the app
 
 # Setup FastAPI app
 app = FastAPI(lifespan=lifespan)
 
-class RequestManager:
-    def __init__(self):
-        self.pipeline_queue = asyncio.Queue()
-        self.active_tasks = set()
-        self.logger = setup_logger()
-
-    async def process_queue(self):
-        while True:
-            try:
-                task = await self.pipeline_queue.get()
-                task_key = (task.youtube_id, task.AI_USER_ID)
-
-                try:
-                    await run_pipeline_task(
-                        youtube_id=task.youtube_id,
-                        ai_user_id=task.AI_USER_ID,
-                        ydx_server=task.ydx_server,
-                        ydx_app_host=task.ydx_app_host
-                    )
-                except Exception as e:
-                    self.logger.error(f"Pipeline failed for video {task.youtube_id}: {str(e)}")
-                    await handle_pipeline_failure(
-                        task.youtube_id,
-                        task.AI_USER_ID,
-                        str(e),
-                        task.ydx_server,
-                        task.ydx_app_host
-                    )
-                finally:
-                    self.active_tasks.discard(task_key)
-                    self.pipeline_queue.task_done()
-
-            except Exception as e:
-                self.logger.error(f"Queue processing error: {str(e)}")
-
-
-# Initialize request manager
-request_manager = RequestManager()
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     try:
-        task_key = (post_data.youtube_id, post_data.AI_USER_ID)
+        data_json = json.loads(post_data.model_dump_json())
+        if not post_data.youtube_id or not post_data.AI_USER_ID:
+            raise HTTPException(status_code=400, detail="Missing required fields")
 
-        # Only add to queue if not already being processed
-        if task_key not in request_manager.active_tasks:
-            request_manager.active_tasks.add(task_key)
-            await request_manager.pipeline_queue.put(post_data)
-            logger.info(f"Added video {post_data.youtube_id} to processing queue")
-        else:
-            logger.info(f"Video {post_data.youtube_id} is already being processed")
+        print(f'data_json - {data_json}')
+
+        user_id = data_json['user_id']
+        ydx_server = data_json['ydx_server']
+        ydx_app_host = data_json['ydx_app_host']
+        ai_user_id = data_json['AI_USER_ID']
+        youtube_id = data_json['youtube_id']
+
+        print(f'INFORMATION - {user_id}, {ydx_server}, {ydx_app_host}, {ai_user_id}, {youtube_id}')
+
+        process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
+
+        # Add task to queue if not already enqueued
+        task_key = (post_data.youtube_id, post_data.AI_USER_ID)
+        if task_key not in enqueued_tasks:
+            await pipeline_queue.put(post_data)
+            enqueued_tasks.add(task_key)
+            print(f"Task added to queue: {task_key}")
 
         return {"status": "success", "message": "AI caption generation request queued"}
 
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
+        logger.error(traceback.format_exc())
         return {"status": "failure", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+async def process_queue():
+    print("Queue processing started")
+    while True:
+        task = None
+        try:
+            task = await pipeline_queue.get()  # Fetch task from queue
+            await run_pipeline_task(
+                youtube_id=task.youtube_id,
+                ai_user_id=task.AI_USER_ID,
+                ydx_server=task.ydx_server,
+                ydx_app_host=task.ydx_app_host
+            )
+        except asyncio.CancelledError:
+            logger.info("Queue processing task was cancelled.")
+            if task:
+                logger.info(f"Cleaning up task: {task.youtube_id}, {task.AI_USER_ID}")
+            raise
+        except Exception as e:
+            logger.error(f"Error processing queue: {str(e)}")
+            logger.error(traceback.format_exc())
+        finally:
+            if task:
+                enqueued_tasks.discard((task.youtube_id, task.AI_USER_ID))
+        print("Queue processing iteration completed")
 
 
 async def clean_up_queue(youtube_id: str, ai_user_id: str):
@@ -168,10 +173,8 @@ async def notify_youdescribe_service(youtube_id: str, ai_user_id: str, error_mes
                 logger.error(f"Failed to notify YouDescribe service: {await response.text()}")
 
 
-async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
-    """
-    Sends status update emails to admin about pipeline progress.
-    """
+async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
+    # SMTP Configuration
     SMTP_HOST = os.getenv("SMTP_HOST")
     SMTP_PORT = int(os.getenv("SMTP_PORT"))
     SMTP_USERNAME = os.getenv("SMTP_USERNAME")
@@ -185,43 +188,32 @@ async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
         logger.error("SMTP password not set in environment variables.")
         return
 
+    # Create the email message
     message = EmailMessage()
     message["From"] = SENDER_EMAIL
     message["To"] = ADMIN_EMAIL
+    message["Subject"] = f"Video Pipeline Error: YouTube ID {youtube_id}"
 
-    # Set appropriate subject and content based on status
-    if status == "started":
-        message["Subject"] = f"Pipeline Started: YouTube ID {youtube_id}"
-        email_content = f"""
-        Dear Admin,
+    # Construct the email content
+    email_content = f"""
+    Dear Admin,
 
-        Pipeline processing has started for:
-        - YouTube ID: {youtube_id}
-        - AI User ID: {ai_user_id}
+    An error occurred in the video pipeline.
 
-        You will be notified when processing completes.
+    Details:
+    - YouTube ID: {youtube_id}
+    - AI User ID: {ai_user_id}
+    - Error Message: {error_message}
 
-        Best regards,
-        Video Pipeline System
-        """
-    elif status == "completed":
-        message["Subject"] = f"Pipeline Completed: YouTube ID {youtube_id}"
-        email_content = f"""
-        Dear Admin,
+    Please investigate the issue.
 
-        Pipeline processing has successfully completed for:
-        - YouTube ID: {youtube_id}
-        - AI User ID: {ai_user_id}
-
-        The video is now ready for review.
-
-        Best regards,
-        Video Pipeline System
-        """
-
+    Best regards,
+    Video Pipeline System
+    """
     message.set_content(email_content)
 
     try:
+        # Send the email asynchronously
         await aiosmtplib.send(
             message,
             hostname=SMTP_HOST,
@@ -230,19 +222,15 @@ async def notify_admin_status(youtube_id: str, ai_user_id: str, status: str):
             password=SMTP_PASSWORD,
             start_tls=SMTP_USE_TLS,
         )
-        logger.info(f"Admin notified about {status} status for YouTube ID: {youtube_id}")
+        logger.info(f"Admin notified via email about failure for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
     except Exception as e:
-        logger.error(f"Failed to send status email to admin: {str(e)}")
+        logger.error(f"Failed to send email notification to admin: {str(e)}")
         logger.error(traceback.format_exc())
 
 
 async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
     print("INFO ", youtube_id, ai_user_id, ydx_server, ydx_app_host)
     try:
-        # Send starting notification
-        await notify_admin_status(youtube_id, ai_user_id, "started")
-
-        # Run the pipeline
         await run_pipeline(
             video_id=youtube_id,
             video_end_time=None,
@@ -254,10 +242,7 @@ async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, y
             userId=None,
             AI_USER_ID=ai_user_id,
         )
-
-        # Update status and send completion notification
         update_status(youtube_id, ai_user_id, StatusEnum.done.value)
-        await notify_admin_status(youtube_id, ai_user_id, "completed")
 
         user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
         for data in user_data:
