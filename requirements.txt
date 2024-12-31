@@ -21,3 +21,8 @@ google-cloud-speech
 google-cloud-vision
 google-cloud-storage
 ffmpeg-python
+torch
+torchvision
+torchaudio
+tensorflow
+flax
