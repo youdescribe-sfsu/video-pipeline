@@ -16,3 +16,4 @@ wrapt
 yt-dlp
 zipp
 python-dotenv
+aiosmtplib
