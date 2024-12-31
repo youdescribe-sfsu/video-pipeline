@@ -17,3 +17,6 @@ yt-dlp
 zipp
 python-dotenv
 aiosmtplib
+google-cloud-speech
+google-cloud-vision
+google-cloud-storage
