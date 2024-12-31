@@ -15,3 +15,4 @@ uvicorn
 wrapt
 yt-dlp
 zipp
+python-dotenv
