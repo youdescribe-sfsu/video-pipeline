@@ -1,20 +1,15 @@
 from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-import os
-import json
 import asyncio
 import traceback
 from datetime import datetime
 import uvicorn
 import aiohttp
 from contextlib import asynccontextmanager
+import os
+import json
 import aiosmtplib
 from email.message import EmailMessage
-import os
-import traceback
 
-# Import custom modules
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import setup_logger
 from pipeline_module.pipeline_runner import run_pipeline, cleanup_failed_pipeline
@@ -23,9 +18,6 @@ from web_server_module.web_server_database import (
     get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id,
     StatusEnum, remove_sqlite_entry
 )
-
-# Load environment variables
-load_dotenv()
 
 # Setup logger
 logger = setup_logger()
@@ -52,13 +44,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown logic goes here
     logger.info("Application shutting down...")
 
 
-# Apply lifespan to the app
-
-# Setup FastAPI app
 app = FastAPI(lifespan=lifespan)
 
 
@@ -69,16 +57,13 @@ async def generate_ai_caption(post_data: WebServerRequest):
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
 
-        print(f'data_json - {data_json}')
-
         user_id = data_json['user_id']
         ydx_server = data_json['ydx_server']
         ydx_app_host = data_json['ydx_app_host']
         ai_user_id = data_json['AI_USER_ID']
         youtube_id = data_json['youtube_id']
 
-        print(f'INFORMATION - {user_id}, {ydx_server}, {ydx_app_host}, {ai_user_id}, {youtube_id}')
-
+        # Add to database
         process_incoming_data(user_id, ydx_server, ydx_app_host, ai_user_id, youtube_id)
 
         # Add task to queue if not already enqueued
@@ -86,7 +71,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
         if task_key not in enqueued_tasks:
             await pipeline_queue.put(post_data)
             enqueued_tasks.add(task_key)
-            print(f"Task added to queue: {task_key}")
+            logger.info(f"Task added to queue: {task_key}")
 
         return {"status": "success", "message": "AI caption generation request queued"}
 
@@ -97,7 +82,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
 
 async def process_queue():
-    print("Queue processing started")
+    logger.info("Queue processing started")
     while True:
         task = None
         try:
@@ -119,7 +104,8 @@ async def process_queue():
         finally:
             if task:
                 enqueued_tasks.discard((task.youtube_id, task.AI_USER_ID))
-        print("Queue processing iteration completed")
+                pipeline_queue.task_done()
+        logger.info("Queue processing iteration completed")
 
 
 async def clean_up_queue(youtube_id: str, ai_user_id: str):
@@ -138,6 +124,38 @@ async def clean_up_queue(youtube_id: str, ai_user_id: str):
     enqueued_tasks.discard((youtube_id, ai_user_id))
 
 
+async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
+    logger.info(f"Starting pipeline task for YouTube ID: {youtube_id}")
+    try:
+        await run_pipeline(
+            video_id=youtube_id,
+            video_end_time=None,
+            video_start_time=None,
+            upload_to_server=True,
+            tasks=None,
+            ydx_server=ydx_server,
+            ydx_app_host=ydx_app_host,
+            userId=None,
+            AI_USER_ID=ai_user_id,
+        )
+        update_status(youtube_id, ai_user_id, StatusEnum.done.value)
+
+        user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
+        for data in user_data:
+            update_ai_user_data(
+                youtube_id=youtube_id,
+                ai_user_id=ai_user_id,
+                user_id=data.get("user_id", None),
+                status=StatusEnum.done.value,
+            )
+        logger.info(f"Pipeline completed for YouTube ID: {youtube_id}")
+    except Exception as e:
+        logger.error(f"Pipeline failed for YouTube ID {youtube_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
+        await handle_pipeline_failure(youtube_id, ai_user_id, str(e), ydx_server, ydx_app_host)
+
+
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_message: str, ydx_server: str,
                                   ydx_app_host: str):
     logger.error(f"Pipeline failed for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
@@ -154,7 +172,7 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, error_messag
     # Notify YouDescribe service about the failure
     await notify_youdescribe_service(youtube_id, ai_user_id, error_message, ydx_server, ydx_app_host)
 
-    # Notify admin (implement this based on your needs)
+    # Notify admin
     await notify_admin(youtube_id, ai_user_id, error_message)
 
 
@@ -188,13 +206,12 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
         logger.error("SMTP password not set in environment variables.")
         return
 
-    # Create the email message
+    # Create email message
     message = EmailMessage()
     message["From"] = SENDER_EMAIL
     message["To"] = ADMIN_EMAIL
     message["Subject"] = f"Video Pipeline Error: YouTube ID {youtube_id}"
 
-    # Construct the email content
     email_content = f"""
     Dear Admin,
 
@@ -213,7 +230,6 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
     message.set_content(email_content)
 
     try:
-        # Send the email asynchronously
         await aiosmtplib.send(
             message,
             hostname=SMTP_HOST,
@@ -222,45 +238,10 @@ async def notify_admin(youtube_id: str, ai_user_id: str, error_message: str):
             password=SMTP_PASSWORD,
             start_tls=SMTP_USE_TLS,
         )
-        logger.info(f"Admin notified via email about failure for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
+        logger.info(f"Admin notified via email about failure for YouTube ID: {youtube_id}")
     except Exception as e:
         logger.error(f"Failed to send email notification to admin: {str(e)}")
-        logger.error(traceback.format_exc())
 
-
-async def run_pipeline_task(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
-    print("INFO ", youtube_id, ai_user_id, ydx_server, ydx_app_host)
-    try:
-        await run_pipeline(
-            video_id=youtube_id,
-            video_end_time=None,
-            video_start_time=None,
-            upload_to_server=True,
-            tasks=None,
-            ydx_server=ydx_server,
-            ydx_app_host=ydx_app_host,
-            userId=None,
-            AI_USER_ID=ai_user_id,
-        )
-        update_status(youtube_id, ai_user_id, StatusEnum.done.value)
-
-        user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
-        for data in user_data:
-            update_ai_user_data(
-                youtube_id=youtube_id,
-                ai_user_id=ai_user_id,
-                user_id=data.get("user_id", None),
-                status=StatusEnum.done.value,
-            )
-        print(f"Pipeline completed for YouTube ID: {youtube_id}")
-    except Exception as e:
-        logger.error(f"Pipeline failed for YouTube ID {youtube_id}: {str(e)}")
-        logger.error(traceback.format_exc())
-        update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
-        await handle_pipeline_failure(youtube_id, ai_user_id, str(e), ydx_server, ydx_app_host)
-    finally:
-        # Remove task from enqueued set
-        enqueued_tasks.discard((youtube_id, ai_user_id))
 
 @app.get("/ai_description_status/{youtube_id}")
 async def ai_description_status(youtube_id: str):
@@ -277,7 +258,11 @@ async def ai_description_status(youtube_id: str):
 @app.get("/health_check")
 async def health_check():
     try:
-        return {"status": "OK", "timestamp": datetime.now().isoformat(), "queue_size": pipeline_queue.qsize()}
+        return {
+            "status": "OK",
+            "timestamp": datetime.now().isoformat(),
+            "queue_size": pipeline_queue.qsize()
+        }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return {"status": "Error", "message": str(e)}, status.HTTP_500_INTERNAL_SERVER_ERROR
