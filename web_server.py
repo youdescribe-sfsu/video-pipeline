@@ -8,8 +8,8 @@ import traceback
 from datetime import datetime
 import uvicorn
 import aiohttp
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
 # Import custom modules
@@ -32,56 +32,127 @@ AI_USER_ID = os.getenv("AI_USER_ID")
 YDX_SERVER = os.getenv("YDX_SERVER")
 MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "2"))
 
-# Tracking active tasks and process pool
+# Task management
 active_tasks = set()
 task_queue = asyncio.Queue()
+event_loop = None
+thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
-def sync_run_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, AI_USER_ID: str):
-    """Synchronous pipeline runner"""
+def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user_id: str):
+    """Synchronous execution of pipeline"""
+    return asyncio.run(run_pipeline(
+        video_id=video_id,
+        video_end_time=None,
+        video_start_time=None,
+        upload_to_server=True,
+        tasks=None,
+        ydx_server=ydx_server,
+        ydx_app_host=ydx_app_host,
+        userId=None,
+        AI_USER_ID=ai_user_id
+    ))
+
+
+async def notify_youdescribe(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
+    """Notify YouDescribe service about pipeline failure"""
     try:
-        return run_pipeline(
-            video_id=video_id,
-            video_end_time=None,
-            video_start_time=None,
-            upload_to_server=True,
-            tasks=None,
-            ydx_server=ydx_server,
-            ydx_app_host=ydx_app_host,
-            userId=None,
-            AI_USER_ID=AI_USER_ID
-        )
+        url = f"{ydx_server}/api/users/pipeline-failure"
+        async with aiohttp.ClientSession() as session:
+            await session.post(url, json={
+                "youtube_id": youtube_id,
+                "ai_user_id": ai_user_id,
+                "error_message": "Pipeline processing failed",
+                "ydx_app_host": ydx_app_host
+            })
     except Exception as e:
-        logger.error(f"Pipeline execution failed: {str(e)}")
-        raise
+        logger.error(f"Failed to notify YouDescribe: {str(e)}")
+
+
+async def process_task(data: dict):
+    """Process a single pipeline task"""
+    youtube_id = data["youtube_id"]
+    ai_user_id = data["ai_user_id"]
+    ydx_server = data["ydx_server"]
+    ydx_app_host = data["ydx_app_host"]
+    task_key = (youtube_id, ai_user_id)
+
+    try:
+        # Run pipeline in thread pool
+        await asyncio.get_event_loop().run_in_executor(
+            thread_pool,
+            run_sync_pipeline,
+            youtube_id,
+            ydx_server,
+            ydx_app_host,
+            ai_user_id
+        )
+
+        # Update status on success
+        update_status(youtube_id, ai_user_id, StatusEnum.done.value)
+
+        # Update user data
+        user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
+        for data in user_data:
+            update_ai_user_data(
+                youtube_id=youtube_id,
+                ai_user_id=ai_user_id,
+                user_id=data.get("user_id"),
+                status=StatusEnum.done.value
+            )
+
+        logger.info(f"Pipeline completed for YouTube ID: {youtube_id}")
+
+    except Exception as e:
+        logger.error(f"Pipeline failed for {youtube_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
+        await notify_youdescribe(youtube_id, ai_user_id, ydx_server, ydx_app_host)
+        await remove_sqlite_entry(youtube_id, ai_user_id)
+
+    finally:
+        active_tasks.discard(task_key)
+
+
+async def task_processor():
+    """Process tasks from queue"""
+    while True:
+        try:
+            data = await task_queue.get()
+            asyncio.create_task(process_task(data))
+            task_queue.task_done()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Task processor error: {str(e)}")
+            logger.error(traceback.format_exc())
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifecycle manager"""
-    logger.info("Starting application...")
+    global event_loop
 
-    # Initialize database
+    logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
 
     # Start task processor
-    task_processor = asyncio.create_task(process_task_queue())
+    event_loop = asyncio.get_event_loop()
+    processor = asyncio.create_task(task_processor())
     logger.info("Task processor started")
 
     yield
 
     # Cleanup
-    task_processor.cancel()
-    try:
-        await task_processor
-    except asyncio.CancelledError:
-        pass
+    processor.cancel()
+    thread_pool.shutdown(wait=True)
     logger.info("Application shutdown complete")
 
 
 app = FastAPI(lifespan=lifespan)
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -91,103 +162,21 @@ app.add_middleware(
 )
 
 
-async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
-    """Handle pipeline failures"""
-    try:
-        # Remove database entry
-        await remove_sqlite_entry(youtube_id, ai_user_id)
-
-        # Notify YouDescribe service
-        url = f"{ydx_server}/api/users/pipeline-failure"
-        async with aiohttp.ClientSession() as session:
-            await session.post(url, json={
-                "youtube_id": youtube_id,
-                "ai_user_id": ai_user_id,
-                "error_message": "Pipeline processing failed",
-                "ydx_app_host": ydx_app_host
-            })
-
-    except Exception as e:
-        logger.error(f"Error handling pipeline failure: {str(e)}")
-        logger.error(traceback.format_exc())
-
-
-async def process_task_queue():
-    """Process tasks from the queue"""
-    while True:
-        try:
-            # Get next task
-            task = await task_queue.get()
-            youtube_id = task["youtube_id"]
-            ai_user_id = task["ai_user_id"]
-            ydx_server = task["ydx_server"]
-            ydx_app_host = task["ydx_app_host"]
-
-            try:
-                # Run pipeline in thread pool
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(
-                    None,  # Use default executor
-                    sync_run_pipeline,
-                    youtube_id,
-                    ydx_server,
-                    ydx_app_host,
-                    ai_user_id
-                )
-
-                # Update status on success
-                update_status(youtube_id, ai_user_id, StatusEnum.done.value)
-
-                # Update user data
-                user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
-                for data in user_data:
-                    update_ai_user_data(
-                        youtube_id=youtube_id,
-                        ai_user_id=ai_user_id,
-                        user_id=data.get("user_id"),
-                        status=StatusEnum.done.value
-                    )
-
-                logger.info(f"Pipeline completed for YouTube ID: {youtube_id}")
-
-            except Exception as e:
-                logger.error(f"Pipeline failed for {youtube_id}: {str(e)}")
-                logger.error(traceback.format_exc())
-                update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
-                await handle_pipeline_failure(youtube_id, ai_user_id, ydx_server, ydx_app_host)
-
-            finally:
-                # Always remove from active tasks
-                active_tasks.discard((youtube_id, ai_user_id))
-                task_queue.task_done()
-
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f"Error in task processor: {str(e)}")
-            logger.error(traceback.format_exc())
-            continue
-
-
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     """Handle incoming AI caption generation requests"""
     try:
-        # Validate request
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
 
-        # Create task key for tracking
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
 
-        # Check if task already running
         if task_key in active_tasks:
             return {
                 "status": "pending",
                 "message": "Task already in progress"
             }
 
-        # Process request data
         data_json = json.loads(post_data.model_dump_json())
         process_incoming_data(
             data_json['user_id'],
@@ -197,10 +186,8 @@ async def generate_ai_caption(post_data: WebServerRequest):
             data_json['youtube_id']
         )
 
-        # Add to active tasks
         active_tasks.add(task_key)
 
-        # Add to task queue
         await task_queue.put({
             "youtube_id": post_data.youtube_id,
             "ai_user_id": post_data.AI_USER_ID,
@@ -216,7 +203,6 @@ async def generate_ai_caption(post_data: WebServerRequest):
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
         logger.error(traceback.format_exc())
-        # Remove from active tasks if added
         active_tasks.discard(task_key)
         raise HTTPException(status_code=500, detail=str(e))
 
