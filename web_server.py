@@ -30,7 +30,7 @@ logger = setup_logger()
 GPU_URL = os.getenv("GPU_URL")
 AI_USER_ID = os.getenv("AI_USER_ID")
 YDX_SERVER = os.getenv("YDX_SERVER")
-MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "2"))
+MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "8"))
 
 # Task management
 active_tasks = set()
