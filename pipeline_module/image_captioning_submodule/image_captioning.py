@@ -82,7 +82,7 @@ class ImageCaptioning:
             return [int(row[0]) for row in reader]
 
     def get_caption(self, filename: str) -> str:
-        page = 'http://localhost:{}/upload'.format(os.getenv('GPU_LOCAL_PORT') or '8085')
+        page = os.getenv('CAPTION_SERVICE_URL')
         token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
 
         caption_img = ""

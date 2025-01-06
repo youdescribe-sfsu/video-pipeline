@@ -37,7 +37,7 @@ class CaptionRating:
             'img_url': image_data['frame_url'],
             'caption': image_data['caption']
         }
-        page = f'http://localhost:{self.caption_rating_service}/api'
+        page = os.getenv('RATING_SERVICE_URL')
 
         try:
             response = requests.post(page, data=multipart_form_data)

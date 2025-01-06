@@ -11,6 +11,9 @@ import aiohttp
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from itertools import cycle
+from typing import Dict, List
+from threading import Lock
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
@@ -30,7 +33,38 @@ logger = setup_logger()
 GPU_URL = os.getenv("GPU_URL")
 AI_USER_ID = os.getenv("AI_USER_ID")
 YDX_SERVER = os.getenv("YDX_SERVER")
-MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "8"))
+MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "6"))  # Increased for multiple GPUs
+
+# Service configurations for different GPUs
+CAPTION_SERVICES = [
+    {"port": "8085", "gpu": "4"},
+    {"port": "8093", "gpu": "3"},
+    {"port": "8095", "gpu": "1"}
+]
+
+RATING_SERVICES = [
+    {"port": "8082", "gpu": "4"},
+    {"port": "8092", "gpu": "3"},
+    {"port": "8094", "gpu": "1"}
+]
+
+
+class ServiceBalancer:
+    """Load balancer for distributing tasks across services"""
+
+    def __init__(self, services: List[Dict[str, str]]):
+        self.services = cycle(services)
+        self.lock = Lock()
+
+    def get_next_service(self) -> Dict[str, str]:
+        """Get next available service using round-robin"""
+        with self.lock:
+            return next(self.services)
+
+
+# Initialize service balancers
+caption_balancer = ServiceBalancer(CAPTION_SERVICES)
+rating_balancer = ServiceBalancer(RATING_SERVICES)
 
 # Task management
 active_tasks = set()
@@ -39,8 +73,27 @@ event_loop = None
 thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
+def get_service_urls(youtube_id: str) -> tuple:
+    """Get next available service URLs using round-robin"""
+    caption_service = caption_balancer.get_next_service()
+    rating_service = rating_balancer.get_next_service()
+    logger.info(
+        f"Using caption service on GPU {caption_service['gpu']} and rating service on GPU {rating_service['gpu']} for video {youtube_id}")
+    return (
+        f"http://localhost:{caption_service['port']}/upload",
+        f"http://localhost:{rating_service['port']}/api"
+    )
+
+
 def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user_id: str):
-    """Synchronous execution of pipeline"""
+    """Synchronous execution of pipeline with load-balanced services"""
+    # Get service URLs for this pipeline run
+    caption_url, rating_url = get_service_urls(video_id)
+
+    # Set them in environment for the pipeline run
+    os.environ["CAPTION_SERVICE_URL"] = caption_url
+    os.environ["RATING_SERVICE_URL"] = rating_url
+
     return asyncio.run(run_pipeline(
         video_id=video_id,
         video_end_time=None,
