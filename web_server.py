@@ -88,7 +88,7 @@ def get_service_urls(youtube_id: str) -> tuple:
         f"Using caption service on GPU {caption_service['gpu']} and rating service on GPU {rating_service['gpu']} for video {youtube_id}")
     return (
         f"http://localhost:{caption_service['port']}/upload",
-        f"http://localhost:{rating_service['port']}/api"
+        f"http://localhost:{rating_service['port']}/api",
         f"http://localhost:{yolo_service['port']}/detect_batch_folder"
     )
 
@@ -96,12 +96,12 @@ def get_service_urls(youtube_id: str) -> tuple:
 def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user_id: str):
     """Synchronous execution of pipeline with load-balanced services"""
     # Get service URLs for this pipeline run
-    caption_url, rating_url = get_service_urls(video_id)
+    caption_url, rating_url, yolo_url = get_service_urls(video_id)
 
     # Set them in environment for the pipeline run
     os.environ["CAPTION_SERVICE_URL"] = caption_url
     os.environ["RATING_SERVICE_URL"] = rating_url
-    os.environ["YOLO_SERVICE_URL"] = rating_url
+    os.environ["YOLO_SERVICE_URL"] = yolo_url
 
     return asyncio.run(run_pipeline(
         video_id=video_id,
