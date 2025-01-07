@@ -1,5 +1,7 @@
 # object_detection.py
 import csv
+import aiohttp
+import aiofiles
 import os
 import json
 import traceback
