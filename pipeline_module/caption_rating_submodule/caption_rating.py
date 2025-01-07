@@ -8,6 +8,7 @@ import aiohttp
 import asyncio
 import aiofiles
 from datetime import datetime
+from typing import Dict, Any, List, Optional
 from web_server_module.web_server_database import (
     get_status_for_youtube_id,
     update_status,
