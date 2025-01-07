@@ -19,7 +19,7 @@ from web_server_module.custom_logger import setup_logger
 from pipeline_module.pipeline_runner import run_pipeline
 from web_server_module.web_server_database import (
     create_database, process_incoming_data, update_status, update_ai_user_data,
-    get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id,
+    get_data_for_youtube_id_and_user_id,
     StatusEnum, remove_sqlite_entry
 )
 from service_manager import ServiceManager
@@ -61,51 +61,70 @@ service_manager = ServiceManager(
 active_tasks = set()
 task_queue = asyncio.Queue()
 event_loop = None
+
+# Create a global thread pool for CPU-bound or blocking tasks
 thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
 async def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user_id: str):
-    """Asynchronous execution of pipeline with dynamic service selection"""
-    # Get service URLs for this task
-    services = service_manager.get_services(task_id=f"{video_id}_{ai_user_id}")
+    """
+    Asynchronously offloads the pipeline execution to a dedicated thread pool,
+    which prevents blocking the main event loop while still preserving the new
+    ServiceManager-based service selection.
+    """
 
-    start_time = datetime.now()
-    try:
-        result = await run_pipeline(
-            video_id=video_id,
-            video_end_time=None,
-            video_start_time=None,
-            upload_to_server=True,
-            tasks=None,
-            ydx_server=ydx_server,
-            ydx_app_host=ydx_app_host,
-            userId=None,
-            AI_USER_ID=ai_user_id,
-            service_urls=services
-        )
+    loop = asyncio.get_running_loop()
 
-        # Record successful execution
-        elapsed = (datetime.now() - start_time).total_seconds()
-        for service_type, url in services.items():
-            port = url.split(":")[2].split("/")[0]
-            service_manager.mark_service_success(
-                service_type.replace("_url", ""),
-                port,
-                elapsed
+    def pipeline_sync_call():
+        """
+        This synchronous function will:
+        1. Get the best services from ServiceManager.
+        2. Run the pipeline (likely CPU-intensive or blocking I/O).
+        3. Record success or error stats.
+        """
+        # Fetch the current service URLs
+        services = service_manager.get_services(task_id=f"{video_id}_{ai_user_id}")
+
+        start_time = datetime.now()
+        try:
+            # Run the pipeline synchronously
+            result = run_pipeline(
+                video_id=video_id,
+                video_end_time=None,
+                video_start_time=None,
+                upload_to_server=True,
+                tasks=None,
+                ydx_server=ydx_server,
+                ydx_app_host=ydx_app_host,
+                userId=None,
+                AI_USER_ID=ai_user_id,
+                service_urls=services  # pass dynamic URLs
             )
 
-        return result
+            # Record success
+            elapsed = (datetime.now() - start_time).total_seconds()
+            for service_type, url in services.items():
+                port = url.split(":")[2].split("/")[0]
+                service_manager.mark_service_success(
+                    service_type.replace("_url", ""),
+                    port,
+                    elapsed
+                )
+            return result
 
-    except Exception as e:
-        # Record service errors
-        for service_type, url in services.items():
-            port = url.split(":")[2].split("/")[0]
-            service_manager.mark_service_error(
-                service_type.replace("_url", ""),
-                port,
-                str(e)
-            )
-        raise
+        except Exception as e:
+            # Record error for each involved service
+            for service_type, url in services.items():
+                port = url.split(":")[2].split("/")[0]
+                service_manager.mark_service_error(
+                    service_type.replace("_url", ""),
+                    port,
+                    str(e)
+                )
+            raise
+
+    # Run the synchronous pipeline function in a thread pool
+    return await loop.run_in_executor(thread_pool, pipeline_sync_call)
 
 
 async def notify_youdescribe(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
@@ -132,7 +151,7 @@ async def process_task(data: Dict):
     task_key = (youtube_id, ai_user_id)
 
     try:
-        # Run pipeline with proper service URLs
+        # Run pipeline in the thread pool (non-blocking to the event loop)
         await run_sync_pipeline(
             youtube_id,
             ydx_server,
@@ -145,11 +164,11 @@ async def process_task(data: Dict):
 
         # Update user data
         user_data = get_data_for_youtube_id_and_user_id(youtube_id, ai_user_id)
-        for data in user_data:
+        for data_item in user_data:
             update_ai_user_data(
                 youtube_id=youtube_id,
                 ai_user_id=ai_user_id,
-                user_id=data.get("user_id"),
+                user_id=data_item.get("user_id"),
                 status=StatusEnum.done.value
             )
 
@@ -167,10 +186,11 @@ async def process_task(data: Dict):
 
 
 async def task_processor():
-    """Process tasks from queue"""
+    """Process tasks from the queue indefinitely"""
     while True:
         try:
             data = await task_queue.get()
+            # Spawn a separate coroutine to process this task
             asyncio.create_task(process_task(data))
             task_queue.task_done()
         except asyncio.CancelledError:
@@ -223,12 +243,14 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
 
+        # Check if task is already in progress
         if task_key in active_tasks:
             return {
                 "status": "pending",
                 "message": "Task already in progress"
             }
 
+        # Convert Pydantic model to JSON, then update DB
         data_json = json.loads(post_data.model_dump_json())
         process_incoming_data(
             data_json['user_id'],
@@ -240,6 +262,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
         active_tasks.add(task_key)
 
+        # Enqueue the task for processing
         await task_queue.put({
             "youtube_id": post_data.youtube_id,
             "ai_user_id": post_data.AI_USER_ID,
