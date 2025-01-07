@@ -1,4 +1,5 @@
 aiohttp
+aiofiles
 audio-metadata
 fastapi
 google
