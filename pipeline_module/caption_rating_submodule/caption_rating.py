@@ -42,6 +42,7 @@ class CaptionRating:
 
         self.rating_threshold = rating_threshold
         self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
+        self.logger.info(f"caption_rating initialized with endpoint: {self.service_url}")
 
     async def perform_caption_rating(self) -> bool:
         """Main entry point for caption rating process"""

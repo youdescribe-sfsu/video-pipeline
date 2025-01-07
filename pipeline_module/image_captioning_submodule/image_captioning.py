@@ -47,6 +47,7 @@ class ImageCaptioning:
         self.min_length = min_length
         self.max_length = max_length
         self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
+        self.logger.info(f"image_captioning initialized with endpoint: {self.service_url}")
 
     @timeit
     async def run_image_captioning(self) -> bool:
