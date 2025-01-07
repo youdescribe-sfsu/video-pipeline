@@ -48,6 +48,11 @@ RATING_SERVICES = [
     {"port": "8094", "gpu": "1"}
 ]
 
+YOLO_SERVICES = [
+    {"port": "8087", "gpu": "4"},
+    {"port": "8088", "gpu": "3"},
+    {"port": "8089", "gpu": "1"}
+]
 
 class ServiceBalancer:
     """Load balancer for distributing tasks across services"""
@@ -65,6 +70,7 @@ class ServiceBalancer:
 # Initialize service balancers
 caption_balancer = ServiceBalancer(CAPTION_SERVICES)
 rating_balancer = ServiceBalancer(RATING_SERVICES)
+yolo_balancer = ServiceBalancer(YOLO_SERVICES)
 
 # Task management
 active_tasks = set()
@@ -77,11 +83,13 @@ def get_service_urls(youtube_id: str) -> tuple:
     """Get next available service URLs using round-robin"""
     caption_service = caption_balancer.get_next_service()
     rating_service = rating_balancer.get_next_service()
+    yolo_service = yolo_balancer.get_next_service()
     logger.info(
         f"Using caption service on GPU {caption_service['gpu']} and rating service on GPU {rating_service['gpu']} for video {youtube_id}")
     return (
         f"http://localhost:{caption_service['port']}/upload",
         f"http://localhost:{rating_service['port']}/api"
+        f"http://localhost:{yolo_service['port']}/detect_batch_folder"
     )
 
 
@@ -93,6 +101,7 @@ def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user
     # Set them in environment for the pipeline run
     os.environ["CAPTION_SERVICE_URL"] = caption_url
     os.environ["RATING_SERVICE_URL"] = rating_url
+    os.environ["YOLO_SERVICE_URL"] = rating_url
 
     return asyncio.run(run_pipeline(
         video_id=video_id,

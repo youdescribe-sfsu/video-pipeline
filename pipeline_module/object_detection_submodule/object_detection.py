@@ -17,7 +17,7 @@ class ObjectDetection:
         self.logger = video_runner_obj.get("logger")
         self.yolo_version = "v8"
         self.confidence_threshold = 0.25
-        self.yolo_endpoint = os.getenv('YOLO_ENDPOINT', 'http://localhost:8080/detect_batch_folder')
+        self.yolo_endpoint = os.getenv('YOLO_SERVICE_URL')
         self.batch_size = 16
         print(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
         self.logger.info(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
