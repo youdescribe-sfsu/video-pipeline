@@ -1,3 +1,4 @@
+# pipeline_runner.py
 import logging
 import os
 import asyncio
@@ -24,14 +25,15 @@ from .text_summarization_submodule.text_summary import TextSummaryCoordinator
 from .upload_to_YDX_submodule.upload_to_YDX import UploadToYDX
 from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCaption
 
-
 class PipelineRunner:
+    """Enhanced pipeline runner with dynamic service management"""
     def __init__(
             self,
             video_id: str,
             video_start_time: Optional[str],
             video_end_time: Optional[str],
             upload_to_server: bool,
+            service_urls: Dict[str, str],
             tasks: Optional[List[str]] = None,
             ydx_server: Optional[str] = None,
             ydx_app_host: Optional[str] = None,
@@ -42,6 +44,7 @@ class PipelineRunner:
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
         self.upload_to_server = upload_to_server
+        self.service_urls = service_urls
         self.tasks = tasks or [t.value for t in PipelineTask]
         self.ydx_server = ydx_server
         self.ydx_app_host = ydx_app_host
@@ -61,10 +64,14 @@ class PipelineRunner:
         self.video_runner_obj = {
             "video_id": video_id,
             "logger": self.logger,
-            "AI_USER_ID": self.AI_USER_ID
+            "AI_USER_ID": self.AI_USER_ID,
+            "yolo_url": service_urls.get("yolo_url"),
+            "caption_url": service_urls.get("caption_url"),
+            "rating_url": service_urls.get("rating_url")
         }
 
     def setup_logger(self) -> logging.Logger:
+        """Set up pipeline-specific logger"""
         logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
         logger.setLevel(logging.INFO)
 
@@ -78,14 +85,16 @@ class PipelineRunner:
         return logger
 
     def load_progress(self) -> Dict[str, Any]:
+        """Load current pipeline progress"""
         status = get_status_for_youtube_id(self.video_id, self.AI_USER_ID)
         return {"status": status} if isinstance(status, str) else status if isinstance(status, dict) else {}
 
     def save_progress(self):
+        """Save current pipeline progress"""
         update_status(self.video_id, self.AI_USER_ID, self.progress)
 
     async def run_task(self, task: str, *args, **kwargs) -> Any:
-        """Execute a single task with proper error handling and progress tracking."""
+        """Execute a single task with proper error handling and progress tracking"""
         self.progress = self.load_progress()
 
         if self.progress.get(task) == "completed":
@@ -160,8 +169,12 @@ class PipelineRunner:
             raise
 
     async def run_object_detection(self) -> None:
-        object_detection = ObjectDetection(self.video_runner_obj)
-        success = object_detection.run_object_detection()
+        """Run object detection with service URL"""
+        object_detection = ObjectDetection(
+            self.video_runner_obj,
+            service_url=self.service_urls['yolo_url']
+        )
+        success = await object_detection.run_object_detection()
         if not success:
             raise Exception("Object detection failed")
 
@@ -172,17 +185,25 @@ class PipelineRunner:
             raise Exception("Keyframe selection failed")
 
     async def run_image_captioning(self) -> None:
-        image_captioning = ImageCaptioning(self.video_runner_obj)
-        success = image_captioning.run_image_captioning()
+        """Run image captioning with service URL"""
+        image_captioning = ImageCaptioning(
+            self.video_runner_obj,
+            service_url=self.service_urls['caption_url']
+        )
+        success = await image_captioning.run_image_captioning()
         if not success:
             raise Exception("Image captioning failed")
-        combined_success = image_captioning.combine_image_caption()
+        combined_success = await image_captioning.combine_image_caption()
         if not combined_success:
             raise Exception("Combining image captions failed")
 
     async def run_caption_rating(self) -> None:
-        caption_rating = CaptionRating(self.video_runner_obj)
-        success = caption_rating.perform_caption_rating()
+        """Run caption rating with service URL"""
+        caption_rating = CaptionRating(
+            self.video_runner_obj,
+            service_url=self.service_urls['rating_url']
+        )
+        success = await caption_rating.perform_caption_rating()
         if not success:
             raise Exception("Caption rating failed")
 
@@ -219,6 +240,7 @@ class PipelineRunner:
             raise Exception("Generate YDX caption failed")
 
     async def run_full_pipeline(self) -> None:
+        """Run complete pipeline with error handling"""
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
         try:
             for task in self.tasks:
@@ -253,8 +275,9 @@ def cleanup_resources(self):
 
 async def run_pipeline(
         video_id: str,
-        video_start_time: Optional[str],
-        video_end_time: Optional[str],
+        service_urls: Dict[str, str],
+        video_start_time: Optional[str] = None,
+        video_end_time: Optional[str] = None,
         upload_to_server: bool = False,
         tasks: Optional[List[str]] = None,
         ydx_server: Optional[str] = None,
@@ -262,13 +285,14 @@ async def run_pipeline(
         userId: Optional[str] = None,
         AI_USER_ID: Optional[str] = None,
 ) -> None:
-    """Main pipeline execution function."""
+    """Main pipeline execution function with service URLs"""
     try:
         pipeline_runner = PipelineRunner(
             video_id=video_id,
             video_start_time=video_start_time,
             video_end_time=video_end_time,
             upload_to_server=upload_to_server,
+            service_urls=service_urls,  # Pass service URLs to runner
             tasks=tasks,
             ydx_server=ydx_server,
             ydx_app_host=ydx_app_host,
@@ -290,6 +314,7 @@ async def run_pipeline(
         pipeline_runner.logger.error(f"Pipeline failed: {str(e)}")
         raise
 
+
 if __name__ == "__main__":
     load_dotenv()
     import argparse
@@ -301,8 +326,16 @@ if __name__ == "__main__":
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
     args = parser.parse_args()
 
+    # Use default service URLs for command-line execution
+    default_services = {
+        "yolo_url": "http://localhost:8087/detect_batch_folder",
+        "caption_url": "http://localhost:8085/upload",
+        "rating_url": "http://localhost:8082/api"
+    }
+
     asyncio.run(run_pipeline(
         video_id=args.video_id,
+        service_urls=default_services,
         video_start_time=args.start_time,
         video_end_time=args.end_time,
         upload_to_server=args.upload_to_server

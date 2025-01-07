@@ -22,6 +22,12 @@ COUNT_VERTICE = 'count_vertice.json'
 PROD_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-prod/'
 DEV_ARTIFACTS_ROOT_FOLDER = '/home/datasets/aiAudioDescriptionDataset-dev/'
 
+SERVICE_URL_KEYS = {
+    'yolo_url': 'YOLO_SERVICE_URL',
+    'caption_url': 'CAPTION_SERVICE_URL',
+    'rating_url': 'RATING_SERVICE_URL'
+}
+
 ## OCR CSV HEADERS
 FRAME_INDEX_SELECTOR = 'frame_index'
 TIMESTAMP_SELECTOR = 'timestamp'
@@ -134,6 +140,15 @@ def return_video_frames_folder(video_runner_obj: Dict[str, Union[int, str]]) -> 
     """
     video_folder_name = return_video_folder_name(video_runner_obj)
     return f"{video_folder_name}/frames"
+
+def validate_service_urls(video_runner_obj: Dict[str, Any]) -> None:
+    """Validate required service URLs are present"""
+    missing_urls = [
+        key for key in SERVICE_URL_KEYS
+        if not video_runner_obj.get(key)
+    ]
+    if missing_urls:
+        raise ValueError(f"Missing required service URLs: {missing_urls}")
 
 
 def return_audio_file_name(video_runner_obj: Dict[str, Union[int, str]]) -> str:

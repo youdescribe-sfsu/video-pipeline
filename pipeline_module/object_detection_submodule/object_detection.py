@@ -1,123 +1,179 @@
-import os
+# object_detection.py
 import csv
 import json
 import traceback
 from typing import Dict, List, Any, Optional
 import requests
-from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
+import asyncio
+from web_server_module.web_server_database import (
+    get_status_for_youtube_id,
+    update_status,
+    update_module_output
+)
 from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, OBJECTS_CSV
 from ..utils_module.timeit_decorator import timeit
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 
 class ObjectDetection:
-    def __init__(self, video_runner_obj: Dict[str, Any]):
-        print(f"Initializing ObjectDetection for video: {video_runner_obj['video_id']}")
+    """Enhanced object detection with service URL injection"""
+
+    def __init__(self, video_runner_obj: Dict[str, Any], service_url: Optional[str] = None):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.yolo_version = "v8"
+        # Use service URL from video_runner_obj if available, fallback to parameter
+        self.service_url = service_url or video_runner_obj.get("yolo_url")
+        if not self.service_url:
+            raise ValueError("YOLO service URL must be provided")
+
         self.confidence_threshold = 0.25
-        self.yolo_endpoint = os.getenv('YOLO_SERVICE_URL')
         self.batch_size = 16
-        print(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
-        self.logger.info(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
+
+        self.logger.info(f"ObjectDetection initialized with YOLO endpoint: {self.service_url}")
 
     @timeit
-    def run_object_detection(self) -> bool:
-        print("Starting run_object_detection method")
+    async def run_object_detection(self) -> bool:
         try:
             self.logger.info(f"Running object detection on {self.video_runner_obj['video_id']}")
 
-            # Use the database to check if object detection has already been completed
-            if get_status_for_youtube_id(self.video_runner_obj["video_id"],
-                                         self.video_runner_obj["AI_USER_ID"]) == "done":
-                self.logger.info("Object detection already completed, skipping step.")
+            if get_status_for_youtube_id(
+                    self.video_runner_obj["video_id"],
+                    self.video_runner_obj["AI_USER_ID"]
+            ) == "done":
+                self.logger.info("Object detection already completed")
                 return True
 
             frame_files = self.get_frame_files()
-            results = self.process_frames_in_batches(frame_files)
-            self.save_detection_results(results)
+            results = await self.process_frames_in_batches(frame_files)
+            await self.save_detection_results(results)
 
-            # Update progress in the database
-            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
-
-            # Save object detection results to the database for future use
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
-                                 'object_detection', {"detection_results": results})
+            # Update database
+            update_status(
+                self.video_runner_obj["video_id"],
+                self.video_runner_obj["AI_USER_ID"],
+                "done"
+            )
+            update_module_output(
+                self.video_runner_obj["video_id"],
+                self.video_runner_obj["AI_USER_ID"],
+                'object_detection',
+                {"detection_results": results}
+            )
 
             self.logger.info("Object detection completed successfully")
             return True
+
         except Exception as e:
             self.logger.error(f"Error in object detection: {str(e)}")
             self.logger.error(traceback.format_exc())
             return False
 
     def get_frame_files(self) -> List[str]:
+        """Get list of frame files to process"""
         frames_folder = return_video_frames_folder(self.video_runner_obj)
-        return [os.path.join(frames_folder, f) for f in os.listdir(frames_folder) if f.endswith('.jpg')]
+        return [
+            os.path.join(frames_folder, f)
+            for f in os.listdir(frames_folder)
+            if f.endswith('.jpg')
+        ]
 
-    def process_frames_in_batches(self, frame_files: List[str]) -> List[Dict[str, Any]]:
-        print(f"Processing {len(frame_files)} frames in batches")
+    async def process_frames_in_batches(self, frame_files: List[str]) -> List[Dict[str, Any]]:
+        """Process frames in batches with async handling"""
+        self.logger.info(f"Processing {len(frame_files)} frames in batches")
         results = []
+
+        # Process batches with asyncio.gather
+        tasks = []
         for i in range(0, len(frame_files), self.batch_size):
             batch = frame_files[i:i + self.batch_size]
-            batch_results = self.process_batch(batch)
-            results.extend(batch_results)
-            self.logger.info(f"Processed batch {i // self.batch_size + 1}/{len(frame_files) // self.batch_size + 1}")
-        print(f"Processed {len(results)} frames")
+            tasks.append(self.process_batch(batch))
+
+        batch_results = await asyncio.gather(*tasks)
+        for result in batch_results:
+            results.extend(result)
+
+        self.logger.info(f"Processed {len(results)} frames")
         return results
 
-    def process_batch(self, batch: List[str]) -> List[Dict[str, Any]]:
-        print(f"Processing batch of {len(batch)} frames")
+    async def process_batch(self, batch: List[str]) -> List[Dict[str, Any]]:
+        """Process a single batch of frames"""
         self.logger.info(f"Processing batch of {len(batch)} frames")
+
         payload = {
-            "folder_path": os.path.dirname(batch[0]),  # Assuming all files are in the same directory
+            "folder_path": os.path.dirname(batch[0]),
             "threshold": self.confidence_threshold
         }
-        print(f"Sending payload to YOLO endpoint: {json.dumps(payload, indent=2)}")
-        self.logger.info(f"Sending payload to YOLO endpoint: {json.dumps(payload, indent=2)}")
+
+        start_time = datetime.now()
         try:
-            response = requests.post(self.yolo_endpoint, json=payload)
-            print(f"YOLO API Response status code: {response.status_code}")
-            self.logger.info(f"YOLO API Response status code: {response.status_code}")
-            response.raise_for_status()
-            results = response.json()['results']
-            print(f"Received results for {len(results)} frames")
-            self.logger.info(f"Received results for {len(results)} frames")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.service_url, json=payload) as response:
+                    if response.status != 200:
+                        raise requests.RequestException(
+                            f"YOLO API returned status {response.status}"
+                        )
 
-            valid_results = []
-            for result in results:
-                try:
-                    if 'frame_number' not in result or 'confidences' not in result:
-                        raise ValueError(f"Invalid result structure for frame: {result.get('file_path', 'unknown')}")
-                    valid_results.append({
-                        'frame_number': result['frame_number'],
-                        'timestamp': result.get('timestamp', 0.0),  # Default to 0.0 if not present
-                        'objects': result['confidences']
-                    })
-                except Exception as e:
-                    print(f"Error processing frame {result.get('file_path', 'unknown')}: {str(e)}")
-                    self.logger.error(f"Error processing frame {result.get('file_path', 'unknown')}: {str(e)}")
+                    response_data = await response.json()
+                    results = response_data['results']
 
-            return valid_results
-        except requests.RequestException as e:
-            print(f"Error in YOLO API request: {str(e)}")
+                    # Calculate response time for monitoring
+                    elapsed = (datetime.now() - start_time).total_seconds()
+                    self.logger.info(
+                        f"Batch processed in {elapsed:.2f}s - "
+                        f"Received {len(results)} results"
+                    )
+
+                    return self.validate_results(results)
+
+        except Exception as e:
             self.logger.error(f"Error in YOLO API request: {str(e)}")
             raise
 
-    def save_detection_results(self, results: List[Dict[str, Any]]) -> None:
-        print(f"Saving detection results for {len(results)} frames")
-        output_file = os.path.join(return_video_folder_name(self.video_runner_obj), OBJECTS_CSV)
-        self.logger.info(f"Saving object detection results to {output_file}")
+    def validate_results(self, results: List[Dict]) -> List[Dict]:
+        """Validate and clean detection results"""
+        valid_results = []
+        for result in results:
+            try:
+                if 'frame_number' not in result or 'confidences' not in result:
+                    self.logger.warning(
+                        f"Invalid result structure for frame: "
+                        f"{result.get('file_path', 'unknown')}"
+                    )
+                    continue
 
+                valid_results.append({
+                    'frame_number': result['frame_number'],
+                    'timestamp': result.get('timestamp', 0.0),
+                    'objects': result['confidences']
+                })
+
+            except Exception as e:
+                self.logger.error(
+                    f"Error processing frame {result.get('file_path', 'unknown')}: "
+                    f"{str(e)}"
+                )
+
+        return valid_results
+
+    async def save_detection_results(self, results: List[Dict[str, Any]]) -> None:
+        """Save detection results to CSV with async file handling"""
+        self.logger.info(f"Saving detection results for {len(results)} frames")
+
+        output_file = os.path.join(
+            return_video_folder_name(self.video_runner_obj),
+            OBJECTS_CSV
+        )
+
+        # Get unique object classes
         all_classes = set()
         for result in results:
             all_classes.update(obj['name'] for obj in result['objects'])
 
-        with open(output_file, 'w', newline='') as csvfile:
+        # Write results
+        async with aiofiles.open(output_file, 'w', newline='') as csvfile:
             fieldnames = ['frame_index', 'timestamp'] + list(all_classes)
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
+            await writer.writeheader()
 
             for result in results:
                 row = {
@@ -126,5 +182,6 @@ class ObjectDetection:
                 }
                 for obj in result['objects']:
                     row[obj['name']] = obj['confidence']
-                writer.writerow(row)
-        print(f"Detection results saved to {output_file}")
+                await writer.writerow(row)
+
+        self.logger.info(f"Detection results saved to {output_file}")

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, status, BackgroundTasks
+# web_server.py
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
@@ -8,12 +9,9 @@ import traceback
 from datetime import datetime
 import uvicorn
 import aiohttp
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from itertools import cycle
-from typing import Dict, List
-from threading import Lock
+from typing import Dict
 
 # Import custom modules
 from web_server_module.web_server_types import WebServerRequest
@@ -24,18 +22,22 @@ from web_server_module.web_server_database import (
     get_data_for_youtube_id_ai_user_id, get_data_for_youtube_id_and_user_id,
     StatusEnum, remove_sqlite_entry
 )
+from service_manager import ServiceManager
 
 # Load environment variables
 load_dotenv()
 logger = setup_logger()
 
 # Global variables
-GPU_URL = os.getenv("GPU_URL")
-AI_USER_ID = os.getenv("AI_USER_ID")
-YDX_SERVER = os.getenv("YDX_SERVER")
-MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "6"))  # Increased for multiple GPUs
+MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "6"))
 
-# Service configurations for different GPUs
+# Service configurations
+YOLO_SERVICES = [
+    {"port": "8087", "gpu": "4"},
+    {"port": "8088", "gpu": "3"},
+    {"port": "8089", "gpu": "1"}
+]
+
 CAPTION_SERVICES = [
     {"port": "8085", "gpu": "4"},
     {"port": "8093", "gpu": "3"},
@@ -48,29 +50,12 @@ RATING_SERVICES = [
     {"port": "8094", "gpu": "1"}
 ]
 
-YOLO_SERVICES = [
-    {"port": "8087", "gpu": "4"},
-    {"port": "8088", "gpu": "3"},
-    {"port": "8089", "gpu": "1"}
-]
-
-class ServiceBalancer:
-    """Load balancer for distributing tasks across services"""
-
-    def __init__(self, services: List[Dict[str, str]]):
-        self.services = cycle(services)
-        self.lock = Lock()
-
-    def get_next_service(self) -> Dict[str, str]:
-        """Get next available service using round-robin"""
-        with self.lock:
-            return next(self.services)
-
-
-# Initialize service balancers
-caption_balancer = ServiceBalancer(CAPTION_SERVICES)
-rating_balancer = ServiceBalancer(RATING_SERVICES)
-yolo_balancer = ServiceBalancer(YOLO_SERVICES)
+# Initialize service manager
+service_manager = ServiceManager(
+    yolo_services=YOLO_SERVICES,
+    caption_services=CAPTION_SERVICES,
+    rating_services=RATING_SERVICES
+)
 
 # Task management
 active_tasks = set()
@@ -79,41 +64,48 @@ event_loop = None
 thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
-def get_service_urls(youtube_id: str) -> tuple:
-    """Get next available service URLs using round-robin"""
-    caption_service = caption_balancer.get_next_service()
-    rating_service = rating_balancer.get_next_service()
-    yolo_service = yolo_balancer.get_next_service()
-    logger.info(
-        f"Using caption service on GPU {caption_service['gpu']} and rating service on GPU {rating_service['gpu']} for video {youtube_id}")
-    return (
-        f"http://localhost:{caption_service['port']}/upload",
-        f"http://localhost:{rating_service['port']}/api",
-        f"http://localhost:{yolo_service['port']}/detect_batch_folder"
-    )
+async def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user_id: str):
+    """Asynchronous execution of pipeline with dynamic service selection"""
+    # Get service URLs for this task
+    services = service_manager.get_services(task_id=f"{video_id}_{ai_user_id}")
 
+    start_time = datetime.now()
+    try:
+        result = await run_pipeline(
+            video_id=video_id,
+            video_end_time=None,
+            video_start_time=None,
+            upload_to_server=True,
+            tasks=None,
+            ydx_server=ydx_server,
+            ydx_app_host=ydx_app_host,
+            userId=None,
+            AI_USER_ID=ai_user_id,
+            service_urls=services
+        )
 
-def run_sync_pipeline(video_id: str, ydx_server: str, ydx_app_host: str, ai_user_id: str):
-    """Synchronous execution of pipeline with load-balanced services"""
-    # Get service URLs for this pipeline run
-    caption_url, rating_url, yolo_url = get_service_urls(video_id)
+        # Record successful execution
+        elapsed = (datetime.now() - start_time).total_seconds()
+        for service_type, url in services.items():
+            port = url.split(":")[2].split("/")[0]
+            service_manager.mark_service_success(
+                service_type.replace("_url", ""),
+                port,
+                elapsed
+            )
 
-    # Set them in environment for the pipeline run
-    os.environ["CAPTION_SERVICE_URL"] = caption_url
-    os.environ["RATING_SERVICE_URL"] = rating_url
-    os.environ["YOLO_SERVICE_URL"] = yolo_url
+        return result
 
-    return asyncio.run(run_pipeline(
-        video_id=video_id,
-        video_end_time=None,
-        video_start_time=None,
-        upload_to_server=True,
-        tasks=None,
-        ydx_server=ydx_server,
-        ydx_app_host=ydx_app_host,
-        userId=None,
-        AI_USER_ID=ai_user_id
-    ))
+    except Exception as e:
+        # Record service errors
+        for service_type, url in services.items():
+            port = url.split(":")[2].split("/")[0]
+            service_manager.mark_service_error(
+                service_type.replace("_url", ""),
+                port,
+                str(e)
+            )
+        raise
 
 
 async def notify_youdescribe(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
@@ -131,7 +123,7 @@ async def notify_youdescribe(youtube_id: str, ai_user_id: str, ydx_server: str, 
         logger.error(f"Failed to notify YouDescribe: {str(e)}")
 
 
-async def process_task(data: dict):
+async def process_task(data: Dict):
     """Process a single pipeline task"""
     youtube_id = data["youtube_id"]
     ai_user_id = data["ai_user_id"]
@@ -140,10 +132,8 @@ async def process_task(data: dict):
     task_key = (youtube_id, ai_user_id)
 
     try:
-        # Run pipeline in thread pool
-        await asyncio.get_event_loop().run_in_executor(
-            thread_pool,
-            run_sync_pipeline,
+        # Run pipeline with proper service URLs
+        await run_sync_pipeline(
             youtube_id,
             ydx_server,
             ydx_app_host,
@@ -282,6 +272,28 @@ async def health_check():
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/service_stats")
+async def get_service_stats():
+    """Get current service usage statistics"""
+    try:
+        return {
+            "status": "success",
+            "stats": service_manager.get_all_stats(),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error getting service stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def validate_service_config(service_urls: Dict[str, str]) -> None:
+    """Validate service configuration before starting pipeline"""
+    required_services = {'yolo_url', 'caption_url', 'rating_url'}
+    missing = required_services - set(service_urls.keys())
+    if missing:
+        raise ValueError(f"Missing required service URLs: {missing}")
 
 
 if __name__ == "__main__":
