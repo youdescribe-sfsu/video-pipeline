@@ -1,6 +1,6 @@
 # image_captioning.py
 import csv
-import json
+import os
 import traceback
 from typing import Dict, Any, List, Optional
 import aiohttp

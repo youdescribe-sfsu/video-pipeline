@@ -1,8 +1,7 @@
 # caption_rating.py
 import csv
-import json
+import os
 import traceback
-from typing import Dict, Any, List
 import requests
 import aiohttp
 import asyncio
