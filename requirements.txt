@@ -27,3 +27,4 @@ torchvision
 torchaudio
 tensorflow
 flax
+psutil
