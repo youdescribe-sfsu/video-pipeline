@@ -33,9 +33,7 @@ MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "6"))
 
 # Service configurations
 YOLO_SERVICES = [
-    {"port": "8087", "gpu": "4"},
-    {"port": "8088", "gpu": "3"},
-    {"port": "8089", "gpu": "1"}
+    {"port": "8087", "gpu": "2"},
 ]
 
 CAPTION_SERVICES = [
