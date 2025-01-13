@@ -29,7 +29,7 @@ class ObjectDetection:
         self.logger.info(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
 
     @timeit
-    def run_object_detection(self) -> bool:
+    async def run_object_detection(self) -> bool:
         """Main entry point for object detection process."""
         print("Starting run_object_detection method")
         try:
