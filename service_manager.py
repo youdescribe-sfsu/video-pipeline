@@ -57,16 +57,23 @@ class ServiceBalancer:
         self.stats = {svc.port: ServiceStats() for svc in self.configs}
         self.lock = Lock()
         self.logger = logging.getLogger(__name__)
-        self._initialize_session()
+        self.session = None  # Initialize in async context
 
-    def _initialize_session(self):
-        """Initialize aiohttp session with connection pooling"""
-        self.session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(
-                limit=self.max_connections,
-                force_close=True
+    async def initialize(self):
+        """Initialize session asynchronously"""
+        if self.session is None:
+            self.session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(
+                    limit=self.max_connections,
+                    force_close=True
+                )
             )
-        )
+
+    async def cleanup(self):
+        """Cleanup session properly"""
+        if self.session:
+            await self.session.close()
+            self.session = None
 
     async def get_next_service(self) -> ServiceConfig:
         """Get next available service with load balancing"""
@@ -94,10 +101,6 @@ class ServiceBalancer:
                 0,
                 self.stats[service.port].concurrent_requests - 1
             )
-
-    async def cleanup(self):
-        """Cleanup resources"""
-        await self.session.close()
 
     def get_stats(self) -> Dict:
         """Get service statistics"""

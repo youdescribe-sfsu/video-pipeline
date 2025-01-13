@@ -4,7 +4,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-import logging
+import aiohttp
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -73,15 +73,30 @@ async def lifespan(app: FastAPI):
     processor = asyncio.create_task(task_processor())
     logger.info("Task processor started")
 
-    yield
+    try:
+        yield
+    finally:
+        # Cleanup
+        logger.info("Shutting down application...")
 
-    # Cleanup
-    processor.cancel()
-    thread_pool.shutdown(wait=True)
-    await service_manager.cleanup()
-    logger.info("Application shutdown complete")
+        # Cancel task processor
+        processor.cancel()
+        try:
+            await processor
+        except asyncio.CancelledError:
+            pass
 
+        # Clean up thread pool
+        thread_pool.shutdown(wait=True)
 
+        # Clean up service manager
+        await service_manager.cleanup()
+
+        # Close any remaining connections
+        for session in aiohttp.ClientSession._instances:
+            await session.close()
+
+        logger.info("Application shutdown complete")
 app = FastAPI(lifespan=lifespan)
 
 # CORS middleware
