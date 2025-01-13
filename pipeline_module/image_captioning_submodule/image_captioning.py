@@ -124,8 +124,9 @@ class ImageCaptioning:
             KEYFRAMES_CSV
         )
         async with aiofiles.open(keyframes_file, 'r') as infile:
-            reader = csv.reader(await infile.read().splitlines())
-            next(reader)  # Skip header
+            content = await infile.read()
+            reader = csv.reader(content.splitlines())
+            next(reader)
             return [int(row[0]) for row in reader]
 
     async def get_caption(self, filename: str) -> str:
