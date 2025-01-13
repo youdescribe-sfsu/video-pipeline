@@ -1,6 +1,4 @@
-# web_server.py
 from datetime import datetime
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
@@ -11,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Dict
 import traceback
+import psutil
 
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import setup_logger
@@ -58,12 +57,13 @@ service_manager = ServiceManager(
     max_workers=MAX_WORKERS
 )
 
-
+# Replace the old on_event with new lifespan context manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager for the FastAPI application"""
     global event_loop
 
+    # Startup
     logger.info("Starting application...")
     create_database()
     logger.info("Database initialized")
@@ -74,9 +74,9 @@ async def lifespan(app: FastAPI):
     logger.info("Task processor started")
 
     try:
-        yield
+        yield  # Application runs here
     finally:
-        # Cleanup
+        # Cleanup on shutdown
         logger.info("Shutting down application...")
 
         # Cancel task processor
@@ -93,13 +93,19 @@ async def lifespan(app: FastAPI):
         await service_manager.cleanup()
 
         # Close any remaining connections
-        for session in aiohttp.ClientSession._instances:
-            await session.close()
+        sessions = [session for session in aiohttp.ClientSession._instances]
+        for session in sessions:
+            try:
+                await session.close()
+            except:
+                pass
 
         logger.info("Application shutdown complete")
+
+# Initialize FastAPI with lifespan manager
 app = FastAPI(lifespan=lifespan)
 
-# CORS middleware
+# CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -108,7 +114,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# Rest of your existing code remains the same
 async def task_processor():
     """Process tasks from queue"""
     while True:
@@ -208,7 +214,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
 
 @app.get("/health_check")
 async def health_check():
-    """Health check endpoint to monitor service status"""
+    """Health check endpoint"""
     try:
         return {
             "status": "healthy",
@@ -218,13 +224,13 @@ async def health_check():
             "worker_id": os.getpid(),
             "memory_usage": psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024  # MB
         }
-
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/service_stats")
 async def get_service_stats():
+    """Get service statistics"""
     try:
         return {
             "status": "success",
@@ -235,53 +241,11 @@ async def get_service_stats():
                 "queue_size": task_queue.qsize()
             }
         }
-
     except Exception as e:
         logger.error(f"Error getting service stats: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/task_status/{youtube_id}/{ai_user_id}")
-async def get_task_status(youtube_id: str, ai_user_id: str):
-    try:
-        task_key = (youtube_id, ai_user_id)
-
-        if task_key in active_tasks:
-            return {
-                "status": "in_progress",
-                "message": "Task is currently processing"
-            }
-
-        status = get_status_for_youtube_id(youtube_id, ai_user_id)
-
-        if not status:
-            raise HTTPException(status_code=404, detail="Task not found")
-
-        return {
-            "status": status,
-            "details": get_data_for_youtube_id_ai_user_id(youtube_id, ai_user_id)
-        }
-
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error checking task status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    try:
-        for task in asyncio.all_tasks():
-            if task is not asyncio.current_task():
-                task.cancel()
-        await asyncio.gather(*asyncio.all_tasks(), return_exceptions=True)
-        await service_manager.cleanup()
-        thread_pool.shutdown(wait=True)
-        logger.info("Server shutdown completed successfully")
-
-    except Exception as e:
-        logger.error(f"Error during shutdown: {str(e)}")
-
+# Main entry point
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
