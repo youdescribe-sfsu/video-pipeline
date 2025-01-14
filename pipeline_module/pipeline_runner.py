@@ -184,28 +184,37 @@ class PipelineRunner:
         if not success:
             raise Exception("Keyframe selection failed")
 
-    async def run_image_captioning(self) -> None:
-        """Run image captioning with service URL"""
-        image_captioning = ImageCaptioning(
-            self.video_runner_obj,
-            service_url=self.service_urls['caption_url']
-        )
-        success = await image_captioning.run_image_captioning()
-        if not success:
-            raise Exception("Image captioning failed")
-        combined_success = await image_captioning.combine_image_caption()
-        if not combined_success:
-            raise Exception("Combining image captions failed")
+    async def run_image_captioning(self) -> bool:
+        """Changes in run_image_captioning method"""
+        try:
+            services = await service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
+            image_captioning = ImageCaptioning(
+                self.video_runner_obj,
+                service_url=services.get("caption_url")  # Get URL from service manager
+            )
+            success = await image_captioning.run_image_captioning()
+            if not success:
+                raise Exception("Image captioning failed")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error in image captioning: {str(e)}")
+            return False
 
-    async def run_caption_rating(self) -> None:
-        """Run caption rating with service URL"""
-        caption_rating = CaptionRating(
-            self.video_runner_obj,
-            service_url=self.service_urls['rating_url']
-        )
-        success = await caption_rating.perform_caption_rating()
-        if not success:
-            raise Exception("Caption rating failed")
+    async def run_caption_rating(self) -> bool:
+        """Changes in run_caption_rating method"""
+        try:
+            services = await service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
+            caption_rating = CaptionRating(
+                self.video_runner_obj,
+                service_url=services.get("rating_url")  # Get URL from service manager
+            )
+            success = await caption_rating.perform_caption_rating()
+            if not success:
+                raise Exception("Caption rating failed")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error in caption rating: {str(e)}")
+            return False
 
     async def run_scene_segmentation(self) -> None:
         scene_segmentation = SceneSegmentation(self.video_runner_obj)

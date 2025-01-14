@@ -75,32 +75,26 @@ class ServiceBalancer:
             await self.session.close()
             self.session = None
 
-    async def get_next_service(self) -> ServiceConfig:
-        """Get next available service with load balancing"""
-        async with self.lock:
+    def get_next_service(self) -> ServiceConfig:
+        """Only core change needed - simplified service selection"""
+        with self.lock:
             available_services = [svc for svc in self.configs if svc.is_healthy]
             if not available_services:
                 raise RuntimeError("No healthy services available")
 
-            # Select service with lowest load
+            # Select service with lowest load - simpler selection
             selected_service = min(
                 available_services,
-                key=lambda s: (s.current_load / s.max_load, self.stats[s.port].total_requests)
+                key=lambda s: s.current_load
             )
 
             selected_service.current_load += 1
-            self.stats[selected_service.port].concurrent_requests += 1
-
             return selected_service
 
-    async def release_service(self, service: ServiceConfig):
-        """Release service after use"""
-        async with self.lock:
+    def release_service(self, service: ServiceConfig):
+        """Simplified service release"""
+        with self.lock:
             service.current_load = max(0, service.current_load - 1)
-            self.stats[service.port].concurrent_requests = max(
-                0,
-                self.stats[service.port].concurrent_requests - 1
-            )
 
     def get_stats(self) -> Dict:
         """Get service statistics"""
