@@ -103,7 +103,12 @@ class PipelineRunner:
 
         self.logger.info(f"Starting task: {task}")
         try:
-            result = await getattr(self, f"run_{task}")(*args, **kwargs)
+            # Special handling for synchronous tasks
+            if task in ['image_captioning', 'caption_rating']:
+                result = getattr(self, f"run_{task}")(*args, **kwargs)
+            else:
+                result = await getattr(self, f"run_{task}")(*args, **kwargs)
+
             self.progress[task] = "completed"
             self.save_progress()
             self.logger.info(f"Completed task: {task}")
