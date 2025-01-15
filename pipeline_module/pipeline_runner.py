@@ -184,14 +184,14 @@ class PipelineRunner:
         if not success:
             raise Exception("Keyframe selection failed")
 
-    async def run_image_captioning(self) -> bool:
+    def run_image_captioning(self) -> bool:
         """Run image captioning with service URL"""
         try:
             image_captioning = ImageCaptioning(
                 self.video_runner_obj,
                 service_url=self.service_urls['caption_url']  # Use existing service_urls
             )
-            success = await image_captioning.run_image_captioning()
+            success = image_captioning.run_image_captioning()
             if not success:
                 raise Exception("Image captioning failed")
             return True
@@ -199,14 +199,14 @@ class PipelineRunner:
             self.logger.error(f"Error in image captioning: {str(e)}")
             return False
 
-    async def run_caption_rating(self) -> bool:
+    def run_caption_rating(self) -> bool:
         """Run caption rating with service URL"""
         try:
             caption_rating = CaptionRating(
                 self.video_runner_obj,
                 service_url=self.service_urls['rating_url']  # Use existing service_urls
             )
-            success = await caption_rating.perform_caption_rating()
+            success = caption_rating.perform_caption_rating()
             if not success:
                 raise Exception("Caption rating failed")
             return True
