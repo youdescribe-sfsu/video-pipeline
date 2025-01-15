@@ -8,7 +8,7 @@ from yt_dlp.compat import shutil
 
 from pipeline_module.utils_module.utils import PipelineTask, return_video_folder_name
 from web_server_module.web_server_database import update_status, get_status_for_youtube_id
-from pipeline_module.utils_module.google_services import service_manager, GoogleServiceError
+from pipeline_module.utils_module.google_services import google_service_manager, GoogleServiceError
 
 # Import all submodules
 from .import_video_submodule.import_video import ImportVideo
@@ -54,7 +54,7 @@ class PipelineRunner:
 
         # Initialize Google Services
         try:
-            service_manager.validate_credentials()
+            google_service_manager.validate_credentials()
             self.logger.info("Google services initialized successfully")
         except GoogleServiceError as e:
             self.logger.error(f"Failed to initialize Google services: {str(e)}")
@@ -187,7 +187,7 @@ class PipelineRunner:
     async def run_image_captioning(self) -> bool:
         """Changes in run_image_captioning method"""
         try:
-            services = await service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
+            services = await google_service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
             image_captioning = ImageCaptioning(
                 self.video_runner_obj,
                 service_url=services.get("caption_url")  # Get URL from service manager
@@ -203,7 +203,7 @@ class PipelineRunner:
     async def run_caption_rating(self) -> bool:
         """Changes in run_caption_rating method"""
         try:
-            services = await service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
+            services = await google_service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
             caption_rating = CaptionRating(
                 self.video_runner_obj,
                 service_url=services.get("rating_url")  # Get URL from service manager
@@ -277,7 +277,7 @@ def cleanup_resources(self):
     """Clean up temporary resources."""
     try:
         # Clean up service manager resources
-        service_manager.cleanup()
+        google_service_manager.cleanup()
         self.logger.info("Cleaned up service manager resources")
     except Exception as e:
         self.logger.error(f"Resource cleanup error: {str(e)}")

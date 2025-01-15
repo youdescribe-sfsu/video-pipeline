@@ -7,7 +7,7 @@ from web_server_module.web_server_database import get_status_for_youtube_id, upd
 from ..utils_module.utils import TRANSCRIPTS, return_audio_file_name, return_video_folder_name
 from ..utils_module.timeit_decorator import timeit
 from ..utils_module.google_services import (
-    service_manager,
+    google_service_manager,
     GoogleServiceError
 )
 
@@ -15,12 +15,12 @@ class SpeechToText:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.bucket_name = service_manager.bucket_name
+        self.bucket_name = google_service_manager.bucket_name
 
         try:
             # Initialize clients through service manager
-            self.client = service_manager.speech_client
-            self.storage_client = service_manager.storage_client
+            self.client = google_service_manager.speech_client
+            self.storage_client = google_service_manager.storage_client
             self.logger.info("Speech-to-Text service initialized successfully")
         except GoogleServiceError as e:
             self.logger.error(f"Failed to initialize Speech-to-Text service: {str(e)}")
@@ -110,7 +110,7 @@ class SpeechToText:
         """Perform speech recognition."""
         try:
             # Get recognition config from service manager
-            config = service_manager.get_speech_config(frame_rate, channels)
+            config = google_service_manager.get_speech_config(frame_rate, channels)
 
             # Create recognition audio object
             audio = {"uri": gcs_uri}

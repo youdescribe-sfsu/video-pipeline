@@ -4,7 +4,7 @@ import json
 from ..utils_module.timeit_decorator import timeit
 from ..utils_module.utils import return_video_folder_name, OCR_TEXT_ANNOTATIONS_FILE_NAME, return_video_frames_folder
 from web_server_module.web_server_database import get_module_output, update_module_output
-from ..utils_module.google_services import service_manager
+from ..utils_module.google_services import google_service_manager
 
 @timeit
 def get_ocr_annotations(video_runner_obj):
@@ -23,7 +23,7 @@ def get_ocr_annotations(video_runner_obj):
         frames_per_second = float(frame_extraction_data['adaptive_fps'])
 
         # Get Vision client from service manager
-        vision_client = service_manager.vision_client
+        vision_client = google_service_manager.vision_client
         annotations = []
 
         output_file = f"{return_video_folder_name(video_runner_obj)}/{OCR_TEXT_ANNOTATIONS_FILE_NAME}"

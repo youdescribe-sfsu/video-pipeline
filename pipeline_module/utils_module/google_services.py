@@ -162,4 +162,4 @@ class GoogleServiceManager:
 
 
 # Global instance for easy access
-service_manager = GoogleServiceManager()
+google_service_manager = GoogleServiceManager()
