@@ -1,5 +1,3 @@
-# service_manager.py
-import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -55,9 +53,9 @@ class ServiceBalancer:
         self.endpoint = endpoint
         self.max_connections = max_connections
         self.stats = {svc.port: ServiceStats() for svc in self.configs}
-        self.lock = Lock()
+        self.lock = Lock()  # Now using asyncio.Lock
         self.logger = logging.getLogger(__name__)
-        self.session = None  # Initialize in async context
+        self.session = None
 
     async def initialize(self):
         """Initialize session asynchronously"""
@@ -75,25 +73,23 @@ class ServiceBalancer:
             await self.session.close()
             self.session = None
 
-    def get_next_service(self) -> ServiceConfig:
-        """Only core change needed - simplified service selection"""
-        with self.lock:
+    async def get_next_service(self) -> ServiceConfig:
+        """Service selection with async lock"""
+        async with self.lock:  # Use async context manager
             available_services = [svc for svc in self.configs if svc.is_healthy]
             if not available_services:
                 raise RuntimeError("No healthy services available")
 
-            # Select service with lowest load - simpler selection
             selected_service = min(
                 available_services,
                 key=lambda s: s.current_load
             )
-
             selected_service.current_load += 1
             return selected_service
 
-    def release_service(self, service: ServiceConfig):
-        """Simplified service release"""
-        with self.lock:
+    async def release_service(self, service: ServiceConfig):
+        """Release service with async lock"""
+        async with self.lock:
             service.current_load = max(0, service.current_load - 1)
 
     def get_stats(self) -> Dict:
@@ -118,7 +114,6 @@ class ServiceManager:
             rating_services: List[Dict[str, str]],
             max_workers: int = 4
     ):
-        # Initialize service balancers
         self.max_connections_per_worker = 100 // max_workers
         self.yolo_balancer = ServiceBalancer(
             yolo_services,
@@ -145,7 +140,7 @@ class ServiceManager:
         try:
             self.logger.info(f"Worker {self.worker_id} - Getting services for task {task_id}")
 
-            # Get services using load balancing
+            # Get services using async load balancing
             yolo_service = await self.yolo_balancer.get_next_service()
             caption_service = await self.caption_balancer.get_next_service()
             rating_service = await self.rating_balancer.get_next_service()
