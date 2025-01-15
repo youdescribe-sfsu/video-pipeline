@@ -185,12 +185,11 @@ class PipelineRunner:
             raise Exception("Keyframe selection failed")
 
     async def run_image_captioning(self) -> bool:
-        """Changes in run_image_captioning method"""
+        """Run image captioning with service URL"""
         try:
-            services = await google_service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
             image_captioning = ImageCaptioning(
                 self.video_runner_obj,
-                service_url=services.get("caption_url")  # Get URL from service manager
+                service_url=self.service_urls['caption_url']  # Use existing service_urls
             )
             success = await image_captioning.run_image_captioning()
             if not success:
@@ -201,12 +200,11 @@ class PipelineRunner:
             return False
 
     async def run_caption_rating(self) -> bool:
-        """Changes in run_caption_rating method"""
+        """Run caption rating with service URL"""
         try:
-            services = await google_service_manager.get_services(f"{self.video_id}_{self.AI_USER_ID}")
             caption_rating = CaptionRating(
                 self.video_runner_obj,
-                service_url=services.get("rating_url")  # Get URL from service manager
+                service_url=self.service_urls['rating_url']  # Use existing service_urls
             )
             success = await caption_rating.perform_caption_rating()
             if not success:
