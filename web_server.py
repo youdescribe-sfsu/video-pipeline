@@ -1,3 +1,4 @@
+# web_server.py
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ from shutil import rmtree
 
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import setup_logger
-from pipeline_module.pipeline_runner import run_pipeline
+from pipeline_module.pipeline_runner import PipelineRunner
 from web_server_module.web_server_database import (
     create_database, process_incoming_data, update_status,
     get_data_for_youtube_id_ai_user_id, StatusEnum, get_status_for_youtube_id,
@@ -31,7 +32,7 @@ MAX_WORKERS = int(os.getenv("MAX_PIPELINE_WORKERS", "4"))
 
 # Service configurations
 YOLO_SERVICES = [
-    {"port": "8087", "gpu": "2"}  # Using GPU 2 for YOLO as specified
+    {"port": "8087", "gpu": "2"}
 ]
 
 CAPTION_SERVICES = [
@@ -51,40 +52,16 @@ active_tasks = set()
 task_queue = asyncio.Queue()
 event_loop = None
 thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
-
-# Initialize service manager
-service_manager = ServiceManager(
-    yolo_services=YOLO_SERVICES,
-    caption_services=CAPTION_SERVICES,
-    rating_services=RATING_SERVICES,
-    max_workers=MAX_WORKERS
-)
-
-
-async def cleanup_failed_pipeline(video_id: str, error_message: str, ai_user_id: str = None):
-    """Clean up resources on pipeline failure."""
-    try:
-        # Clean up any temporary resources
-        video_folder = return_video_folder_name({"video_id": video_id})
-        if os.path.exists(video_folder):
-            rmtree(video_folder)
-            logger.info(f"Cleaned up video folder: {video_folder}")
-
-        # Update status in database
-        update_status(video_id, ai_user_id, "failed")
-        logger.info(f"Updated status to failed for video {video_id}")
-    except Exception as e:
-        logger.error(f"Cleanup error: {str(e)}")
-
+service_manager = None
 
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
     """Handle pipeline failures with proper cleanup and notification"""
     try:
         # Clean up pipeline resources
-        # await cleanup_failed_pipeline(youtube_id, "Pipeline processing failed", ai_user_id)
+        await cleanup_failed_pipeline(youtube_id, "Pipeline processing failed", ai_user_id)
 
         # Remove database entry
-        # await remove_sqlite_entry(youtube_id, ai_user_id)
+        await remove_sqlite_entry(youtube_id, ai_user_id)
 
         # Notify YouDescribe service about the failure
         error_notification_url = f"{ydx_server}/api/users/pipeline-failure"
@@ -107,52 +84,65 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, ydx_server: 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager for the FastAPI application"""
-    global event_loop
-
-    # Startup
-    logger.info("Starting application...")
-    create_database()
-    logger.info("Database initialized")
-
-    # Start task processor
-    event_loop = asyncio.get_event_loop()
-    processor = asyncio.create_task(task_processor())
-    logger.info("Task processor started")
+    """Enhanced lifecycle manager with proper error handling"""
+    global event_loop, service_manager
+    processor = None
 
     try:
-        yield  # Application runs here
+        # Startup
+        logger.info("Starting application...")
+        create_database()
+        logger.info("Database initialized")
+
+        # Initialize service manager with proper error handling
+        service_manager = ServiceManager(
+            yolo_services=YOLO_SERVICES,
+            caption_services=CAPTION_SERVICES,
+            rating_services=RATING_SERVICES,
+            max_workers=MAX_WORKERS
+        )
+
+        try:
+            await service_manager.initialize()
+            logger.info("Service manager initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize service manager: {str(e)}")
+            if service_manager:
+                await service_manager.cleanup()
+            raise RuntimeError(f"Service manager initialization failed: {str(e)}")
+
+        # Start task processor with proper error handling
+        event_loop = asyncio.get_event_loop()
+        processor = asyncio.create_task(task_processor())
+        logger.info("Task processor started")
+
+        yield
+
     finally:
-        # Cleanup on shutdown
+        # Enhanced cleanup with null checks
         logger.info("Shutting down application...")
 
-        # Cancel task processor
-        processor.cancel()
-        try:
-            await processor
-        except asyncio.CancelledError:
-            pass
-
-        # Clean up thread pool
-        thread_pool.shutdown(wait=True)
-
-        # Clean up service manager
-        await service_manager.cleanup()
-
-        # Close any remaining connections
-        sessions = [session for session in aiohttp.ClientSession._instances]
-        for session in sessions:
+        if processor:
+            processor.cancel()
             try:
-                await session.close()
-            except:
+                await processor
+            except asyncio.CancelledError:
                 pass
 
-        logger.info("Application shutdown complete")
+        if service_manager:
+            try:
+                await service_manager.release_all_services()
+                await service_manager.cleanup()
+            except Exception as e:
+                logger.error(f"Error during service cleanup: {str(e)}")
 
-# Initialize FastAPI with lifespan manager
+        if thread_pool:
+            thread_pool.shutdown(wait=True)
+
+        logger.info("Application shutdown complete")
 app = FastAPI(lifespan=lifespan)
 
-# CORS middleware configuration
+# CORS middleware configuration (maintain existing configuration)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -161,36 +151,55 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def cleanup_failed_pipeline(video_id: str, error_message: str, ai_user_id: str = None):
+    """Enhanced cleanup for failed pipelines with service management"""
+    try:
+        # Clean up filesystem resources
+        video_folder = return_video_folder_name({"video_id": video_id})
+        if os.path.exists(video_folder):
+            rmtree(video_folder)
+            logger.info(f"Cleaned up video folder: {video_folder}")
+
+        # Clean up database entries
+        await remove_sqlite_entry(video_id, ai_user_id)
+        logger.info(f"Cleaned up database entries for video {video_id}")
+
+        # Release any held services
+        await service_manager.release_all_services()
+        logger.info("Released all held services")
+
+    except Exception as e:
+        logger.error(f"Cleanup error: {str(e)}")
 
 async def task_processor():
-    """Process tasks from queue"""
+    """Enhanced task processor with proper error handling"""
     while True:
         try:
+            if not service_manager or not service_manager._initialized:
+                logger.error("Service manager not properly initialized")
+                await asyncio.sleep(5)  # Wait before retry
+                continue
+
             data = await task_queue.get()
             youtube_id = data["youtube_id"]
             ai_user_id = data["ai_user_id"]
-            ydx_server = data["ydx_server"]
-            ydx_app_host = data["ydx_app_host"]
             task_key = (youtube_id, ai_user_id)
 
             try:
-                # Get services for this task
-                services = await service_manager.get_services(f"{youtube_id}_{ai_user_id}")
-
-                # Run pipeline
-                await run_pipeline(
+                # Process task
+                pipeline_runner = PipelineRunner(
                     video_id=youtube_id,
-                    service_urls=services,
                     video_start_time=None,
                     video_end_time=None,
                     upload_to_server=True,
-                    ydx_server=ydx_server,
-                    ydx_app_host=ydx_app_host,
+                    service_manager=service_manager,
+                    ydx_server=data["ydx_server"],
+                    ydx_app_host=data["ydx_app_host"],
                     userId=None,
-                    AI_USER_ID=ai_user_id
+                    AI_USER_ID=ai_user_id,
                 )
 
-                # Update status
+                await pipeline_runner.run_full_pipeline()
                 update_status(youtube_id, ai_user_id, StatusEnum.done.value)
                 logger.info(f"Pipeline completed for YouTube ID: {youtube_id}")
 
@@ -198,11 +207,13 @@ async def task_processor():
                 logger.error(f"Pipeline failed for {youtube_id}: {str(e)}")
                 logger.error(traceback.format_exc())
                 update_status(youtube_id, ai_user_id, StatusEnum.failed.value)
-                await handle_pipeline_failure(youtube_id, ai_user_id, ydx_server, ydx_app_host)
+                await handle_pipeline_failure(youtube_id, ai_user_id,
+                                           data["ydx_server"],
+                                           data["ydx_app_host"])
 
             finally:
-                active_tasks.discard(task_key)
-                await service_manager.release_task_services(f"{youtube_id}_{ai_user_id}")
+                if task_key:  # Check if task_key was defined
+                    active_tasks.discard(task_key)
                 task_queue.task_done()
 
         except asyncio.CancelledError:
@@ -211,7 +222,7 @@ async def task_processor():
             logger.error(f"Task processor error: {str(e)}")
             logger.error(traceback.format_exc())
 
-
+# Maintain existing endpoint handlers with minor modifications
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
     """Handle incoming AI caption generation requests"""
@@ -258,31 +269,44 @@ async def generate_ai_caption(post_data: WebServerRequest):
         active_tasks.discard(task_key)
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/health_check")
 async def health_check():
-    """Health check endpoint"""
+    """Enhanced health check endpoint with proper error handling"""
     try:
+        if not service_manager or not service_manager._initialized:
+            raise HTTPException(
+                status_code=503,
+                detail="Service manager not initialized"
+            )
+
+        service_health = await service_manager.check_all_services_health()
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
             "active_tasks": len(active_tasks),
             "queue_size": task_queue.qsize(),
             "worker_id": os.getpid(),
-            "memory_usage": psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024  # MB
+            "memory_usage": psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024,
+            "services": service_health
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/service_stats")
 async def get_service_stats():
-    """Get service statistics"""
+    """Enhanced service statistics endpoint with proper error handling"""
     try:
+        if not service_manager or not service_manager._initialized:
+            raise HTTPException(
+                status_code=503,
+                detail="Service manager not initialized"
+            )
+
+        stats = await service_manager.get_stats()
         return {
             "status": "success",
-            "stats": service_manager.get_stats(),
+            "stats": stats,
             "timestamp": datetime.now().isoformat(),
             "queue_info": {
                 "active_tasks": len(active_tasks),
@@ -293,11 +317,8 @@ async def get_service_stats():
         logger.error(f"Error getting service stats: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# Main entry point
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         "web_server:app",
         host="0.0.0.0",

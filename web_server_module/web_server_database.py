@@ -301,6 +301,11 @@ async def remove_sqlite_entry(youtube_id: str, ai_user_id: str):
                 WHERE youtube_id = ? AND ai_user_id = ?
             ''', (youtube_id, ai_user_id))
 
+            cursor.execute('''
+                DELETE FROM module_outputs
+                WHERE youtube_id = ? AND ai_user_id = ?
+            ''', (youtube_id, ai_user_id))
+
         logger.info(f"Removed SQLite entries for YouTube ID: {youtube_id}, AI User ID: {ai_user_id}")
     except sqlite3.Error as e:
         logger.error(f"Error removing SQLite entries: {e}")

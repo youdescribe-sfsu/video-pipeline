@@ -9,6 +9,7 @@ from yt_dlp.compat import shutil
 from pipeline_module.utils_module.utils import PipelineTask, return_video_folder_name
 from web_server_module.web_server_database import update_status, get_status_for_youtube_id
 from pipeline_module.utils_module.google_services import google_service_manager, GoogleServiceError
+from service_manager import ServiceManager
 
 # Import all submodules
 from .import_video_submodule.import_video import ImportVideo
@@ -33,7 +34,7 @@ class PipelineRunner:
             video_start_time: Optional[str],
             video_end_time: Optional[str],
             upload_to_server: bool,
-            service_urls: Dict[str, str],
+            service_manager: ServiceManager,
             tasks: Optional[List[str]] = None,
             ydx_server: Optional[str] = None,
             ydx_app_host: Optional[str] = None,
@@ -44,7 +45,7 @@ class PipelineRunner:
         self.video_start_time = video_start_time
         self.video_end_time = video_end_time
         self.upload_to_server = upload_to_server
-        self.service_urls = service_urls
+        self.service_manager = service_manager
         self.tasks = tasks or [t.value for t in PipelineTask]
         self.ydx_server = ydx_server
         self.ydx_app_host = ydx_app_host
@@ -65,24 +66,23 @@ class PipelineRunner:
             "video_id": video_id,
             "logger": self.logger,
             "AI_USER_ID": self.AI_USER_ID,
-            "yolo_url": service_urls.get("yolo_url"),
-            "caption_url": service_urls.get("caption_url"),
-            "rating_url": service_urls.get("rating_url")
+            "service_manager": service_manager  # Add service manager to video_runner_obj
         }
 
+
     def setup_logger(self) -> logging.Logger:
-        """Set up pipeline-specific logger"""
-        logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
-        logger.setLevel(logging.INFO)
+            """Set up pipeline-specific logger"""
+            logger = logging.getLogger(f"PipelineLogger-{self.video_id}")
+            logger.setLevel(logging.INFO)
 
-        log_dir = "pipeline_logs"
-        os.makedirs(log_dir, exist_ok=True)
+            log_dir = "pipeline_logs"
+            os.makedirs(log_dir, exist_ok=True)
 
-        handler = logging.FileHandler(f"{log_dir}/{self.video_id}_{self.AI_USER_ID}_pipeline.log")
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        return logger
+            handler = logging.FileHandler(f"{log_dir}/{self.video_id}_{self.AI_USER_ID}_pipeline.log")
+            formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            return logger
 
     def load_progress(self) -> Dict[str, Any]:
         """Load current pipeline progress"""
@@ -190,31 +190,41 @@ class PipelineRunner:
             raise Exception("Keyframe selection failed")
 
     def run_image_captioning(self) -> bool:
-        """Run image captioning with service URL"""
+        """Run image captioning with service management"""
         try:
-            image_captioning = ImageCaptioning(
-                self.video_runner_obj,
-                service_url=self.service_urls['caption_url']  # Use existing service_urls
-            )
-            success = image_captioning.run_image_captioning()
-            if not success:
-                raise Exception("Image captioning failed")
-            return True
+            image_captioning = ImageCaptioning(self.video_runner_obj)
+
+            # Get a service for image captioning
+            service = self.service_manager.caption_balancer.get_next_service()
+            try:
+                success = image_captioning.run_image_captioning(service)
+                if not success:
+                    raise Exception("Image captioning failed")
+                return True
+            finally:
+                # Always release the service
+                self.service_manager.caption_balancer.release_service(service)
+
         except Exception as e:
             self.logger.error(f"Error in image captioning: {str(e)}")
             return False
 
     def run_caption_rating(self) -> bool:
-        """Run caption rating with service URL"""
+        """Run caption rating with service management"""
         try:
-            caption_rating = CaptionRating(
-                self.video_runner_obj,
-                service_url=self.service_urls['rating_url']  # Use existing service_urls
-            )
-            success = caption_rating.perform_caption_rating()
-            if not success:
-                raise Exception("Caption rating failed")
-            return True
+            caption_rating = CaptionRating(self.video_runner_obj)
+
+            # Get a service for caption rating
+            service = self.service_manager.rating_balancer.get_next_service()
+            try:
+                success = caption_rating.perform_caption_rating(service)
+                if not success:
+                    raise Exception("Caption rating failed")
+                return True
+            finally:
+                # Always release the service
+                self.service_manager.rating_balancer.release_service(service)
+
         except Exception as e:
             self.logger.error(f"Error in caption rating: {str(e)}")
             return False
@@ -255,6 +265,8 @@ class PipelineRunner:
         """Run complete pipeline with error handling"""
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
         try:
+            await self.service_manager.ensure_initialized()
+
             for task in self.tasks:
                 await self.run_task(task)
             self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
@@ -287,7 +299,7 @@ def cleanup_resources(self):
 
 async def run_pipeline(
         video_id: str,
-        service_urls: Dict[str, str],
+        service_manager: ServiceManager,
         video_start_time: Optional[str] = None,
         video_end_time: Optional[str] = None,
         upload_to_server: bool = False,
@@ -304,7 +316,7 @@ async def run_pipeline(
             video_start_time=video_start_time,
             video_end_time=video_end_time,
             upload_to_server=upload_to_server,
-            service_urls=service_urls,  # Pass service URLs to runner
+            service_manager=service_manager,
             tasks=tasks,
             ydx_server=ydx_server,
             ydx_app_host=ydx_app_host,
@@ -338,16 +350,8 @@ if __name__ == "__main__":
     parser.add_argument("--end_time", default=None, help="End Time", type=str)
     args = parser.parse_args()
 
-    # Use default service URLs for command-line execution
-    default_services = {
-        "yolo_url": "http://localhost:8087/detect_batch_folder",
-        "caption_url": "http://localhost:8085/upload",
-        "rating_url": "http://localhost:8082/api"
-    }
-
     asyncio.run(run_pipeline(
         video_id=args.video_id,
-        service_urls=default_services,
         video_start_time=args.start_time,
         video_end_time=args.end_time,
         upload_to_server=args.upload_to_server

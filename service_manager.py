@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import aiohttp
 from asyncio import Lock
 import psutil
@@ -49,6 +49,7 @@ class ServiceStats:
 # Load balancer for specific service type
 class ServiceBalancer:
     def __init__(self, services: List[Dict[str, str]], endpoint: str, max_connections: int = 10):
+        self.active_services = set()
         self.configs = [ServiceConfig(**svc) for svc in services]
         self.endpoint = endpoint
         self.max_connections = max_connections
@@ -56,6 +57,44 @@ class ServiceBalancer:
         self.lock = Lock()  # Now using asyncio.Lock
         self.logger = logging.getLogger(__name__)
         self.session = None
+
+    async def check_services_health(self) -> Dict[str, Any]:
+        """
+        Check health of all services in this balancer.
+        Makes actual HTTP requests to verify service availability.
+        """
+        health_results = {}
+        for service in self.configs:
+            try:
+                health_url = service.get_url(endpoint="/health")
+                async with self.session.get(health_url, timeout=5) as response:
+                    is_healthy = response.status == 200
+                    health_results[service.port] = {
+                        'healthy': is_healthy,
+                        'gpu': service.gpu,
+                        'current_load': service.current_load,
+                        'last_check': datetime.now().isoformat()
+                    }
+                    service.is_healthy = is_healthy
+                    service.last_health_check = datetime.now()
+            except Exception as e:
+                self.logger.error(f"Health check failed for service on port {service.port}: {str(e)}")
+                health_results[service.port] = {
+                    'healthy': False,
+                    'gpu': service.gpu,
+                    'error': str(e),
+                    'last_check': datetime.now().isoformat()
+                }
+                service.is_healthy = False
+
+        return health_results
+
+    async def release_all(self):
+        """Release all services in this balancer"""
+        async with self.lock:
+            for service in self.configs:
+                service.current_load = 0
+            self.active_services.clear()
 
     async def initialize(self):
         """Initialize session asynchronously"""
@@ -134,6 +173,76 @@ class ServiceManager:
         self.logger = logging.getLogger(__name__)
         self.worker_id = os.getpid()
         self.active_services = {}
+        self._initialized = False
+
+    async def initialize(self):
+        """Initialize all service balancers and verify their health"""
+        if self._initialized:
+            return
+
+        try:
+            # Initialize all balancers
+            await self.yolo_balancer.initialize()
+            await self.caption_balancer.initialize()
+            await self.rating_balancer.initialize()
+
+            # Verify initial health
+            health_status = await self.check_all_services_health()
+            if not health_status['overall_health']['healthy']:
+                raise RuntimeError("Service initialization failed: unhealthy services detected")
+
+            self._initialized = True
+            self.logger.info("Service manager initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Service manager initialization failed: {str(e)}")
+            await self.cleanup()  # Cleanup on initialization failure
+            raise
+
+    async def check_all_services_health(self) -> Dict[str, Any]:
+        """
+        Checks the health of all registered services with improved error handling.
+        """
+        try:
+            health_status = {
+                'caption_services': await self.caption_balancer.check_services_health(),
+                'rating_services': await self.rating_balancer.check_services_health(),
+                'yolo_services': await self.yolo_balancer.check_services_health()
+            }
+
+            # Add overall health status
+            all_services_healthy = all(
+                all(service.get('healthy', False)
+                    for service in service_type.values())
+                for service_type in health_status.values()
+            )
+
+            health_status['overall_health'] = {
+                'healthy': all_services_healthy,
+                'timestamp': datetime.now().isoformat()
+            }
+
+            return health_status
+        except Exception as e:
+            self.logger.error(f"Error checking services health: {str(e)}")
+            raise
+
+    async def ensure_initialized(self):
+        """
+        Ensures all service balancers are properly initialized.
+        Validates connections and sets up health monitoring.
+        """
+        await self.caption_balancer.initialize()
+        await self.rating_balancer.initialize()
+        await self.yolo_balancer.initialize()
+
+    async def release_all_services(self):
+        """
+        Releases any held services across all balancers.
+        Used during cleanup and error scenarios.
+        """
+        await self.caption_balancer.release_all()
+        await self.rating_balancer.release_all()
+        await self.yolo_balancer.release_all()
 
     async def get_services(self, task_id: str) -> Dict[str, str]:
         """Get service URLs for a task"""
@@ -175,15 +284,29 @@ class ServiceManager:
             finally:
                 del self.active_services[task_id]
 
-    def get_stats(self) -> Dict:
-        """Get statistics for all services"""
-        return {
-            "yolo": self.yolo_balancer.get_stats(),
-            "caption": self.caption_balancer.get_stats(),
-            "rating": self.rating_balancer.get_stats(),
-            "worker_id": self.worker_id,
-            "memory_usage": psutil.Process(self.worker_id).memory_info().rss / 1024 / 1024  # MB
-        }
+    async def get_stats(self) -> Dict[str, Any]:
+        """
+        Returns comprehensive statistics about service usage and health.
+        """
+        try:
+            stats = {
+                'caption_services': self.caption_balancer.get_stats(),
+                'rating_services': self.rating_balancer.get_stats(),
+                'yolo_services': self.yolo_balancer.get_stats(),
+                'active_services': {
+                    'caption': len(self.caption_balancer.active_services),
+                    'rating': len(self.rating_balancer.active_services),
+                    'yolo': len(self.yolo_balancer.active_services)
+                },
+                'worker_info': {
+                    'worker_id': self.worker_id,
+                    'memory_usage': psutil.Process(self.worker_id).memory_info().rss / 1024 / 1024
+                }
+            }
+            return stats
+        except Exception as e:
+            self.logger.error(f"Error getting service stats: {str(e)}")
+            raise
 
     async def cleanup(self):
         """Cleanup all resources"""
