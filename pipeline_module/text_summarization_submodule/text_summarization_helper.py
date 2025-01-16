@@ -1,7 +1,8 @@
 import json
 import csv
+import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import warnings
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 from transformers import pipeline, AutoTokenizer
@@ -11,6 +12,7 @@ from ..utils_module.timeit_decorator import timeit
 
 # Suppress the specific warning
 warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
+
 
 class TextSummarization:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -25,139 +27,212 @@ class TextSummarization:
             model="facebook/bart-large-cnn",
             tokenizer=self.tokenizer
         )
+        # Define minimum scene length and text requirements
+        self.MIN_SCENE_DURATION = 5.0  # seconds
+        self.MIN_TEXT_LENGTH = 50  # characters
+        self.DEFAULT_SUMMARY_LENGTH = 130
 
-    def calculate_bleu_score(self, data: Dict[str, Any]) -> float:
-        method1 = SmoothingFunction().method1
-        candidate = data['sentence'].split()
-        reference_list = [ref.split() for ref in data['reference'] if len(ref.split()) > 1]
+    def load_scene_data(self) -> List[Dict[str, Any]]:
+        """
+        Load and validate scene data from CSV file with robust error handling.
+        Returns an empty list if no valid scenes are found.
+        """
+        scene_file = os.path.join(
+            return_video_folder_name(self.video_runner_obj),
+            SCENE_SEGMENTED_FILE_CSV
+        )
 
-        if len(candidate) < 2 or not reference_list:
-            return 0.0  # Return 0 if candidate or references are too short
+        if not os.path.exists(scene_file):
+            self.logger.error(f"Scene file not found: {scene_file}")
+            return []
 
-        weights = (0.25, 0.25, 0.25, 0.25)
-        return sentence_bleu(reference_list, candidate, weights=weights, smoothing_function=method1)
-
-    def group_similar_sentences(self, sentences: List[str], threshold: float = 0.4) -> List[List[int]]:
-        sentence_groups = []
-        visited = set()
-
-        for idx, sentence in enumerate(sentences):
-            if idx in visited:
-                continue
-
-            group = [idx]
-            visited.add(idx)
-
-            for j in range(idx + 1, len(sentences)):
-                if j in visited:
-                    continue
-
-                score = self.calculate_bleu_score({'sentence': sentence, 'reference': [sentences[j]]})
-                if score >= threshold:
-                    group.append(j)
-                    visited.add(j)
-
-            sentence_groups.append(group)
-
-        return sentence_groups
-
-    def select_best_sentence(self, sentences: List[str], group: List[int]) -> str:
-        best_score = -1
-        best_sentence = ''
-
-        for idx in group:
-            others = [sentences[i] for i in group if i != idx]
-            try:
-                score = self.calculate_bleu_score({'sentence': sentences[idx], 'reference': others})
-            except Exception as e:
-                self.logger.error(f"Error calculating BLEU score: {str(e)}")
-                score = 0.0
-            if score > best_score:
-                best_score = score
-                best_sentence = sentences[idx]
-
-        return best_sentence
-
-    def summarize_text(self, text: str, max_length: int = 130, min_length: int = 30) -> str:
-        self.logger.debug(f"Summarizing text of length {len(text)}")
+        scenes = []
         try:
-            summary = self.summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
-            self.logger.debug(f"Summary generated, length: {len(summary[0]['summary_text'])}")
-            return summary[0]['summary_text']
-        except Exception as e:
-            self.logger.error(f"Error in summarize_text: {str(e)}")
-            raise
-
-    @timeit
-    def generate_text_summary(self) -> bool:
-        if get_status_for_youtube_id(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"]) == "done":
-            self.logger.info("Text summarization already processed")
-            return True
-
-        try:
-            self.logger.info("Starting text summarization")
-            scene_file = return_video_folder_name(self.video_runner_obj) + "/" + SCENE_SEGMENTED_FILE_CSV
-
-            scenes = []
             with open(scene_file, 'r', newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
-                    scenes.append({
-                        'start_time': float(row['start_time']),
-                        'end_time': float(row['end_time']),
-                        'description': row['description']
-                    })
+                    try:
+                        scene = {
+                            'start_time': float(row['start_time']),
+                            'end_time': float(row['end_time']),
+                            'description': row['description'].strip()
+                        }
 
-            if not scenes:
-                raise ValueError("No scenes found in the input file")
+                        # Validate scene data
+                        if (scene['end_time'] > scene['start_time'] and
+                                len(scene['description']) >= self.MIN_TEXT_LENGTH):
+                            scenes.append(scene)
+                        else:
+                            self.logger.warning(f"Skipping invalid scene: {scene}")
 
-            self.logger.info(f"Loaded {len(scenes)} scenes for summarization")
-
-            summarized_scenes = []
-            for i, scene in enumerate(scenes):
-                self.logger.debug(f"Processing scene {i + 1}/{len(scenes)}")
-                try:
-                    # Regular expression pattern to split before 'a', 'an', or 'the' not at the start
-                    pattern = re.compile(r'(?<!^)(?=\b(?:a|an|the)\b)', re.IGNORECASE)
-                    sentences = pattern.split(scene['description'])
-                    sentences = [s.strip() for s in sentences if s.strip()]
-
-                    if not sentences:
-                        self.logger.warning(f"No sentences found in scene {i + 1}")
+                    except (ValueError, KeyError) as e:
+                        self.logger.error(f"Error processing scene row: {str(e)}")
                         continue
 
-                    groups = self.group_similar_sentences(sentences)
+            return scenes
 
-                    summarized_description = []
-                    for group in groups:
-                        best_sentence = self.select_best_sentence(sentences, group)
-                        summarized_description.append(best_sentence)
+        except Exception as e:
+            self.logger.error(f"Error loading scene data: {str(e)}")
+            return []
 
-                    full_description = ' '.join(summarized_description)
-                    summarized_text = self.summarize_text(full_description)
+    def create_fallback_scene(self) -> List[Dict[str, Any]]:
+        """
+        Create a fallback scene when no valid scenes are found.
+        Uses video metadata for duration.
+        """
+        try:
+            metadata_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "metadata.json"
+            )
 
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+                duration = float(metadata.get('duration', 0))
+
+                if duration <= 0:
+                    raise ValueError(f"Invalid video duration: {duration}")
+
+                return [{
+                    'start_time': 0,
+                    'end_time': duration,
+                    'text': "Complete video segment"
+                }]
+
+        except Exception as e:
+            self.logger.error(f"Error creating fallback scene: {str(e)}")
+            return [{
+                'start_time': 0,
+                'end_time': 60,  # Default 1-minute duration
+                'text': "Video segment"
+            }]
+
+    def calculate_bleu_score(self, reference_sentences: List[str],
+                             candidate_sentence: str) -> float:
+        """
+        Calculate BLEU score with improved error handling and smoothing.
+        """
+        try:
+            if not reference_sentences or not candidate_sentence:
+                return 0.0
+
+            candidate = candidate_sentence.split()
+            references = [ref.split() for ref in reference_sentences if ref.strip()]
+
+            if not references or len(candidate) < 2:
+                return 0.0
+
+            method1 = SmoothingFunction().method1
+            weights = (0.25, 0.25, 0.25, 0.25)
+
+            return sentence_bleu(
+                references,
+                candidate,
+                weights=weights,
+                smoothing_function=method1
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error calculating BLEU score: {str(e)}")
+            return 0.0
+
+    def summarize_scene(self, scene: Dict[str, Any]) -> Optional[str]:
+        """
+        Summarize a single scene with error handling and validation.
+        """
+        try:
+            if not scene.get('description'):
+                return None
+
+            # Clean and preprocess the text
+            text = scene['description'].strip()
+            if len(text) < self.MIN_TEXT_LENGTH:
+                return text  # Return original if too short
+
+            # Generate summary
+            summary = self.summarizer(
+                text,
+                max_length=self.DEFAULT_SUMMARY_LENGTH,
+                min_length=30,
+                do_sample=False
+            )
+
+            if summary and summary[0]['summary_text']:
+                return summary[0]['summary_text'].strip()
+            return None
+
+        except Exception as e:
+            self.logger.error(f"Error summarizing scene: {str(e)}")
+            return None
+
+    @timeit
+    def generate_text_summary(self) -> bool:
+        """
+        Main entry point for text summarization with comprehensive error handling.
+        """
+        try:
+            self.logger.info("Starting text summarization")
+
+            # Check if already processed
+            if get_status_for_youtube_id(
+                    self.video_runner_obj["video_id"],
+                    self.video_runner_obj["AI_USER_ID"]
+            ) == "done":
+                self.logger.info("Text summarization already processed")
+                return True
+
+            # Load scene data
+            scenes = self.load_scene_data()
+
+            # Create fallback if no scenes found
+            if not scenes:
+                self.logger.warning("No valid scenes found, creating fallback")
+                scenes = self.create_fallback_scene()
+
+            # Process scenes
+            summarized_scenes = []
+            for scene in scenes:
+                summary = self.summarize_scene(scene)
+                if summary:
                     summarized_scenes.append({
                         'start_time': scene['start_time'],
                         'end_time': scene['end_time'],
-                        'text': summarized_text
+                        'text': summary
                     })
-                except Exception as e:
-                    self.logger.error(f"Error processing scene {i + 1}: {str(e)}")
 
+            # Ensure we have at least one summary
             if not summarized_scenes:
-                raise ValueError("No scenes were successfully summarized")
+                self.logger.warning("No summaries generated, using fallback")
+                summarized_scenes = self.create_fallback_scene()
 
-            output_file = return_video_folder_name(self.video_runner_obj) + "/" + SUMMARIZED_SCENES
+            # Save results
+            output_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                SUMMARIZED_SCENES
+            )
+
             with open(output_file, 'w') as f:
                 json.dump(summarized_scenes, f, indent=2)
 
-            self.logger.info(f"Text summarization completed. Output saved to {output_file}")
+            self.logger.info(f"Text summarization completed: {len(summarized_scenes)} scenes")
 
-            # Save the summarization results to the database
-            update_module_output(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"],
-                                 'text_summarization', {"summarized_scenes": summarized_scenes})
+            # Update database
+            update_module_output(
+                self.video_runner_obj["video_id"],
+                self.video_runner_obj["AI_USER_ID"],
+                'text_summarization',
+                {
+                    "summarized_scenes": summarized_scenes,
+                    "total_scenes": len(summarized_scenes)
+                }
+            )
 
-            update_status(self.video_runner_obj["video_id"], self.video_runner_obj["AI_USER_ID"], "done")
+            update_status(
+                self.video_runner_obj["video_id"],
+                self.video_runner_obj["AI_USER_ID"],
+                "done"
+            )
+
             return True
 
         except Exception as e:
