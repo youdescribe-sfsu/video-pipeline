@@ -2,7 +2,7 @@ import csv
 import warnings
 import numpy as np
 import os
-from typing import Dict, Union, Optional, Any
+from typing import Dict, Union, Optional, Any, List
 from web_server_module.web_server_database import (
     update_status,
     get_status_for_youtube_id,
