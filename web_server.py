@@ -81,7 +81,7 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, ydx_server: 
     """Handle pipeline failures with proper cleanup and notification"""
     try:
         # Clean up pipeline resources
-        await cleanup_failed_pipeline(youtube_id, "Pipeline processing failed", ai_user_id)
+        # await cleanup_failed_pipeline(youtube_id, "Pipeline processing failed", ai_user_id)
 
         # Remove database entry
         # await remove_sqlite_entry(youtube_id, ai_user_id)
