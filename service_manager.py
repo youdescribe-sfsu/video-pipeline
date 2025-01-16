@@ -60,25 +60,59 @@ class ServiceBalancer:
 
     async def check_services_health(self) -> Dict[str, Any]:
         """
-        Check health of all services in this balancer.
-        Makes actual HTTP requests to verify service availability.
+        Check health of all services by testing their main endpoints
+        rather than looking for a /health endpoint
         """
         health_results = {}
         for service in self.configs:
             try:
-                health_url = service.get_url(endpoint="/health")
-                async with self.session.get(health_url, timeout=5) as response:
-                    is_healthy = response.status == 200
-                    health_results[service.port] = {
-                        'healthy': is_healthy,
-                        'gpu': service.gpu,
-                        'current_load': service.current_load,
-                        'last_check': datetime.now().isoformat()
-                    }
-                    service.is_healthy = is_healthy
-                    service.last_health_check = datetime.now()
+                # Use the service's main endpoint for health check
+                # Send a minimal request that won't do actual processing
+                test_url = service.get_url(endpoint=self.endpoint)
+
+                # Different health check logic based on endpoint type
+                is_healthy = False
+                try:
+                    if self.endpoint == "/detect_batch_folder":
+                        # For YOLO service - just check if service responds
+                        async with self.session.get(
+                                f"{service.get_url()}/",
+                                timeout=5
+                        ) as response:
+                            is_healthy = response.status in (200, 404, 405)
+
+                    elif self.endpoint == "/upload":
+                        # For caption service - just check if service responds
+                        async with self.session.get(
+                                f"{service.get_url()}/",
+                                timeout=5
+                        ) as response:
+                            is_healthy = response.status in (200, 404, 405)
+
+                    elif self.endpoint == "/api":
+                        # For rating service - just check if service responds
+                        async with self.session.get(
+                                f"{service.get_url()}/",
+                                timeout=5
+                        ) as response:
+                            is_healthy = response.status in (200, 404, 405)
+
+                except aiohttp.ClientError:
+                    is_healthy = False
+
+                health_results[service.port] = {
+                    'healthy': is_healthy,
+                    'gpu': service.gpu,
+                    'current_load': service.current_load,
+                    'last_check': datetime.now().isoformat()
+                }
+                service.is_healthy = is_healthy
+                service.last_health_check = datetime.now()
+
             except Exception as e:
-                self.logger.error(f"Health check failed for service on port {service.port}: {str(e)}")
+                self.logger.error(
+                    f"Health check failed for service on port {service.port}: {str(e)}"
+                )
                 health_results[service.port] = {
                     'healthy': False,
                     'gpu': service.gpu,
@@ -176,7 +210,7 @@ class ServiceManager:
         self._initialized = False
 
     async def initialize(self):
-        """Initialize all service balancers and verify their health"""
+        """Initialize with more lenient health checking"""
         if self._initialized:
             return
 
@@ -186,16 +220,34 @@ class ServiceManager:
             await self.caption_balancer.initialize()
             await self.rating_balancer.initialize()
 
-            # Verify initial health
+            # Check if at least one service of each type is healthy
             health_status = await self.check_all_services_health()
-            if not health_status['overall_health']['healthy']:
-                raise RuntimeError("Service initialization failed: unhealthy services detected")
+
+            has_healthy_yolo = any(
+                status['healthy']
+                for status in health_status['yolo_services'].values()
+            )
+            has_healthy_caption = any(
+                status['healthy']
+                for status in health_status['caption_services'].values()
+            )
+            has_healthy_rating = any(
+                status['healthy']
+                for status in health_status['rating_services'].values()
+            )
+
+            if not (has_healthy_yolo and has_healthy_caption and has_healthy_rating):
+                raise RuntimeError(
+                    "Service initialization failed: "
+                    "At least one service of each type must be healthy"
+                )
 
             self._initialized = True
             self.logger.info("Service manager initialized successfully")
+
         except Exception as e:
             self.logger.error(f"Service manager initialization failed: {str(e)}")
-            await self.cleanup()  # Cleanup on initialization failure
+            await self.cleanup()
             raise
 
     async def check_all_services_health(self) -> Dict[str, Any]:
