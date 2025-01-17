@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -60,68 +61,100 @@ class ServiceBalancer:
 
     async def check_services_health(self) -> Dict[str, Any]:
         """
-        Check health of all services by testing their main endpoints
-        rather than looking for a /health endpoint
+        Check health of all services using appropriate methods for each service type.
+        Returns detailed health status information.
         """
         health_results = {}
+
         for service in self.configs:
             try:
-                # Use the service's main endpoint for health check
-                # Send a minimal request that won't do actual processing
-                test_url = service.get_url(endpoint=self.endpoint)
-
-                # Different health check logic based on endpoint type
+                # Build the base URL without the endpoint
+                base_url = service.get_url().rsplit(':', 1)[0] + ':' + service.port
                 is_healthy = False
-                try:
-                    if self.endpoint == "/detect_batch_folder":
-                        # For YOLO service - just check if service responds
-                        async with self.session.get(
-                                f"{service.get_url()}/",
-                                timeout=5
-                        ) as response:
-                            is_healthy = response.status in (200, 404, 405)
+                error_message = None
 
-                    elif self.endpoint == "/upload":
-                        # For caption service - just check if service responds
-                        async with self.session.get(
-                                f"{service.get_url()}/",
-                                timeout=5
-                        ) as response:
-                            is_healthy = response.status in (200, 404, 405)
+                # Different health check strategies based on endpoint type
+                if self.endpoint == "/detect_batch_folder":  # YOLO service
+                    # YOLO services respond with 405 (Method Not Allowed) for GET on POST endpoints
+                    async with self.session.get(
+                            f"{base_url}/detect_batch_folder",
+                            timeout=5
+                    ) as response:
+                        is_healthy = response.status in (405, 404, 200)
 
-                    elif self.endpoint == "/api":
-                        # For rating service - just check if service responds
-                        async with self.session.get(
-                                f"{service.get_url()}/",
-                                timeout=5
-                        ) as response:
-                            is_healthy = response.status in (200, 404, 405)
+                elif self.endpoint == "/upload":  # Caption service
+                    # Caption services usually return 404 for GET requests
+                    async with self.session.get(
+                            f"{base_url}/",
+                            timeout=5
+                    ) as response:
+                        is_healthy = response.status in (404, 200)
 
-                except aiohttp.ClientError:
-                    is_healthy = False
+                elif self.endpoint == "/api":  # Rating service
+                    # Rating services typically have a root endpoint
+                    async with self.session.get(
+                            f"{base_url}/",
+                            timeout=5
+                    ) as response:
+                        is_healthy = response.status in (200, 404)
 
+                # Log detailed information about the health check
+                self.logger.info(
+                    f"Health check for {self.endpoint} service on port {service.port}: "
+                    f"Status={response.status}, Healthy={is_healthy}"
+                )
+
+                # Store comprehensive health information
                 health_results[service.port] = {
                     'healthy': is_healthy,
                     'gpu': service.gpu,
                     'current_load': service.current_load,
-                    'last_check': datetime.now().isoformat()
+                    'last_check': datetime.now().isoformat(),
+                    'endpoint_type': self.endpoint,
+                    'response_status': response.status,
+                    'error': error_message
                 }
+
+                # Update service status
                 service.is_healthy = is_healthy
                 service.last_health_check = datetime.now()
 
+            except asyncio.TimeoutError as e:
+                self.logger.warning(
+                    f"Timeout while checking {self.endpoint} service on port {service.port}"
+                )
+                health_results[service.port] = self._create_error_result(
+                    service, "Timeout during health check"
+                )
+
+            except aiohttp.ClientError as e:
+                self.logger.error(
+                    f"Connection error for {self.endpoint} service on port {service.port}: {str(e)}"
+                )
+                health_results[service.port] = self._create_error_result(
+                    service, f"Connection error: {str(e)}"
+                )
+
             except Exception as e:
                 self.logger.error(
-                    f"Health check failed for service on port {service.port}: {str(e)}"
+                    f"Unexpected error checking {self.endpoint} service on port {service.port}: {str(e)}"
                 )
-                health_results[service.port] = {
-                    'healthy': False,
-                    'gpu': service.gpu,
-                    'error': str(e),
-                    'last_check': datetime.now().isoformat()
-                }
-                service.is_healthy = False
+                health_results[service.port] = self._create_error_result(
+                    service, f"Unexpected error: {str(e)}"
+                )
 
         return health_results
+
+    def _create_error_result(self, service: ServiceConfig, error_message: str) -> Dict:
+        """Helper method to create consistent error results"""
+        return {
+            'healthy': False,
+            'gpu': service.gpu,
+            'current_load': service.current_load,
+            'last_check': datetime.now().isoformat(),
+            'endpoint_type': self.endpoint,
+            'error': error_message
+        }
 
     async def release_all(self):
         """Release all services in this balancer"""
