@@ -84,62 +84,47 @@ async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, ydx_server: 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Enhanced lifecycle manager with proper error handling"""
+    """Simplified lifespan manager with essential error handling"""
     global event_loop, service_manager
     processor = None
 
     try:
-        # Startup
         logger.info("Starting application...")
         create_database()
-        logger.info("Database initialized")
 
-        # Initialize service manager with proper error handling
+        # Initialize service manager
         service_manager = ServiceManager(
             yolo_services=YOLO_SERVICES,
             caption_services=CAPTION_SERVICES,
             rating_services=RATING_SERVICES,
             max_workers=MAX_WORKERS
         )
+        await service_manager.initialize()
 
-        try:
-            await service_manager.initialize()
-            logger.info("Service manager initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize service manager: {str(e)}")
-            if service_manager:
-                await service_manager.cleanup()
-            raise RuntimeError(f"Service manager initialization failed: {str(e)}")
-
-        # Start task processor with proper error handling
+        # Start task processor
         event_loop = asyncio.get_event_loop()
         processor = asyncio.create_task(task_processor())
-        logger.info("Task processor started")
 
         yield
 
-    finally:
-        # Enhanced cleanup with null checks
-        logger.info("Shutting down application...")
+    except Exception as e:
+        logger.error(f"Application startup failed: {str(e)}")
+        if service_manager:
+            await service_manager.cleanup()
+        raise
 
+    finally:
+        logger.info("Shutting down application...")
         if processor:
             processor.cancel()
             try:
                 await processor
             except asyncio.CancelledError:
                 pass
-
         if service_manager:
-            try:
-                await service_manager.release_all_services()
-                await service_manager.cleanup()
-            except Exception as e:
-                logger.error(f"Error during service cleanup: {str(e)}")
-
+            await service_manager.cleanup()
         if thread_pool:
             thread_pool.shutdown(wait=True)
-
-        logger.info("Application shutdown complete")
 app = FastAPI(lifespan=lifespan)
 
 # CORS middleware configuration (maintain existing configuration)

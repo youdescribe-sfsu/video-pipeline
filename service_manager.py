@@ -64,86 +64,37 @@ class ServiceBalancer:
         self.logger.info(f"Initialized ServiceBalancer for endpoint {endpoint} with services: {services}")
 
     async def check_services_health(self) -> Dict[str, Any]:
-        """Enhanced health check with better error logging"""
+        """Simplified health check focusing only on service endpoint"""
         if not self.session:
             self.logger.error("Session not initialized before health check!")
             return {}
 
         health_results = {}
-
         for service in self.configs:
             try:
-                # Build base URL properly
                 base_url = f"http://localhost:{service.port}"
-                self.logger.info(f"Checking health for service {base_url}")
-
-                # Try root endpoint first
-                try:
-                    async with self.session.get(
-                            f"{base_url}/",
-                            timeout=2
-                    ) as response:
-                        response_text = await response.text()
-                        self.logger.info(
-                            f"Root endpoint response for {base_url}: "
-                            f"Status={response.status}, Body={response_text[:100]}"
-                        )
-                except Exception as e:
-                    self.logger.warning(f"Root endpoint check failed for {base_url}: {str(e)}")
-
-                # Now try service-specific endpoint
-                if self.endpoint == "/detect_batch_folder":
-                    check_url = f"{base_url}/detect_batch_folder"
-                elif self.endpoint == "/upload":
-                    check_url = f"{base_url}/upload"
-                else:  # Rating service
-                    check_url = f"{base_url}/api"
+                check_url = f"{base_url}{self.endpoint}"
 
                 async with self.session.get(check_url, timeout=2) as response:
-                    response_text = await response.text()
-                    self.logger.info(
-                        f"Health check response for {check_url}: "
-                        f"Status={response.status}, Body={response_text[:100]}"
-                    )
-
-                    # Consider service healthy based on type-specific criteria
+                    # Service-specific health criteria
                     is_healthy = False
                     if self.endpoint == "/detect_batch_folder":
                         is_healthy = response.status in (405, 404, 200)
-                    elif self.endpoint == "/upload":
+                    else:  # Caption and Rating services
                         is_healthy = response.status in (404, 200)
-                    else:  # Rating service
-                        is_healthy = response.status in (200, 404)
-
-                    self.logger.info(f"Service {check_url} health status: {is_healthy}")
 
                     health_results[service.port] = {
                         'healthy': is_healthy,
                         'gpu': service.gpu,
                         'current_load': service.current_load,
                         'last_check': datetime.now().isoformat(),
-                        'endpoint_type': self.endpoint,
-                        'response_status': response.status,
-                        'response_text': response_text[:100]
+                        'status_code': response.status
                     }
-
                     service.is_healthy = is_healthy
 
-            except asyncio.TimeoutError as e:
-                self.logger.error(f"Timeout checking {base_url}: {str(e)}")
-                health_results[service.port] = self._create_error_result(
-                    service, f"Timeout: {str(e)}"
-                )
-            except aiohttp.ClientError as e:
-                self.logger.error(f"Connection error for {base_url}: {str(e)}")
-                health_results[service.port] = self._create_error_result(
-                    service, f"Connection error: {str(e)}"
-                )
             except Exception as e:
-                self.logger.error(f"Unexpected error checking {base_url}: {str(e)}")
-                health_results[service.port] = self._create_error_result(
-                    service, f"Unexpected error: {str(e)}"
-                )
+                self.logger.error(f"Health check failed for {base_url}: {str(e)}")
+                health_results[service.port] = self._create_error_result(service, str(e))
 
         return health_results
 
@@ -245,56 +196,34 @@ class ServiceManager:
         self._initialized = False
 
     async def initialize(self):
-        """Initialize with more lenient health checking"""
+        """Simplified initialization with essential checks"""
         if self._initialized:
             return
 
         try:
-            self.logger.info("Initializing service balancers...")
-
-            # Initialize all balancers
+            # Initialize balancers
             await self.yolo_balancer.initialize()
             await self.caption_balancer.initialize()
             await self.rating_balancer.initialize()
 
-            self.logger.info("Checking services health...")
+            # Single health check
             health_status = await self.check_all_services_health()
+            service_health = {
+                'yolo': any(status['healthy'] for status in health_status['yolo_services'].values()),
+                'caption': any(status['healthy'] for status in health_status['caption_services'].values()),
+                'rating': any(status['healthy'] for status in health_status['rating_services'].values())
+            }
 
-            self.logger.info(f"Complete health status: {json.dumps(health_status, indent=2)}")
-
-            has_healthy_yolo = any(
-                status['healthy']
-                for status in health_status['yolo_services'].values()
-            )
-            has_healthy_caption = any(
-                status['healthy']
-                for status in health_status['caption_services'].values()
-            )
-            has_healthy_rating = any(
-                status['healthy']
-                for status in health_status['rating_services'].values()
-            )
-
-            self.logger.info(
-                f"Service health summary:\n"
-                f"YOLO: {has_healthy_yolo}\n"
-                f"Caption: {has_healthy_caption}\n"
-                f"Rating: {has_healthy_rating}"
-            )
-
-            if not (has_healthy_yolo and has_healthy_caption and has_healthy_rating):
-                raise RuntimeError(
-                    "Service initialization failed: "
-                    "At least one service of each type must be healthy"
-                )
+            unhealthy_services = [name for name, healthy in service_health.items() if not healthy]
+            if unhealthy_services:
+                raise RuntimeError(f"Unhealthy services: {', '.join(unhealthy_services)}")
 
             self._initialized = True
             self.logger.info("Service manager initialized successfully")
 
         except Exception as e:
-            self.logger.error(f"Service manager initialization failed: {str(e)}")
             await self.cleanup()
-            raise
+            raise RuntimeError(f"Service initialization failed: {str(e)}")
 
     async def check_all_services_health(self) -> Dict[str, Any]:
         """
