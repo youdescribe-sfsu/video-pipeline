@@ -76,18 +76,13 @@ class ServiceBalancer:
                 check_url = f"{base_url}{self.endpoint}"
 
                 async with self.session.get(check_url, timeout=2) as response:
-                    # Service-specific health criteria
-                    is_healthy = False
-                    if self.endpoint == "/detect_batch_folder":
-                        is_healthy = response.status in (405, 404, 200)
-                    else:  # Caption and Rating services
-                        is_healthy = response.status in (404, 200)
+                    # 405 is healthy for all services - they all use POST endpoints
+                    is_healthy = response.status in (405, 404, 200)
 
                     health_results[service.port] = {
                         'healthy': is_healthy,
                         'gpu': service.gpu,
                         'current_load': service.current_load,
-                        'last_check': datetime.now().isoformat(),
                         'status_code': response.status
                     }
                     service.is_healthy = is_healthy
