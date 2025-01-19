@@ -10,17 +10,11 @@ from ..utils_module.timeit_decorator import timeit
 
 
 class ObjectDetection:
-    def __init__(self, video_runner_obj: Dict[str, Any], service_url: Optional[str] = None):
+    def __init__(self, video_runner_obj: Dict[str, Any], service_url: str):
         """Initialize ObjectDetection with video info and service URL."""
-        print(f"Initializing ObjectDetection for video: {video_runner_obj['video_id']}")
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-
-        # Use service URL from video_runner_obj if available, fallback to parameter
-        self.yolo_endpoint = service_url or video_runner_obj.get("yolo_url")
-        if not self.yolo_endpoint:
-            self.yolo_endpoint = "http://localhost:8087/detect_batch_folder"  # Default to GPU 2 service
-
+        self.yolo_endpoint = service_url  # Direct service URL injection
         self.confidence_threshold = 0.25
         self.batch_size = 16
         self.max_retries = 2

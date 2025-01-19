@@ -174,14 +174,22 @@ class PipelineRunner:
             raise
 
     async def run_object_detection(self) -> None:
-        """Run object detection with service URL"""
-        object_detection = ObjectDetection(
-            self.video_runner_obj,
-            service_url=self.service_urls['yolo_url']
-        )
-        success = await object_detection.run_object_detection()
-        if not success:
-            raise Exception("Object detection failed")
+        """Run object detection with service management"""
+        try:
+            service = self.service_manager.yolo_balancer.get_next_service()
+            try:
+                object_detection = ObjectDetection(
+                    self.video_runner_obj,
+                    service_url=service.get_url(endpoint="/detect_batch_folder")
+                )
+                success = await object_detection.run_object_detection()
+                if not success:
+                    raise Exception("Object detection failed")
+            finally:
+                self.service_manager.yolo_balancer.release_service(service)
+        except Exception as e:
+            self.logger.error(f"Error in object detection: {str(e)}")
+            raise
 
     async def run_keyframe_selection(self) -> None:
         keyframe_selection = KeyframeSelection(self.video_runner_obj)
@@ -214,7 +222,6 @@ class PipelineRunner:
         try:
             caption_rating = CaptionRating(self.video_runner_obj)
 
-            # Get a service for caption rating
             service = self.service_manager.rating_balancer.get_next_service()
             try:
                 success = caption_rating.perform_caption_rating(service)
