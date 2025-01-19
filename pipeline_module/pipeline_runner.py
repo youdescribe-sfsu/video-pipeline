@@ -176,7 +176,7 @@ class PipelineRunner:
     async def run_object_detection(self) -> None:
         """Run object detection with service management"""
         try:
-            service = self.service_manager.yolo_balancer.get_next_service()
+            service = await self.service_manager.yolo_balancer.get_next_service()
             try:
                 object_detection = ObjectDetection(
                     self.video_runner_obj,
