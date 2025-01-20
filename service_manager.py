@@ -1,4 +1,4 @@
-import asyncio
+from threading import Lock
 import json
 import logging
 import os
@@ -127,9 +127,9 @@ class ServiceBalancer:
             await self.session.close()
             self.session = None
 
-    async def get_next_service(self) -> ServiceConfig:
-        """Service selection with async lock"""
-        async with self.lock:  # Use async context manager
+    def get_next_service(self) -> ServiceConfig:
+        """Synchronous service selection"""
+        with self.lock:
             available_services = [svc for svc in self.configs if svc.is_healthy]
             if not available_services:
                 raise RuntimeError("No healthy services available")
@@ -141,9 +141,9 @@ class ServiceBalancer:
             selected_service.current_load += 1
             return selected_service
 
-    async def release_service(self, service: ServiceConfig):
-        """Release service with async lock"""
-        async with self.lock:
+    def release_service(self, service: ServiceConfig):
+        """Synchronous service release"""
+        with self.lock:
             service.current_load = max(0, service.current_load - 1)
 
     def get_stats(self) -> Dict:

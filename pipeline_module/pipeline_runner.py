@@ -173,23 +173,24 @@ class PipelineRunner:
             self.logger.error(f"OCR extraction error: {str(e)}")
             raise
 
-    async def run_object_detection(self) -> None:
+    def run_object_detection(self) -> bool:
         """Run object detection with service management"""
         try:
-            service = await self.service_manager.yolo_balancer.get_next_service()
+            service = self.service_manager.yolo_balancer.get_next_service()
             try:
                 object_detection = ObjectDetection(
                     self.video_runner_obj,
                     service_url=service.get_url(endpoint="/detect_batch_folder")
                 )
-                success = await object_detection.run_object_detection()
+                success = object_detection.run_object_detection()
                 if not success:
                     raise Exception("Object detection failed")
+                return True
             finally:
                 self.service_manager.yolo_balancer.release_service(service)
         except Exception as e:
             self.logger.error(f"Error in object detection: {str(e)}")
-            raise
+            return False
 
     async def run_keyframe_selection(self) -> None:
         keyframe_selection = KeyframeSelection(self.video_runner_obj)
@@ -200,19 +201,18 @@ class PipelineRunner:
     def run_image_captioning(self) -> bool:
         """Run image captioning with service management"""
         try:
-            image_captioning = ImageCaptioning(self.video_runner_obj)
-
-            # Get a service for image captioning
             service = self.service_manager.caption_balancer.get_next_service()
             try:
-                success = image_captioning.run_image_captioning(service)
+                image_captioning = ImageCaptioning(
+                    self.video_runner_obj,
+                    service_url=service.get_url(endpoint="/upload")
+                )
+                success = image_captioning.run_image_captioning()
                 if not success:
                     raise Exception("Image captioning failed")
                 return True
             finally:
-                # Always release the service
                 self.service_manager.caption_balancer.release_service(service)
-
         except Exception as e:
             self.logger.error(f"Error in image captioning: {str(e)}")
             return False
@@ -220,18 +220,18 @@ class PipelineRunner:
     def run_caption_rating(self) -> bool:
         """Run caption rating with service management"""
         try:
-            caption_rating = CaptionRating(self.video_runner_obj)
-
             service = self.service_manager.rating_balancer.get_next_service()
             try:
-                success = caption_rating.perform_caption_rating(service)
+                caption_rating = CaptionRating(
+                    self.video_runner_obj,
+                    service_url=service.get_url(endpoint="/api")
+                )
+                success = caption_rating.perform_caption_rating()
                 if not success:
                     raise Exception("Caption rating failed")
                 return True
             finally:
-                # Always release the service
                 self.service_manager.rating_balancer.release_service(service)
-
         except Exception as e:
             self.logger.error(f"Error in caption rating: {str(e)}")
             return False
