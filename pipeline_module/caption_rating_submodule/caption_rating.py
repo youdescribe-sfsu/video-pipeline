@@ -25,14 +25,10 @@ class CaptionRating:
     Each service instance handles one request at a time.
     """
 
-    def __init__(self, video_runner_obj: Dict[str, Any], service_url: Optional[str] = None):
+    def __init__(self, video_runner_obj: Dict[str, Any]):
         """Initialize caption rating handler with necessary configurations."""
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        # Use service URL from service manager or video runner object
-        self.service_url = service_url or video_runner_obj.get("rating_url")
-        if not self.service_url:
-            raise ValueError("Rating service URL must be provided")
 
         # Service configuration
         self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
@@ -66,37 +62,35 @@ class CaptionRating:
         return True
 
     def get_caption_rating(self, image_data: Dict[str, str]) -> str:
-        """Get rating for a single caption using synchronous request with retry."""
-        payload = {
-            'token': self.token,
-            'img_url': image_data['frame_url'],
-            'caption': image_data['caption']
-        }
+        service = None
+        try:
+            # Get fresh service for each request
+            service = self.video_runner_obj["service_manager"].rating_balancer.get_next_service()
+            service_url = service.get_url(endpoint="/api")
 
-        for attempt in range(self.max_retries):
-            try:
-                self.logger.info(f"Sending rating request for frame {image_data['frame_index']}")
-                response = requests.post(
-                    self.service_url,
-                    data=payload,
-                    timeout=self.request_timeout
-                )
+            payload = {
+                'token': self.token,
+                'img_url': image_data['frame_url'],
+                'caption': image_data['caption']
+            }
 
-                if response.status_code == 200:
-                    rating = response.text.lstrip("['").rstrip("']")
-                    self.logger.info(f"Got rating {rating} for frame {image_data['frame_index']}")
-                    return rating
-
-                self.logger.error(f"Rating service returned status {response.status_code}")
-                if attempt < self.max_retries - 1:
-                    continue
-
-            except (requests.Timeout, requests.RequestException) as e:
-                self.logger.error(f"Request failed ({str(e)}), attempt {attempt + 1}")
-                if attempt < self.max_retries - 1:
-                    continue
-
-        return "0.0"  # Default value if all attempts fail
+            for attempt in range(self.max_retries):
+                try:
+                    response = requests.post(
+                        service_url,
+                        data=payload,
+                        timeout=self.request_timeout
+                    )
+                    if response.status_code == 200:
+                        return response.text.lstrip("['").rstrip("']")
+                except (requests.Timeout, requests.RequestException) as e:
+                    if attempt == self.max_retries - 1:
+                        self.video_runner_obj["service_manager"].rating_balancer.mark_service_failed(service)
+                        service = None  # Don't release failed service
+        finally:
+            if service:
+                self.video_runner_obj["service_manager"].rating_balancer.release_service(service)
+        return "0.0"
 
     def process_captions(self, caption_pair_file: str) -> bool:
         """Process all captions and save ratings to file."""

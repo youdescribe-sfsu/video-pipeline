@@ -30,14 +30,10 @@ class ImageCaptioning:
     Each service instance handles one request at a time.
     """
 
-    def __init__(self, video_runner_obj: Dict[str, Any], service_url: Optional[str] = None):
+    def __init__(self, video_runner_obj: Dict[str, Any]):
         """Initialize the image captioning handler with necessary configurations."""
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        # Use service URL from service manager or video runner object
-        self.service_url = service_url or video_runner_obj.get("caption_url")
-        if not self.service_url:
-            raise ValueError("Captioning service URL must be provided")
 
         # Service configuration
         self.token = 'VVcVcuNLTwBAaxsb2FRYTYsTnfgLdxKmdDDxMQLvh7rac959eb96BCmmCrAY7Hc3'
@@ -47,47 +43,34 @@ class ImageCaptioning:
         self.request_timeout = 10
 
     def get_caption(self, filename: str) -> str:
-        """Get caption for single image using synchronous request with retry mechanism."""
-        for attempt in range(self.max_retries):
-            try:
-                # Ensure file exists before attempting to process
-                if not os.path.exists(filename):
-                    self.logger.error(f"Image file not found: {filename}")
-                    return ""
+        service = None
+        try:
+            service = self.video_runner_obj["service_manager"].caption_balancer.get_next_service()
+            service_url = service.get_url(endpoint="/upload")
 
-                with open(filename, 'rb') as fileBuffer:
-                    multipart_form_data = {
-                        'token': ('', self.token),
-                        'image': (os.path.basename(filename), fileBuffer),
-                        'min_length': ('', str(self.min_length)),
-                        'max_length': ('', str(self.max_length))
-                    }
-
-                    self.logger.info(f"Sending request to {self.service_url}")
-                    response = requests.post(
-                        self.service_url,
-                        files=multipart_form_data,
-                        timeout=self.request_timeout
-                    )
-
-                    if response.status_code == 200:
-                        caption = response.json()['caption']
-                        self.logger.info(f"Got caption: {caption}")
-                        return caption.strip()
-
-                    self.logger.error(f"Caption service returned status {response.status_code}")
-                    if attempt < self.max_retries - 1:
-                        continue
-
-            except requests.Timeout:
-                self.logger.error(f"Request timed out for file {filename}")
-                if attempt < self.max_retries - 1:
-                    continue
-            except Exception as e:
-                self.logger.error(f"Error getting caption: {str(e)}")
-                if attempt < self.max_retries - 1:
-                    continue
-
+            for attempt in range(self.max_retries):
+                try:
+                    with open(filename, 'rb') as fileBuffer:
+                        multipart_form_data = {
+                            'token': ('', self.token),
+                            'image': (os.path.basename(filename), fileBuffer),
+                            'min_length': ('', str(self.min_length)),
+                            'max_length': ('', str(self.max_length))
+                        }
+                        response = requests.post(
+                            service_url,
+                            files=multipart_form_data,
+                            timeout=self.request_timeout
+                        )
+                        if response.status_code == 200:
+                            return response.json()['caption'].strip()
+                except (requests.Timeout, requests.RequestException) as e:
+                    if attempt == self.max_retries - 1:
+                        self.video_runner_obj["service_manager"].caption_balancer.mark_service_failed(service)
+                        service = None
+        finally:
+            if service:
+                self.video_runner_obj["service_manager"].caption_balancer.release_service(service)
         return ""
 
     def get_frame_files(self) -> List[str]:
