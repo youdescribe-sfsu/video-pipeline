@@ -104,7 +104,7 @@ class PipelineRunner:
         self.logger.info(f"Starting task: {task}")
         try:
             # Special handling for synchronous tasks
-            if task in ['image_captioning', 'caption_rating']:
+            if task in ['image_captioning', 'caption_rating', 'object_detection']:
                 result = getattr(self, f"run_{task}")(*args, **kwargs)
             else:
                 result = await getattr(self, f"run_{task}")(*args, **kwargs)
