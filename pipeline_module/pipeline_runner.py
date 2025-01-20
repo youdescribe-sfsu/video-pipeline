@@ -201,18 +201,11 @@ class PipelineRunner:
     def run_image_captioning(self) -> bool:
         """Run image captioning with service management"""
         try:
-            service = self.service_manager.caption_balancer.get_next_service()
-            try:
-                image_captioning = ImageCaptioning(
-                    self.video_runner_obj,
-                    service_url=service.get_url(endpoint="/upload")
-                )
-                success = image_captioning.run_image_captioning()
-                if not success:
-                    raise Exception("Image captioning failed")
-                return True
-            finally:
-                self.service_manager.caption_balancer.release_service(service)
+            image_captioning = ImageCaptioning(self.video_runner_obj)
+            success = image_captioning.run_image_captioning()
+            if not success:
+                raise Exception("Image captioning failed")
+            return True
         except Exception as e:
             self.logger.error(f"Error in image captioning: {str(e)}")
             return False
@@ -220,18 +213,11 @@ class PipelineRunner:
     def run_caption_rating(self) -> bool:
         """Run caption rating with service management"""
         try:
-            service = self.service_manager.rating_balancer.get_next_service()
-            try:
-                caption_rating = CaptionRating(
-                    self.video_runner_obj,
-                    service_url=service.get_url(endpoint="/api")
-                )
-                success = caption_rating.perform_caption_rating()
-                if not success:
-                    raise Exception("Caption rating failed")
-                return True
-            finally:
-                self.service_manager.rating_balancer.release_service(service)
+            caption_rating = CaptionRating(self.video_runner_obj)
+            success = caption_rating.perform_caption_rating()
+            if not success:
+                raise Exception("Caption rating failed")
+            return True
         except Exception as e:
             self.logger.error(f"Error in caption rating: {str(e)}")
             return False
