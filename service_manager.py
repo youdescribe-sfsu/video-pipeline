@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import aiohttp
-from asyncio import Lock
 import psutil
 
 
