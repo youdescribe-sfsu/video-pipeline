@@ -76,17 +76,21 @@ class CaptionRating:
 
             for attempt in range(self.max_retries):
                 try:
+                    self.logger.info(f"Sending request to {service_url}")
+
                     response = requests.post(
                         service_url,
                         data=payload,
                         timeout=self.request_timeout
                     )
                     if response.status_code == 200:
-                        return response.text.lstrip("['").rstrip("']")
+                        rating = response.text.lstrip("['").rstrip("']")
+                        self.logger.info(f"Got rating {rating} for frame {image_data['frame_index']}")
+                        return rating
                 except (requests.Timeout, requests.RequestException) as e:
                     if attempt == self.max_retries - 1:
                         self.video_runner_obj["service_manager"].rating_balancer.mark_service_failed(service)
-                        service = None  # Don't release failed service
+                        service = None
         finally:
             if service:
                 self.video_runner_obj["service_manager"].rating_balancer.release_service(service)

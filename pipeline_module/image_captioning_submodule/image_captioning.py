@@ -57,13 +57,16 @@ class ImageCaptioning:
                             'min_length': ('', str(self.min_length)),
                             'max_length': ('', str(self.max_length))
                         }
+                        self.logger.info(f"Sending request to {service_url}")
                         response = requests.post(
                             service_url,
                             files=multipart_form_data,
                             timeout=self.request_timeout
                         )
                         if response.status_code == 200:
-                            return response.json()['caption'].strip()
+                            caption = response.json()['caption']
+                            self.logger.info(f"Got caption: {caption}")
+                            return caption.strip()
                 except (requests.Timeout, requests.RequestException) as e:
                     if attempt == self.max_retries - 1:
                         self.video_runner_obj["service_manager"].caption_balancer.mark_service_failed(service)
