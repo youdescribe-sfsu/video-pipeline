@@ -33,14 +33,10 @@ YOLO_SERVICES = [
 
 CAPTION_SERVICES = [
     {"port": "8085", "gpu": "4"},
-    {"port": "8093", "gpu": "3"},
-    {"port": "8095", "gpu": "1"}
 ]
 
 RATING_SERVICES = [
     {"port": "8082", "gpu": "4"},
-    {"port": "8092", "gpu": "3"},
-    {"port": "8094", "gpu": "1"}
 ]
 
 # Setup logging
