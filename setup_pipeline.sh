@@ -1,11 +1,23 @@
-# #!/bin/bash
+#!/bin/bash
 
-# # Start screen session for pipeline_web_server
-# screen -dmS pipeline_web_server bash -c 'cd /home/921416519/video-pipeline && source pipeline_env/bin/activate && uvicorn web_server:app --host 0.0.0.0 --port 8086'
+# Update for start_pipeline.sh
 
-# # Start screen session for yolo_service
-# screen -dmS yolo_service bash -c 'cd /home/921416519/yolov8_service && source venv/bin/activate && uvicorn app:app --host 0.0.0.0 --port 8087'
+# Set the number of workers for the pipeline
+export MAX_PIPELINE_WORKERS=4
 
-python3 -m venv venv
+# Define the tmux session name
+TMUX_SESSION_NAME="pipeline_server"
+
+# Activate the virtual environment
 source venv/bin/activate
-pip install -r requirements.txt
+
+# Start the pipeline in a tmux session
+tmux new-session -d -s "$TMUX_SESSION_NAME" bash -c "\
+    uvicorn web_server:app \\
+        --host 0.0.0.0 \\
+        --port 8086 \\
+        --workers 4 \\
+        --log-level info\
+"
+
+echo "Pipeline started in tmux session: $TMUX_SESSION_NAME"
