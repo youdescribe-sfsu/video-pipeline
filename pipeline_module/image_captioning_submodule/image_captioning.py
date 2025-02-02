@@ -1,6 +1,6 @@
 import csv
 import os
-import json
+import time
 import requests
 import traceback
 from typing import Dict, Any, Optional, List, Tuple
@@ -66,6 +66,7 @@ class ImageCaptioning:
                         if response.status_code == 200:
                             caption = response.json()['caption']
                             self.logger.info(f"Got caption: {caption}")
+                            time.sleep(2)
                             return caption.strip()
                 except (requests.Timeout, requests.RequestException) as e:
                     if attempt == self.max_retries - 1:

@@ -171,17 +171,17 @@ class ServiceManager:
         self.yolo_balancer = ServiceBalancer(
             yolo_services,
             "/detect_batch_folder",
-            max_connections=self.max_connections_per_worker
+            max_connections=1
         )
         self.caption_balancer = ServiceBalancer(
             caption_services,
             "/upload",
-            max_connections=self.max_connections_per_worker
+            max_connections=1
         )
         self.rating_balancer = ServiceBalancer(
             rating_services,
             "/api",
-            max_connections=self.max_connections_per_worker
+            max_connections=1
         )
 
         self.logger = logging.getLogger(__name__)
