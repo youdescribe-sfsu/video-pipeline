@@ -28,3 +28,5 @@ torchaudio
 tensorflow
 flax
 psutil
+redis
+rq
