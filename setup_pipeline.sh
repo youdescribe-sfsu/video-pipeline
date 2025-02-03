@@ -3,7 +3,7 @@
 # Update for start_pipeline.sh
 
 # Set the number of workers for the pipeline
-export MAX_PIPELINE_WORKERS=4
+export MAX_PIPELINE_WORKERS=1
 
 # Define the tmux session name
 TMUX_SESSION_NAME="pipeline_server"
