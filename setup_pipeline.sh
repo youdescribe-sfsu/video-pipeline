@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set the number of workers for the pipeline
-export MAX_PIPELINE_WORKERS=4
+export MAX_PIPELINE_WORKERS=1
 
 # Define the tmux session names for the web server and RQ worker
 TMUX_SESSION_UVICORN="pipeline_server"
