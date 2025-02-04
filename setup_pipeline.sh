@@ -42,7 +42,7 @@ tmux new-session -d -s "$TMUX_SESSION_UVICORN" "bash -c '\
     exec uvicorn web_server:app \
         --host 0.0.0.0 \
         --port 8086 \
-        --workers \$MAX_PIPELINE_WORKERS \
+        --workers 2 \
         --log-level info \
     2>\"$BASE_DIR/logs/uvicorn_error.log\" \
     '"
