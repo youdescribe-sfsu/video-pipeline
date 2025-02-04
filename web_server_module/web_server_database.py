@@ -262,7 +262,7 @@ def update_module_output(youtube_id, ai_user_id, module_name, output_data):
                 INSERT OR REPLACE INTO module_outputs (youtube_id, ai_user_id, module_name, output_data)
                 VALUES (?, ?, ?, ?)
             ''', (youtube_id, ai_user_id, module_name, json.dumps(output_data)))
-            logger.info(f"Updated module output for {module_name} in the database.")
+            logger.info(f"Updated module output for {module_name} in the database for {youtube_id}.")
     except sqlite3.Error as e:
         logger.error(f"Error updating module output: {e}")
 
