@@ -10,7 +10,7 @@ if [[ "$VIRTUAL_ENV" == "" ]]; then
 fi
 
 # Set the number of workers
-export MAX_PIPELINE_WORKERS=4
+export MAX_PIPELINE_WORKERS=1
 
 # Define session names
 TMUX_SESSION_UVICORN="pipeline_server"
