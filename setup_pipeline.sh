@@ -1,38 +1,35 @@
 #!/bin/bash
 
-# screen_pipeline.sh - Setup script for YouDescribeX video pipeline using screen sessions
-
-# First ensure we're in the right directory
+# Ensure we're in the right directory
 cd "$(dirname "$0")"
 
-# Define our screen session names
-UVICORN_SESSION="pipeline_server"
-RQ_SESSION="pipeline_worker"
-
-# Clean up any existing screen sessions to start fresh
-echo "Cleaning up existing screen sessions..."
-screen -S $UVICORN_SESSION -X quit > /dev/null 2>&1
-screen -S $RQ_SESSION -X quit > /dev/null 2>&1
-
-# Ensure virtual environment is activated for the whole script
+# Ensure virtual environment is activated
 if [[ "$VIRTUAL_ENV" == "" ]]; then
     echo "Activating virtual environment..."
     source venv/bin/activate
 fi
 
-# Set the number of workers for the pipeline
+# Set the number of workers
 export MAX_PIPELINE_WORKERS=1
 
-# Check if Redis is running - we need this for the RQ worker
+# Define session names
+TMUX_SESSION_UVICORN="pipeline_server"
+TMUX_SESSION_RQ="pipeline_rq_worker"
+
+# Kill existing sessions if they exist
+tmux kill-session -t "$TMUX_SESSION_UVICORN" 2>/dev/null
+tmux kill-session -t "$TMUX_SESSION_RQ" 2>/dev/null
+
+# Check if Redis is running
 if ! redis-cli ping > /dev/null 2>&1; then
     echo "Redis is not running. Starting Redis..."
     sudo service redis-server start
     sleep 2
 fi
 
-# Start the Uvicorn server in a screen session
-echo "Starting Uvicorn server in screen session '$UVICORN_SESSION'..."
-screen -dmS $UVICORN_SESSION bash -c "\
+# Start the Uvicorn server
+echo "Starting Uvicorn server..."
+tmux new-session -d -s "$TMUX_SESSION_UVICORN" bash -c "\
     source venv/bin/activate; \
     uvicorn web_server:app \
         --host 0.0.0.0 \
@@ -41,22 +38,17 @@ screen -dmS $UVICORN_SESSION bash -c "\
         --log-level info\
 "
 
-# Start the RQ worker in a screen session
-echo "Starting RQ worker in screen session '$RQ_SESSION'..."
-screen -dmS $RQ_SESSION bash -c "\
+# Start the RQ worker
+echo "Starting RQ worker..."
+tmux new-session -d -s "$TMUX_SESSION_RQ" bash -c "\
     source venv/bin/activate; \
     rq worker video_tasks --url redis://localhost:6379\
 "
 
-# List running screen sessions to verify everything started
-echo -e "\nVerifying running screen sessions:"
-screen -ls
+# Verify sessions are running
+echo "Verifying tmux sessions..."
+tmux ls
 
-# Print helpful instructions for the user
-echo -e "\nPipeline services started! To interact with the sessions:"
-echo "  - View Uvicorn server: screen -r $UVICORN_SESSION"
-echo "  - View RQ worker: screen -r $RQ_SESSION"
-echo -e "\nScreen session commands:"
-echo "  - Detach from session: Press Ctrl-a then d"
-echo "  - Kill a session: Press Ctrl-a then k"
-echo "  - See all sessions: screen -ls"
+echo "Pipeline services started. To attach to sessions:"
+echo "  tmux attach -t $TMUX_SESSION_UVICORN"
+echo "  tmux attach -t $TMUX_SESSION_RQ"

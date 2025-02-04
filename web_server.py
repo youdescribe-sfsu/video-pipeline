@@ -14,11 +14,12 @@ from rq import Queue
 from web_server_module.web_server_types import WebServerRequest
 from web_server_module.custom_logger import setup_logger
 # Import run_pipeline and our new task processing function
-from pipeline_module.pipeline_runner import run_pipeline, process_video_task
+from pipeline_module.pipeline_runner import run_pipeline
 from web_server_module.web_server_database import (
     create_database, process_incoming_data, update_status, StatusEnum, get_status_for_youtube_id,
     remove_sqlite_entry, get_pending_jobs_with_youtube_ids, get_data_for_youtube_id_and_user_id
 )
+from pipeline_module.global_task_processor import process_video_task
 from service_manager import ServiceManager
 from pipeline_module.utils_module.utils import return_video_folder_name
 
