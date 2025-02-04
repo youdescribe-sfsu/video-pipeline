@@ -6,6 +6,9 @@
 
 from redis import Redis
 from rq import Queue
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Redis connection setup
 redis_conn = Redis(host="localhost", port=6379)
@@ -16,4 +19,6 @@ caption_queue = Queue('caption_tasks', connection=redis_conn)
 
 def get_queue_for_task(task_type: str) -> Queue:
     """Helper function to get the appropriate queue for a task type"""
-    return caption_queue if task_type == "image_captioning" else global_task_queue
+    queue = caption_queue if task_type == "image_captioning" else global_task_queue
+    logger.info(f"Routing task {task_type} to queue {queue.name}")
+    return queue
