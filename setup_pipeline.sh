@@ -1,142 +1,130 @@
 #!/bin/bash
 ###############################################################################
 # YouDescribeX Pipeline Setup Script
-#
-# This script sets up and manages the dual-queue worker system for video processing:
-# - General processing workers (video_tasks queue)
-# - Dedicated image captioning worker (caption_tasks queue)
-#
-# The script handles:
-# 1. Environment setup and validation
-# 2. Redis server checking
-# 3. Worker process management via tmux
-# 4. Proper GPU allocation for image captioning
+# Manages both web server (uvicorn) and task processing (RQ) workers
 ###############################################################################
 
-# Exit on any error
-set -e
+set -e  # Exit on any error
 
 echo "Starting YouDescribeX Pipeline Setup..."
 
-# Ensure we're in the right directory
-cd "$(dirname "$0")"
+# Directory Setup
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Create necessary directories
+mkdir -p logs
+mkdir -p pipeline_logs
 
 # Environment Setup
-#-------------------------------------------------------------------------------
-# Check and activate virtual environment if needed
-if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo "Virtual environment not active, attempting to activate..."
-    if [ -d "venv" ]; then
-        source venv/bin/activate
-    else
-        echo "Error: Virtual environment not found in ./venv"
-        exit 1
-    fi
+VENV_DIR="$SCRIPT_DIR/venv"
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv "$VENV_DIR"
 fi
 
-# Set the number of general processing workers
-export MAX_PIPELINE_WORKERS=4
+echo "Activating virtual environment..."
+source "$VENV_DIR/bin/activate"
 
-# Set GPU device for captioning
-export CAPTION_GPU_DEVICE=0
-
-# Define session names for better organization
-TMUX_SESSION_GENERAL="pipeline_worker_general"
-TMUX_SESSION_CAPTION="pipeline_worker_caption"
+# Verify dependencies
+echo "Verifying dependencies..."
+pip install -r requirements.txt > /dev/null
 
 # Redis Check
-#-------------------------------------------------------------------------------
 echo "Checking Redis server status..."
 if ! redis-cli ping > /dev/null 2>&1; then
     echo "Redis is not running. Starting Redis server..."
     sudo service redis-server start
-
-    # Wait for Redis to fully start
-    for i in {1..5}; do
-        if redis-cli ping > /dev/null 2>&1; then
-            break
-        fi
-        echo "Waiting for Redis to start... ($i/5)"
-        sleep 2
-    done
-
-    if ! redis-cli ping > /dev/null 2>&1; then
-        echo "Failed to start Redis server"
-        exit 1
-    fi
+    sleep 2
 fi
-echo "Redis server is running"
+echo "✓ Redis server is running"
 
-# Clean Up Existing Sessions
-#-------------------------------------------------------------------------------
+# Clean up existing sessions
 echo "Cleaning up existing tmux sessions..."
-tmux kill-session -t "$TMUX_SESSION_GENERAL" 2>/dev/null || true
-tmux kill-session -t "$TMUX_SESSION_CAPTION" 2>/dev/null || true
+tmux kill-session -t "pipeline_worker_general" 2>/dev/null || true
+tmux kill-session -t "pipeline_worker_caption" 2>/dev/null || true
+tmux kill-session -t "pipeline_web_server" 2>/dev/null || true
 
-# Start General Processing Workers
-#-------------------------------------------------------------------------------
-echo "Starting general processing workers..."
-tmux new-session -d -s "$TMUX_SESSION_GENERAL" bash -c "\
-    source venv/bin/activate; \
-    echo 'Starting general processing workers with concurrency=$MAX_PIPELINE_WORKERS'; \
-    rq worker video_tasks \
-        --url redis://localhost:6379 \
-        --concurrency=4 \
-        --with-scheduler \
-        --verbose \
-        --name 'general_worker' \
-        2>&1 | tee logs/general_worker.log \
+# Start web server with uvicorn workers
+echo "Starting web server with uvicorn workers..."
+tmux new-session -d -s "pipeline_web_server" bash -c "\
+    source $VENV_DIR/bin/activate; \
+    export PYTHONPATH=$SCRIPT_DIR:$PYTHONPATH; \
+    uvicorn web_server:app \
+        --host 0.0.0.0 \
+        --port 8086 \
+        --workers 2 \
+        --log-level info \
+        --timeout-keep-alive 120 \
+        2>&1 | tee logs/web_server.log \
 "
 
-# Start Dedicated Caption Worker
-#-------------------------------------------------------------------------------
+# Start general processing workers
+echo "Starting general processing workers..."
+tmux new-session -d -s "pipeline_worker_general" bash -c "\
+    source $VENV_DIR/bin/activate; \
+    export PYTHONPATH=$SCRIPT_DIR:$PYTHONPATH; \
+    for i in {1..4}; do \
+        rq worker video_tasks \
+            --url redis://localhost:6379 \
+            --name general_worker_\$i \
+            --with-scheduler \
+            --verbose \
+            2>&1 | tee -a logs/general_worker.log & \
+    done; \
+    wait \
+"
+
+# Start caption worker
 echo "Starting dedicated caption worker..."
-tmux new-session -d -s "$TMUX_SESSION_CAPTION" bash -c "\
-    source venv/bin/activate; \
-    echo 'Starting caption worker on GPU $CAPTION_GPU_DEVICE'; \
-    CUDA_VISIBLE_DEVICES=$CAPTION_GPU_DEVICE rq worker caption_tasks \
+tmux new-session -d -s "pipeline_worker_caption" bash -c "\
+    source $VENV_DIR/bin/activate; \
+    export PYTHONPATH=$SCRIPT_DIR:$PYTHONPATH; \
+    CUDA_VISIBLE_DEVICES=0 rq worker caption_tasks \
         --url redis://localhost:6379 \
-        --concurrency=1 \
+        --name caption_worker \
         --with-scheduler \
         --verbose \
-        --name 'caption_worker' \
         2>&1 | tee logs/caption_worker.log \
 "
 
-# Verify Worker Status
-#-------------------------------------------------------------------------------
-echo "Verifying worker status..."
-sleep 3  # Give workers time to start
+# Wait for all services to start
+echo "Waiting for services to initialize..."
+sleep 5
 
-echo "Checking RQ workers status..."
-rq info --raw | grep -E "general_worker|caption_worker" || echo "No workers found in RQ info"
+# Verify all services
+echo "Verifying services status..."
 
-# Create Status Report
-#-------------------------------------------------------------------------------
+# Check web server
+if curl -s http://localhost:8086/health_check > /dev/null; then
+    echo "✓ Web server is running"
+else
+    echo "⚠ Warning: Web server may not be running properly"
+fi
+
+# Check RQ workers
+WORKERS=$(rq info --raw | grep -c "worker" || echo "0")
+if [ "$WORKERS" -ge 5 ]; then
+    echo "✓ RQ Workers started successfully ($WORKERS workers running)"
+else
+    echo "⚠ Warning: Not all RQ workers are running (found $WORKERS, expected 5)"
+fi
+
+# Print status report
 echo -e "\nPipeline Setup Status:"
 echo "------------------------"
 echo "✓ Redis Server: Running"
-echo "✓ General Workers: Started with concurrency $MAX_PIPELINE_WORKERS"
-echo "✓ Caption Worker: Started on GPU $CAPTION_GPU_DEVICE"
+echo "✓ Web Server: Running on port 8086 (2 uvicorn workers)"
+echo "✓ General Workers: Started (4 RQ processes)"
+echo "✓ Caption Worker: Started on GPU 0"
+echo "✓ Log Directory: $(pwd)/logs"
 
-# Print Monitoring Instructions
-#-------------------------------------------------------------------------------
-echo -e "\nTo monitor workers:"
-echo "  General workers: tmux attach -t $TMUX_SESSION_GENERAL"
-echo "  Caption worker: tmux attach -t $TMUX_SESSION_CAPTION"
-echo -e "\nLog files are available in the logs directory:"
-echo "  - logs/general_worker.log"
-echo "  - logs/caption_worker.log"
-
-# Health Check
-#-------------------------------------------------------------------------------
-echo -e "\nPerforming final health check..."
-if tmux has-session -t "$TMUX_SESSION_GENERAL" 2>/dev/null && \
-   tmux has-session -t "$TMUX_SESSION_CAPTION" 2>/dev/null; then
-    echo "✓ All pipeline services started successfully"
-else
-    echo "⚠ Warning: Some services may not have started properly"
-    echo "Please check the logs for more information"
-fi
+# Print monitoring instructions
+echo -e "\nTo monitor services:"
+echo "  tmux attach -t pipeline_web_server     # Web server logs"
+echo "  tmux attach -t pipeline_worker_general # General worker logs"
+echo "  tmux attach -t pipeline_worker_caption # Caption worker logs"
+echo "  rq info                                # Queue status"
+echo "  curl http://localhost:8086/health_check # Server health"
 
 echo -e "\nSetup complete! The pipeline is ready to process tasks."
