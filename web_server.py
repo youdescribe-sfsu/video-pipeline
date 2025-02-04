@@ -124,6 +124,8 @@ async def generate_ai_caption(post_data: WebServerRequest):
             }
         )
 
+        logger.info(f"Successfully enqueued task. Job ID: {job.id}, Queue size: {len(global_task_queue)}")
+
         return {
             "status": "accepted",
             "message": "Task queued for processing",
@@ -159,6 +161,22 @@ async def health_check():
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/queue_status")
+async def queue_status():
+    try:
+        return {
+            "queue_size": len(global_task_queue),
+            "active_jobs": len(global_task_queue.jobs),
+            "failed_jobs": len(global_task_queue.failed_job_registry),
+            "redis_connected": redis_conn.ping(),
+            "workers": [worker.name for worker in Worker.all(connection=redis_conn)]
+        }
+    except Exception as e:
+        logger.error(f"Error getting queue status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # --- Main Entry Point ---
 if __name__ == "__main__":

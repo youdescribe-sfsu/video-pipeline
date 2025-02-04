@@ -22,6 +22,7 @@ from ..utils_module.utils import (
     CAPTION_IMAGE_PAIR,
     KEYFRAMES_CSV
 )
+from redis import Redis
 
 
 class ImageCaptioning:
@@ -41,6 +42,9 @@ class ImageCaptioning:
         self.max_length = 50
         self.max_retries = 2
         self.request_timeout = 10
+
+        # Initialize Redis connection for global locking
+        self.redis_conn = Redis(host="localhost", port=6379)
 
     def get_caption(self, filename: str) -> str:
         service = None
@@ -66,7 +70,7 @@ class ImageCaptioning:
                         if response.status_code == 200:
                             caption = response.json()['caption']
                             self.logger.info(f"Got caption: {caption}")
-                            time.sleep(2)
+                            time.sleep(4)
                             return caption.strip()
                 except (requests.Timeout, requests.RequestException) as e:
                     if attempt == self.max_retries - 1:
@@ -244,9 +248,26 @@ class ImageCaptioning:
             return False
 
     @timeit
+    @timeit
     def run_image_captioning(self) -> bool:
-        """Main entry point for image captioning process."""
+        """Main entry point for image captioning process with video-level locking."""
+        # Create a lock with appropriate timeouts
+        lock = self.redis_conn.lock(
+            "global_caption_lock",
+            blocking=True,
+            blocking_timeout=300,  # Wait up to 5 minutes to acquire lock
+            timeout=3600  # Lock expires after 1 hour if not released
+        )
+
         try:
+            # Try to acquire the lock
+            have_lock = lock.acquire()
+            if not have_lock:
+                self.logger.error("Could not acquire lock for image captioning")
+                return False
+
+            self.logger.info(f"Acquired global caption lock for video {self.video_runner_obj['video_id']}")
+
             # Check if already processed
             module_status = get_module_output(
                 self.video_runner_obj["video_id"],
@@ -257,22 +278,21 @@ class ImageCaptioning:
                 self.logger.info("Image captioning already processed")
                 return True
 
-            # Process frames and generate captions
+            # Process frames with exclusive access
             results = self.process_frames()
             if not results:
                 raise Exception("Frame processing failed")
 
-            # Save results and generate required files
+            # Save results while we still have the lock
             success = self.save_captions_csv(results)
             if not success:
                 raise Exception("Failed to save captions")
 
-            # Generate caption-image pairs file
             success = self.combine_image_caption()
             if not success:
                 raise Exception("Failed to combine captions with images")
 
-            # Mark process as complete
+            # Update completion status
             update_module_output(
                 self.video_runner_obj["video_id"],
                 self.video_runner_obj["AI_USER_ID"],
@@ -287,6 +307,12 @@ class ImageCaptioning:
             self.logger.error(f"Error in image captioning: {str(e)}")
             self.logger.error(traceback.format_exc())
             return False
+
+        finally:
+            # Always release the lock if we own it
+            if lock.owned():
+                self.logger.info(f"Releasing global caption lock for video {self.video_runner_obj['video_id']}")
+                lock.release()
 
     def filter_keyframes_from_caption(self) -> bool:
         """Optional method to filter captions based on keyframe selection."""

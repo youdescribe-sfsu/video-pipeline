@@ -261,6 +261,10 @@ class PipelineRunner:
             await self.service_manager.ensure_initialized()
 
             for task in self.tasks:
+                # Skip caption rating task
+                if task == 'caption_rating':
+                    self.logger.info("Skipping caption rating task as per configuration")
+                    continue
                 await self.run_task(task)
             self.logger.info(f"Pipeline completed successfully for video: {self.video_id}")
         except Exception as e:

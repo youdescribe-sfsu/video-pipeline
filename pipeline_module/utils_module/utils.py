@@ -61,7 +61,7 @@ class PipelineTask(Enum):
     OBJECT_DETECTION = "object_detection"
     KEYFRAME_SELECTION = "keyframe_selection"
     IMAGE_CAPTIONING = "image_captioning"
-    CAPTION_RATING = "caption_rating"
+    # CAPTION_RATING = "caption_rating"
     SCENE_SEGMENTATION = "scene_segmentation"
     TEXT_SUMMARIZATION = "text_summarization"
     UPLOAD_TO_YDX = "upload_to_ydx"
