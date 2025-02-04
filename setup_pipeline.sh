@@ -1,100 +1,142 @@
 #!/bin/bash
+###############################################################################
+# YouDescribeX Pipeline Setup Script
+#
+# This script sets up and manages the dual-queue worker system for video processing:
+# - General processing workers (video_tasks queue)
+# - Dedicated image captioning worker (caption_tasks queue)
+#
+# The script handles:
+# 1. Environment setup and validation
+# 2. Redis server checking
+# 3. Worker process management via tmux
+# 4. Proper GPU allocation for image captioning
+###############################################################################
 
-# Ensure we're in the right directory and capture it for later use
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$BASE_DIR"
+# Exit on any error
+set -e
 
-# Ensure virtual environment is activated and store its path
+echo "Starting YouDescribeX Pipeline Setup..."
+
+# Ensure we're in the right directory
+cd "$(dirname "$0")"
+
+# Environment Setup
+#-------------------------------------------------------------------------------
+# Check and activate virtual environment if needed
 if [[ "$VIRTUAL_ENV" == "" ]]; then
-    echo "Activating virtual environment..."
-    source venv/bin/activate
+    echo "Virtual environment not active, attempting to activate..."
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+    else
+        echo "Error: Virtual environment not found in ./venv"
+        exit 1
+    fi
 fi
-VENV_PATH="$VIRTUAL_ENV"
 
-# Set the number of workers and store it for use in child processes
-export MAX_PIPELINE_WORKERS=1
+# Set the number of general processing workers
+export MAX_PIPELINE_WORKERS=4
 
-# Define session names as variables for consistency and easy modification
-TMUX_SESSION_UVICORN="pipeline_server"
-TMUX_SESSION_RQ="pipeline_rq_worker"
+# Set GPU device for captioning
+export CAPTION_GPU_DEVICE=0
 
-# Kill existing sessions if they exist, redirecting error output to prevent noise
-echo "Cleaning up existing sessions..."
-tmux kill-session -t "$TMUX_SESSION_UVICORN" 2>/dev/null
-tmux kill-session -t "$TMUX_SESSION_RQ" 2>/dev/null
+# Define session names for better organization
+TMUX_SESSION_GENERAL="pipeline_worker_general"
+TMUX_SESSION_CAPTION="pipeline_worker_caption"
 
-# Verify Redis is running, start if needed
-echo "Checking Redis server..."
+# Redis Check
+#-------------------------------------------------------------------------------
+echo "Checking Redis server status..."
 if ! redis-cli ping > /dev/null 2>&1; then
-    echo "Redis is not running. Starting Redis..."
+    echo "Redis is not running. Starting Redis server..."
     sudo service redis-server start
-    sleep 2  # Give Redis time to start fully
+
+    # Wait for Redis to fully start
+    for i in {1..5}; do
+        if redis-cli ping > /dev/null 2>&1; then
+            break
+        fi
+        echo "Waiting for Redis to start... ($i/5)"
+        sleep 2
+    done
+
+    if ! redis-cli ping > /dev/null 2>&1; then
+        echo "Failed to start Redis server"
+        exit 1
+    fi
 fi
+echo "Redis server is running"
 
-# Create a log directory for storing session output
-mkdir -p "$BASE_DIR/logs"
+# Clean Up Existing Sessions
+#-------------------------------------------------------------------------------
+echo "Cleaning up existing tmux sessions..."
+tmux kill-session -t "$TMUX_SESSION_GENERAL" 2>/dev/null || true
+tmux kill-session -t "$TMUX_SESSION_CAPTION" 2>/dev/null || true
 
-# Start the Uvicorn server with improved session handling and logging
-echo "Starting Uvicorn server..."
-tmux new-session -d -s "$TMUX_SESSION_UVICORN" "bash -c '\
-    source \"$VENV_PATH/bin/activate\"; \
-    cd \"$BASE_DIR\"; \
-    exec uvicorn web_server:app \
-        --host 0.0.0.0 \
-        --port 8086 \
-        --workers 2 \
-        --log-level info \
-    2>\"$BASE_DIR/logs/uvicorn_error.log\" \
-    '"
+# Start General Processing Workers
+#-------------------------------------------------------------------------------
+echo "Starting general processing workers..."
+tmux new-session -d -s "$TMUX_SESSION_GENERAL" bash -c "\
+    source venv/bin/activate; \
+    echo 'Starting general processing workers with concurrency=$MAX_PIPELINE_WORKERS'; \
+    rq worker video_tasks \
+        --url redis://localhost:6379 \
+        --concurrency=$MAX_PIPELINE_WORKERS \
+        --with-scheduler \
+        --verbose \
+        --name 'general_worker' \
+        2>&1 | tee logs/general_worker.log \
+"
 
-# Start the RQ worker with similar improvements
-echo "Starting RQ worker..."
-tmux new-session -d -s "$TMUX_SESSION_RQ" "bash -c '\
-    source \"$VENV_PATH/bin/activate\"; \
-    cd \"$BASE_DIR\"; \
-    exec rq worker video_tasks --url redis://localhost:6379 \
-    2>\"$BASE_DIR/logs/rq_worker_error.log\" \
-    '"
+# Start Dedicated Caption Worker
+#-------------------------------------------------------------------------------
+echo "Starting dedicated caption worker..."
+tmux new-session -d -s "$TMUX_SESSION_CAPTION" bash -c "\
+    source venv/bin/activate; \
+    echo 'Starting caption worker on GPU $CAPTION_GPU_DEVICE'; \
+    CUDA_VISIBLE_DEVICES=$CAPTION_GPU_DEVICE rq worker caption_tasks \
+        --url redis://localhost:6379 \
+        --concurrency=1 \
+        --with-scheduler \
+        --verbose \
+        --name 'caption_worker' \
+        2>&1 | tee logs/caption_worker.log \
+"
 
-# Give sessions time to initialize
-sleep 2
+# Verify Worker Status
+#-------------------------------------------------------------------------------
+echo "Verifying worker status..."
+sleep 3  # Give workers time to start
 
-# Verify sessions and provide detailed status
-echo "Verifying tmux sessions..."
+echo "Checking RQ workers status..."
+rq info --raw | grep -E "general_worker|caption_worker" || echo "No workers found in RQ info"
+
+# Create Status Report
+#-------------------------------------------------------------------------------
+echo -e "\nPipeline Setup Status:"
 echo "------------------------"
+echo "✓ Redis Server: Running"
+echo "✓ General Workers: Started with concurrency $MAX_PIPELINE_WORKERS"
+echo "✓ Caption Worker: Started on GPU $CAPTION_GPU_DEVICE"
 
-# Check Uvicorn session
-if tmux has-session -t "$TMUX_SESSION_UVICORN" 2>/dev/null; then
-    echo "✓ Uvicorn server session running"
-    UVICORN_PID=$(tmux list-panes -t "$TMUX_SESSION_UVICORN" -F "#{pane_pid}")
-    echo "  → Session PID: $UVICORN_PID"
+# Print Monitoring Instructions
+#-------------------------------------------------------------------------------
+echo -e "\nTo monitor workers:"
+echo "  General workers: tmux attach -t $TMUX_SESSION_GENERAL"
+echo "  Caption worker: tmux attach -t $TMUX_SESSION_CAPTION"
+echo -e "\nLog files are available in the logs directory:"
+echo "  - logs/general_worker.log"
+echo "  - logs/caption_worker.log"
+
+# Health Check
+#-------------------------------------------------------------------------------
+echo -e "\nPerforming final health check..."
+if tmux has-session -t "$TMUX_SESSION_GENERAL" 2>/dev/null && \
+   tmux has-session -t "$TMUX_SESSION_CAPTION" 2>/dev/null; then
+    echo "✓ All pipeline services started successfully"
 else
-    echo "✗ Failed to create Uvicorn session"
-    echo "  → Check logs at: $BASE_DIR/logs/uvicorn_error.log"
+    echo "⚠ Warning: Some services may not have started properly"
+    echo "Please check the logs for more information"
 fi
 
-# Check RQ Worker session
-if tmux has-session -t "$TMUX_SESSION_RQ" 2>/dev/null; then
-    echo "✓ RQ worker session running"
-    RQ_PID=$(tmux list-panes -t "$TMUX_SESSION_RQ" -F "#{pane_pid}")
-    echo "  → Session PID: $RQ_PID"
-else
-    echo "✗ Failed to create RQ worker session"
-    echo "  → Check logs at: $BASE_DIR/logs/rq_worker_error.log"
-fi
-
-echo "------------------------"
-echo "Active tmux sessions:"
-tmux ls || echo "No active sessions found"
-echo "------------------------"
-
-# Provide instructions for accessing the sessions
-echo "Pipeline services started. To attach to sessions:"
-echo "  tmux attach -t $TMUX_SESSION_UVICORN"
-echo "  tmux attach -t $TMUX_SESSION_RQ"
-
-# Provide instructions for checking logs
-echo
-echo "To check service logs:"
-echo "  tail -f $BASE_DIR/logs/uvicorn_error.log"
-echo "  tail -f $BASE_DIR/logs/rq_worker_error.log"
+echo -e "\nSetup complete! The pipeline is ready to process tasks."

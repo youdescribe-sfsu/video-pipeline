@@ -1,216 +1,192 @@
-from threading import Lock
-import json
 import logging
 import os
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 import aiohttp
 import psutil
+from queue_config import global_task_queue, caption_queue
+from web_server_module.web_server_database import get_status_for_youtube_id, get_module_output
 
 
-# Configuration class for service endpoints
 @dataclass
 class ServiceConfig:
+    """
+    Configuration for a single service endpoint.
+    Each service runs on a dedicated port with dedicated GPU resources.
+    """
     port: str
     gpu: str
-    health_check_url: Optional[str] = None
-    last_health_check: Optional[datetime] = None
+    endpoint: str
     is_healthy: bool = True
-    current_load: int = 0
-    max_load: int = 5  # Maximum concurrent requests per service
 
-    def get_url(self, base_url: str = "http://localhost", endpoint: str = "") -> str:
-        return f"{base_url}:{self.port}{endpoint}"
+    def get_url(self, base_url: str = "http://localhost") -> str:
+        """Construct the complete service URL"""
+        return f"{base_url}:{self.port}{self.endpoint}"
+
+    def __str__(self) -> str:
+        """Human-readable service representation"""
+        return f"Service on port {self.port} using GPU {self.gpu}"
 
 
-# Class to track service statistics
-class ServiceStats:
-    def __init__(self):
+class ServiceMonitor:
+    """
+    Monitors the health and status of a single service instance.
+    Provides health checking and basic statistics tracking.
+    """
+
+    def __init__(self, service: ServiceConfig):
+        self.service = service
+        self.last_check = None
         self.total_requests = 0
         self.failed_requests = 0
-        self.last_used = None
-        self.last_error = None
-        self.average_response_time = 0.0
-        self.total_response_time = 0.0
-        self.concurrent_requests = 0
-
-    def update_stats(self, response_time: float, failed: bool = False):
-        self.total_requests += 1
-        self.last_used = datetime.now()
-        if failed:
-            self.failed_requests += 1
-        else:
-            self.total_response_time += response_time
-            self.average_response_time = self.total_response_time / (
-                    self.total_requests - self.failed_requests
-            )
-
-
-# Load balancer for specific service type
-class ServiceBalancer:
-    def __init__(self, services: List[Dict[str, str]], endpoint: str, max_connections: int = 10):
-        self.active_services = set()
-        self.configs = [ServiceConfig(**svc) for svc in services]
-        self.endpoint = endpoint
-        self.max_connections = max_connections
-        self.stats = {svc.port: ServiceStats() for svc in self.configs}
-        self.lock = Lock()
+        self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)
-        self.session = None
-
-        # Add this debug logging
-        self.logger.info(f"Initialized ServiceBalancer for endpoint {endpoint} with services: {services}")
-
-    async def check_services_health(self) -> Dict[str, Any]:
-        """Simplified health check focusing only on service endpoint"""
-        if not self.session:
-            self.logger.error("Session not initialized before health check!")
-            return {}
-
-        health_results = {}
-        for service in self.configs:
-            try:
-                base_url = f"http://localhost:{service.port}"
-                check_url = f"{base_url}{self.endpoint}"
-
-                async with self.session.get(check_url, timeout=2) as response:
-                    # 405 is healthy for all services - they all use POST endpoints
-                    is_healthy = response.status in (405, 404, 200)
-
-                    health_results[service.port] = {
-                        'healthy': is_healthy,
-                        'gpu': service.gpu,
-                        'current_load': service.current_load,
-                        'status_code': response.status
-                    }
-                    service.is_healthy = is_healthy
-
-            except Exception as e:
-                self.logger.error(f"Health check failed for {base_url}: {str(e)}")
-                health_results[service.port] = self._create_error_result(service, str(e))
-
-        return health_results
-
-    def _create_error_result(self, service: ServiceConfig, error_message: str) -> Dict:
-        """Helper method to create consistent error results"""
-        return {
-            'healthy': False,
-            'gpu': service.gpu,
-            'current_load': service.current_load,
-            'last_check': datetime.now().isoformat(),
-            'endpoint_type': self.endpoint,
-            'error': error_message
-        }
-
-    async def release_all(self):
-        """Release all services in this balancer"""
-        async with self.lock:
-            for service in self.configs:
-                service.current_load = 0
-            self.active_services.clear()
 
     async def initialize(self):
-        """Initialize session asynchronously"""
+        """Initialize monitoring session for health checks"""
         if self.session is None:
             self.session = aiohttp.ClientSession(
-                connector=aiohttp.TCPConnector(
-                    limit=self.max_connections,
-                    force_close=True
-                )
+                connector=aiohttp.TCPConnector(force_close=True)
             )
 
+    async def check_health(self) -> Dict[str, Any]:
+        """
+        Check if the service is responding properly.
+        Returns detailed health status information.
+        """
+        if not self.session:
+            await self.initialize()
+
+        try:
+            url = self.service.get_url()
+            async with self.session.get(url, timeout=2) as response:
+                # 405 is healthy for services that only accept POST
+                is_healthy = response.status in (405, 404, 200)
+                self.service.is_healthy = is_healthy
+                self.last_check = datetime.now()
+
+                return {
+                    'healthy': is_healthy,
+                    'gpu': self.service.gpu,
+                    'status_code': response.status,
+                    'last_check': self.last_check.isoformat(),
+                    'total_requests': self.total_requests,
+                    'failed_requests': self.failed_requests
+                }
+
+        except Exception as e:
+            self.logger.error(f"Health check failed for {url}: {str(e)}")
+            self.service.is_healthy = False
+            return {
+                'healthy': False,
+                'gpu': self.service.gpu,
+                'error': str(e),
+                'last_check': datetime.now().isoformat()
+            }
+
+    def record_request(self, failed: bool = False):
+        """Record request statistics"""
+        self.total_requests += 1
+        if failed:
+            self.failed_requests += 1
+
     async def cleanup(self):
-        """Cleanup session properly"""
+        """Clean up monitoring resources"""
         if self.session:
             await self.session.close()
             self.session = None
 
-    def get_next_service(self) -> ServiceConfig:
-        """Synchronous service selection"""
-        with self.lock:
-            available_services = [svc for svc in self.configs if svc.is_healthy]
-            if not available_services:
-                raise RuntimeError("No healthy services available")
 
-            selected_service = min(
-                available_services,
-                key=lambda s: s.current_load
-            )
-            selected_service.current_load += 1
-            return selected_service
-
-    def release_service(self, service: ServiceConfig):
-        """Synchronous service release"""
-        with self.lock:
-            service.current_load = max(0, service.current_load - 1)
-
-    def get_stats(self) -> Dict:
-        """Get service statistics"""
-        return {
-            port: {
-                "total_requests": stats.total_requests,
-                "failed_requests": stats.failed_requests,
-                "concurrent_requests": stats.concurrent_requests,
-                "average_response_time": stats.average_response_time
-            }
-            for port, stats in self.stats.items()
-        }
-
-
-# Main service manager class
 class ServiceManager:
-    def __init__(
-            self,
-            yolo_services: List[Dict[str, str]],
-            caption_services: List[Dict[str, str]],
-            rating_services: List[Dict[str, str]],
-            max_workers: int = 4
-    ):
-        self.max_connections_per_worker = 100 // max_workers
-        self.yolo_balancer = ServiceBalancer(
-            yolo_services,
-            "/detect_batch_folder",
-            max_connections=1
+    """
+    Manages individual service instances for the video processing pipeline.
+    Each service type (caption, rating, YOLO) has exactly one dedicated instance.
+    """
+
+    def __init__(self):
+        # Initialize single service instances
+        self.caption_service = ServiceConfig(
+            port="8085",
+            gpu="4",
+            endpoint="/upload"
         )
-        self.caption_balancer = ServiceBalancer(
-            caption_services,
-            "/upload",
-            max_connections=1
+        self.rating_service = ServiceConfig(
+            port="8082",
+            gpu="4",
+            endpoint="/api"
         )
-        self.rating_balancer = ServiceBalancer(
-            rating_services,
-            "/api",
-            max_connections=1
+        self.yolo_service = ServiceConfig(
+            port="8087",
+            gpu="2",
+            endpoint="/detect_batch_folder"
         )
+
+        # Initialize monitors for each service
+        self.caption_monitor = ServiceMonitor(self.caption_service)
+        self.rating_monitor = ServiceMonitor(self.rating_service)
+        self.yolo_monitor = ServiceMonitor(self.yolo_service)
+
+        # Queue references from central configuration
+        self.caption_queue = caption_queue
+        self.global_queue = global_task_queue
 
         self.logger = logging.getLogger(__name__)
-        self.worker_id = os.getpid()
-        self.active_services = {}
         self._initialized = False
 
+    def is_caption_task(self, task_data: Dict[str, Any]) -> bool:
+        """
+        Determine if a task should be processed by the caption service.
+        Checks task type and validates prerequisites.
+        """
+        if task_data.get("task_type") != "image_captioning":
+            return False
+
+        video_id = task_data.get("youtube_id")
+        ai_user_id = task_data.get("ai_user_id")
+
+        if not all([video_id, ai_user_id]):
+            self.logger.warning("Missing required fields for caption task validation")
+            return False
+
+        if not self.check_caption_prerequisites(video_id, ai_user_id):
+            self.logger.info(f"Prerequisites not met for captioning task {video_id}")
+            return False
+
+        if get_status_for_youtube_id(video_id, ai_user_id) == "done":
+            self.logger.info(f"Captioning already completed for {video_id}")
+            return False
+
+        return True
+
+    def check_caption_prerequisites(self, video_id: str, ai_user_id: str) -> bool:
+        """Verify all required processing steps are complete before captioning"""
+        required_outputs = ["frame_extraction", "object_detection", "keyframe_selection"]
+        return all(
+            get_module_output(video_id, ai_user_id, module) is not None
+            for module in required_outputs
+        )
+
     async def initialize(self):
-        """Simplified initialization with essential checks"""
+        """Initialize all service monitors and verify health"""
         if self._initialized:
             return
 
         try:
-            # Initialize balancers
-            await self.yolo_balancer.initialize()
-            await self.caption_balancer.initialize()
-            await self.rating_balancer.initialize()
+            # Initialize all monitors
+            await asyncio.gather(
+                self.caption_monitor.initialize(),
+                self.rating_monitor.initialize(),
+                self.yolo_monitor.initialize()
+            )
 
-            # Single health check
+            # Perform initial health check
             health_status = await self.check_all_services_health()
-            service_health = {
-                'yolo': any(status['healthy'] for status in health_status['yolo_services'].values()),
-                'caption': any(status['healthy'] for status in health_status['caption_services'].values()),
-                'rating': any(status['healthy'] for status in health_status['rating_services'].values())
-            }
-
-            unhealthy_services = [name for name, healthy in service_health.items() if not healthy]
-            if unhealthy_services:
-                raise RuntimeError(f"Unhealthy services: {', '.join(unhealthy_services)}")
+            if not health_status['overall_health']['healthy']:
+                unhealthy = [name for name, status in health_status.items()
+                             if not status.get('healthy', False)]
+                raise RuntimeError(f"Unhealthy services: {', '.join(unhealthy)}")
 
             self._initialized = True
             self.logger.info("Service manager initialized successfully")
@@ -220,117 +196,50 @@ class ServiceManager:
             raise RuntimeError(f"Service initialization failed: {str(e)}")
 
     async def check_all_services_health(self) -> Dict[str, Any]:
-        """
-        Checks the health of all registered services with improved error handling.
-        """
-        try:
-            health_status = {
-                'caption_services': await self.caption_balancer.check_services_health(),
-                'rating_services': await self.rating_balancer.check_services_health(),
-                'yolo_services': await self.yolo_balancer.check_services_health()
-            }
+        """Check health status of all services"""
+        health_status = {
+            'caption': await self.caption_monitor.check_health(),
+            'rating': await self.rating_monitor.check_health(),
+            'yolo': await self.yolo_monitor.check_health()
+        }
 
-            # Add overall health status
-            all_services_healthy = all(
-                all(service.get('healthy', False)
-                    for service in service_type.values())
-                for service_type in health_status.values()
-            )
+        health_status['overall_health'] = {
+            'healthy': all(status['healthy'] for status in health_status.values()),
+            'timestamp': datetime.now().isoformat()
+        }
 
-            health_status['overall_health'] = {
-                'healthy': all_services_healthy,
-                'timestamp': datetime.now().isoformat()
-            }
-
-            return health_status
-        except Exception as e:
-            self.logger.error(f"Error checking services health: {str(e)}")
-            raise
-
-    async def ensure_initialized(self):
-        """
-        Ensures all service balancers are properly initialized.
-        Validates connections and sets up health monitoring.
-        """
-        await self.caption_balancer.initialize()
-        await self.rating_balancer.initialize()
-        await self.yolo_balancer.initialize()
-
-    async def release_all_services(self):
-        """
-        Releases any held services across all balancers.
-        Used during cleanup and error scenarios.
-        """
-        await self.caption_balancer.release_all()
-        await self.rating_balancer.release_all()
-        await self.yolo_balancer.release_all()
+        return health_status
 
     async def get_services(self, task_id: str) -> Dict[str, str]:
-        """Get service URLs for a task"""
-        try:
-            self.logger.info(f"Worker {self.worker_id} - Getting services for task {task_id}")
+        """Get URLs for all required services"""
+        self.logger.info(f"Getting service URLs for task {task_id}")
 
-            # Get services using async load balancing
-            yolo_service = await self.yolo_balancer.get_next_service()
-            caption_service = await self.caption_balancer.get_next_service()
-            rating_service = await self.rating_balancer.get_next_service()
-
-            services = {
-                "yolo_url": yolo_service.get_url(endpoint="/detect_batch_folder"),
-                "caption_url": caption_service.get_url(endpoint="/upload"),
-                "rating_url": rating_service.get_url(endpoint="/api")
-            }
-
-            # Store active services for cleanup
-            self.active_services[task_id] = {
-                "yolo": yolo_service,
-                "caption": caption_service,
-                "rating": rating_service
-            }
-
-            return services
-
-        except Exception as e:
-            self.logger.error(f"Error getting services: {str(e)}")
-            raise
-
-    async def release_task_services(self, task_id: str):
-        """Release services for a task"""
-        if task_id in self.active_services:
-            services = self.active_services[task_id]
-            try:
-                await self.yolo_balancer.release_service(services["yolo"])
-                await self.caption_balancer.release_service(services["caption"])
-                await self.rating_balancer.release_service(services["rating"])
-            finally:
-                del self.active_services[task_id]
+        return {
+            "caption_url": self.caption_service.get_url(),
+            "rating_url": self.rating_service.get_url(),
+            "yolo_url": self.yolo_service.get_url()
+        }
 
     async def get_stats(self) -> Dict[str, Any]:
-        """
-        Returns comprehensive statistics about service usage and health.
-        """
+        """Get comprehensive service statistics"""
         try:
-            stats = {
-                'caption_services': self.caption_balancer.get_stats(),
-                'rating_services': self.rating_balancer.get_stats(),
-                'yolo_services': self.yolo_balancer.get_stats(),
-                'active_services': {
-                    'caption': len(self.caption_balancer.active_services),
-                    'rating': len(self.rating_balancer.active_services),
-                    'yolo': len(self.yolo_balancer.active_services)
-                },
+            return {
+                'caption': await self.caption_monitor.check_health(),
+                'rating': await self.rating_monitor.check_health(),
+                'yolo': await self.yolo_monitor.check_health(),
                 'worker_info': {
-                    'worker_id': self.worker_id,
-                    'memory_usage': psutil.Process(self.worker_id).memory_info().rss / 1024 / 1024
+                    'pid': os.getpid(),
+                    'memory_mb': psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
                 }
             }
-            return stats
         except Exception as e:
             self.logger.error(f"Error getting service stats: {str(e)}")
             raise
 
     async def cleanup(self):
-        """Cleanup all resources"""
-        await self.yolo_balancer.cleanup()
-        await self.caption_balancer.cleanup()
-        await self.rating_balancer.cleanup()
+        """Clean up all service monitors"""
+        await asyncio.gather(
+            self.caption_monitor.cleanup(),
+            self.rating_monitor.cleanup(),
+            self.yolo_monitor.cleanup()
+        )

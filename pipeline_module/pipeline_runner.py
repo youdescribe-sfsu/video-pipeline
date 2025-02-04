@@ -28,13 +28,14 @@ from .generate_YDX_caption_submodule.generate_ydx_caption import GenerateYDXCapt
 
 class PipelineRunner:
     """Enhanced pipeline runner with dynamic service management"""
+
     def __init__(
             self,
             video_id: str,
             video_start_time: Optional[str],
             video_end_time: Optional[str],
             upload_to_server: bool,
-            service_manager: ServiceManager,
+            service_manager: ServiceManager,  # Now expects simplified ServiceManager
             tasks: Optional[List[str]] = None,
             ydx_server: Optional[str] = None,
             ydx_app_host: Optional[str] = None,
@@ -53,7 +54,7 @@ class PipelineRunner:
         self.AI_USER_ID = AI_USER_ID
         self.logger = self.setup_logger()
 
-        # Initialize Google Services
+        # Initialize services and validate their health
         try:
             google_service_manager.validate_credentials()
             self.logger.info("Google services initialized successfully")
@@ -66,9 +67,8 @@ class PipelineRunner:
             "video_id": video_id,
             "logger": self.logger,
             "AI_USER_ID": self.AI_USER_ID,
-            "service_manager": service_manager  # Add service manager to video_runner_obj
+            "service_manager": service_manager
         }
-
 
     def setup_logger(self) -> logging.Logger:
             """Set up pipeline-specific logger"""
@@ -174,20 +174,18 @@ class PipelineRunner:
             raise
 
     def run_object_detection(self) -> bool:
-        """Run object detection with service management"""
+        """Run object detection with single-service management"""
         try:
-            service = self.service_manager.yolo_balancer.get_next_service()
-            try:
-                object_detection = ObjectDetection(
-                    self.video_runner_obj,
-                    service_url=service.get_url(endpoint="/detect_batch_folder")
-                )
-                success = object_detection.run_object_detection()
-                if not success:
-                    raise Exception("Object detection failed")
-                return True
-            finally:
-                self.service_manager.yolo_balancer.release_service(service)
+            # Get the single YOLO service URL directly
+            service_url = self.service_manager.yolo_service.get_url()
+            object_detection = ObjectDetection(
+                self.video_runner_obj,
+                service_url=service_url
+            )
+            success = object_detection.run_object_detection()
+            if not success:
+                raise Exception("Object detection failed")
+            return True
         except Exception as e:
             self.logger.error(f"Error in object detection: {str(e)}")
             return False
@@ -199,9 +197,14 @@ class PipelineRunner:
             raise Exception("Keyframe selection failed")
 
     def run_image_captioning(self) -> bool:
-        """Run image captioning with service management"""
+        """Run image captioning using the dedicated caption service"""
         try:
-            image_captioning = ImageCaptioning(self.video_runner_obj)
+            # Use the single caption service instance
+            caption_url = self.service_manager.caption_service.get_url()
+            image_captioning = ImageCaptioning(
+                self.video_runner_obj,
+                service_url=caption_url
+            )
             success = image_captioning.run_image_captioning()
             if not success:
                 raise Exception("Image captioning failed")
