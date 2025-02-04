@@ -81,7 +81,7 @@ tmux new-session -d -s "$TMUX_SESSION_GENERAL" bash -c "\
     echo 'Starting general processing workers with concurrency=$MAX_PIPELINE_WORKERS'; \
     rq worker video_tasks \
         --url redis://localhost:6379 \
-        --concurrency=$MAX_PIPELINE_WORKERS \
+        --concurrency=4 \
         --with-scheduler \
         --verbose \
         --name 'general_worker' \
