@@ -261,7 +261,7 @@ class PipelineRunner:
         """Run complete pipeline with error handling"""
         self.logger.info(f"Starting pipeline for video: {self.video_id}")
         try:
-            await self.service_manager.ensure_initialized()
+            await self.service_manager.initialize()
 
             for task in self.tasks:
                 # Skip caption rating task
