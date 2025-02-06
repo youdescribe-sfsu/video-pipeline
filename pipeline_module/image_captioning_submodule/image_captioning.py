@@ -66,7 +66,7 @@ class ImageCaptioning:
                         if response.status_code == 200:
                             caption = response.json()['caption']
                             self.logger.info(f"Got caption: {caption}")
-                            time.sleep(2)
+                            time.sleep(10)
                             return caption.strip()
                 except (requests.Timeout, requests.RequestException) as e:
                     if attempt == self.max_retries - 1:
