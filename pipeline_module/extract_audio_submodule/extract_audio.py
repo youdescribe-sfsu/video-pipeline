@@ -1,4 +1,6 @@
 import os
+import subprocess
+
 import ffmpeg
 from typing import Dict, Any, Optional
 from logging import Logger
@@ -21,6 +23,11 @@ class ExtractAudio:
 
     @timeit
     def extract_audio(self) -> bool:
+        """
+        Extracts audio from video file and converts to FLAC format.
+        Uses ffmpeg with progress monitoring and proper error handling.
+        Returns True if successful, False if any errors occur.
+        """
         print("Starting extract_audio method")
         input_file = return_video_download_location(self.video_runner_obj)
         output_file = os.path.join(
@@ -30,38 +37,67 @@ class ExtractAudio:
         print(f"Input file: {input_file}")
         print(f"Output file: {output_file}")
 
-        # Use the database to check the audio extraction status
-        if get_status_for_youtube_id(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID")) == "done":
+        # Check database status first
+        video_id = self.video_runner_obj.get("video_id")
+        ai_user_id = self.video_runner_obj.get("AI_USER_ID")
+        if get_status_for_youtube_id(video_id, ai_user_id) == "done":
             print("Audio already extracted, skipping step.")
             return True
 
         try:
+            # Validate input file existence
             if not os.path.exists(input_file):
                 print(f"Input video file not found: {input_file}")
                 raise FileNotFoundError(f"Input video file not found: {input_file}")
 
             print(f"Extracting audio from {input_file} and saving it as {output_file}")
 
-            # Extract audio using ffmpeg
-            (
-                ffmpeg
-                .input(input_file)
-                .output(output_file, acodec='flac', ac=2, ar='48k')
-                .overwrite_output()
-                .run(capture_stdout=True, capture_stderr=True)
+            # Run ffmpeg with progress monitoring using subprocess
+            process = subprocess.Popen(
+                [
+                    'ffmpeg',
+                    '-i', input_file,
+                    '-acodec', 'flac',
+                    '-ac', '2',
+                    '-ar', '48000',
+                    '-y',  # Overwrite output file if exists
+                    output_file
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True
             )
 
+            # Monitor ffmpeg progress in real-time
+            while True:
+                output = process.stderr.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    # Log progress to help diagnose any issues
+                    print(output.strip())
+                    if self.video_runner_obj.get("logger"):
+                        self.video_runner_obj["logger"].info(output.strip())
+
+            # Check if ffmpeg completed successfully
+            if process.returncode != 0:
+                error_output = process.stderr.read()
+                print(f"FFmpeg process failed with return code {process.returncode}")
+                print(f"Error output: {error_output}")
+                raise RuntimeError(f"FFmpeg failed with return code {process.returncode}")
+
+            # Verify output file was created
             if not os.path.exists(output_file):
                 print(f"Failed to create output audio file: {output_file}")
                 raise RuntimeError(f"Failed to create output audio file: {output_file}")
 
-            # Use the database to update the progress status
-            update_status(self.video_runner_obj.get("video_id"), self.video_runner_obj.get("AI_USER_ID"), "done")
+            # Update database status on success
+            update_status(video_id, ai_user_id, "done")
             print("Audio extraction completed successfully.")
             return True
 
-        except ffmpeg.Error as e:
-            print(f"FFmpeg error occurred: {e.stderr.decode()}")
+        except subprocess.SubprocessError as e:
+            print(f"Subprocess error occurred during ffmpeg execution: {str(e)}")
             return False
         except FileNotFoundError as e:
             print(str(e))
@@ -71,6 +107,8 @@ class ExtractAudio:
             return False
         except Exception as e:
             print(f"An unexpected error occurred during audio extraction: {str(e)}")
+            if self.video_runner_obj.get("logger"):
+                self.video_runner_obj["logger"].error(f"Unexpected error: {str(e)}")
             return False
 
     def get_audio_metadata(self) -> Optional[Dict[str, Any]]:
