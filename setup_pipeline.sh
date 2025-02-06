@@ -28,7 +28,7 @@ cleanup_existing_processes() {
 
     # Kill any existing uvicorn processes
     echo "Terminating existing uvicorn processes..."
-    pkill -f "uvicorn" 2>/dev/null || true
+    pkill -f "uvicorn.*:8086" 2>/dev/null || true
 
     # Clean up tmux sessions
     echo "Cleaning up tmux sessions..."

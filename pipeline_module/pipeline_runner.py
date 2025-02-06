@@ -274,29 +274,6 @@ class PipelineRunner:
             self.logger.error(f"Pipeline failed for video {self.video_id}: {str(e)}", exc_info=True)
             raise
 
-async def cleanup_failed_pipeline(self, error_message: str):
-    """Clean up resources on pipeline failure."""
-    try:
-        video_folder = return_video_folder_name({"video_id": self.video_id})
-        if os.path.exists(video_folder):
-            shutil.rmtree(video_folder)
-            self.logger.info(f"Cleaned up video folder: {video_folder}")
-
-        update_status(self.video_id, self.AI_USER_ID, "failed")
-        self.logger.info(f"Updated status to failed for video {self.video_id}")
-    except Exception as e:
-        self.logger.error(f"Cleanup error: {str(e)}")
-
-
-def cleanup_resources(self):
-    """Clean up temporary resources."""
-    try:
-        # Clean up service manager resources
-        google_service_manager.cleanup()
-        self.logger.info("Cleaned up service manager resources")
-    except Exception as e:
-        self.logger.error(f"Resource cleanup error: {str(e)}")
-
 async def run_pipeline(
         video_id: str,
         service_manager: ServiceManager,
