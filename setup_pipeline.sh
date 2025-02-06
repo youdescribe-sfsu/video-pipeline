@@ -16,7 +16,7 @@ tmux new-session -d -s "$TMUX_SESSION_NAME" bash -c "\
     uvicorn web_server:app \\
         --host 0.0.0.0 \\
         --port 8086 \\
-        --workers 4 \\
+        --workers 10 \\
         --log-level info\
 "
 
