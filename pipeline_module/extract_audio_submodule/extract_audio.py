@@ -40,138 +40,53 @@ class ExtractAudio:
 
     @timeit
     def extract_audio(self) -> bool:
-        """
-        Extracts audio from video file and converts to FLAC format.
-        Enhanced with diagnostic tracking to identify execution issues.
-        """
-        print(f"Starting extract_audio method [{VERSION}]")
-        if self.logger:
-            self.logger.info(f"Starting extract_audio method [{VERSION}]")
-
+        print("Starting direct subprocess audio extraction")
         input_file = return_video_download_location(self.video_runner_obj)
         output_file = os.path.join(
             return_video_folder_name(self.video_runner_obj),
             return_audio_file_name(self.video_runner_obj)
         )
-        print(f"Input file: {input_file}")
-        print(f"Output file: {output_file}")
 
-        # Check database status with enhanced debugging
+        # Check database status
         video_id = self.video_runner_obj.get("video_id")
         ai_user_id = self.video_runner_obj.get("AI_USER_ID")
 
-        print(f"Checking status for video_id={video_id}, ai_user_id={ai_user_id}")
         try:
-            status = get_status_for_youtube_id(video_id, ai_user_id)
-            print(f"Status check returned: {status} (type: {type(status)})")
+            import subprocess
+            cmd = [
+                'ffmpeg',
+                '-i', input_file,
+                '-acodec', 'flac',
+                '-ac', '2',
+                '-ar', '48000',
+                '-y',
+                output_file
+            ]
+            print(f"Running command: {' '.join(cmd)}")
 
-            # Enhanced status checking for nested formats
-            if status == "done":
-                print("Audio already extracted (exact match), skipping step.")
+            # Run with smaller timeout
+            process = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=180,  # 3 minute timeout (below the 4 minute kill time)
+                check=False
+            )
+
+            if process.returncode == 0:
+                # Update database on success
+                update_status(video_id, ai_user_id, "done")
+                print("Audio extraction completed successfully")
                 return True
+            else:
+                print(f"FFmpeg error: {process.stderr.decode()}")
+                return False
 
-            # Try to handle nested status format if it's a string
-            if isinstance(status, str):
-                try:
-                    # Try to parse as JSON by fixing single quotes
-                    parsed_status = json.loads(status.replace("'", '"'))
-                    if isinstance(parsed_status, dict) and parsed_status.get("status") == "done":
-                        print("Audio already extracted (from parsed status), skipping step.")
-                        return True
-                except Exception as parse_err:
-                    print(f"Error parsing status as JSON: {str(parse_err)}")
-        except Exception as e:
-            print(f"Error checking status: {str(e)}")
-            print(traceback.format_exc())
-            if self.logger:
-                self.logger.error(f"Error checking status: {str(e)}")
-
-        print("Status check complete, proceeding with extraction")
-
-        try:
-            # Validate input file existence
-            if not os.path.exists(input_file):
-                print(f"Input video file not found: {input_file}")
-                raise FileNotFoundError(f"Input video file not found: {input_file}")
-
-            print(f"Extracting audio from {input_file} and saving it as {output_file}")
-            if self.logger:
-                self.logger.info(f"Extracting audio from {input_file} to {output_file}")
-
-            # Check if ffmpeg import was successful
-            if not FFMPEG_IMPORT_SUCCESS:
-                print("WARNING: Using fallback subprocess method due to ffmpeg import failure")
-                return self._extract_audio_subprocess(input_file, output_file, video_id, ai_user_id)
-
-            # Try the ffmpeg-python method with detailed tracking
-            print("About to execute ffmpeg-python command...")
-            if self.logger:
-                self.logger.info("About to execute ffmpeg-python command")
-
-            try:
-                # Build the command with debug output
-                cmd = (
-                    ffmpeg
-                    .input(input_file)
-                    .output(output_file, acodec='flac', ac=2, ar='48k')
-                    .overwrite_output()
-                )
-                print(f"ffmpeg command built: {cmd}")
-
-                # Execute the command
-                cmd.run(capture_stdout=True, capture_stderr=True)
-                print("ffmpeg-python command completed successfully")
-                if self.logger:
-                    self.logger.info("ffmpeg-python command completed successfully")
-            except Exception as ffmpeg_err:
-                print(f"ffmpeg-python execution failed: {str(ffmpeg_err)}")
-                print(traceback.format_exc())
-                if self.logger:
-                    self.logger.error(f"ffmpeg-python execution failed: {str(ffmpeg_err)}")
-
-                # Try the fallback method
-                print("Trying fallback subprocess method...")
-                return self._extract_audio_subprocess(input_file, output_file, video_id, ai_user_id)
-
-            # Verify output file was created
-            if not os.path.exists(output_file):
-                print(f"Failed to create output audio file: {output_file}")
-                raise RuntimeError(f"Failed to create output audio file: {output_file}")
-
-            print(f"Output file confirmed: {output_file} (size: {os.path.getsize(output_file)} bytes)")
-
-            # Update database status on success
-            print(f"Updating database status to 'done' for video_id={video_id}, ai_user_id={ai_user_id}")
-            update_status(video_id, ai_user_id, "done")
-            print("Database status updated to 'done'")
-
-            print("Audio extraction completed successfully")
-            if self.logger:
-                self.logger.info("Audio extraction completed successfully")
-            return True
-
-        except ffmpeg.Error as e:
-            error_msg = e.stderr.decode() if hasattr(e, 'stderr') else str(e)
-            print(f"FFmpeg error occurred: {error_msg}")
-            if self.logger:
-                self.logger.error(f"FFmpeg error: {error_msg}")
-            return False
-        except FileNotFoundError as e:
-            print(str(e))
-            if self.logger:
-                self.logger.error(str(e))
-            return False
-        except RuntimeError as e:
-            print(str(e))
-            if self.logger:
-                self.logger.error(str(e))
+        except subprocess.TimeoutExpired:
+            print("FFmpeg process timed out")
             return False
         except Exception as e:
-            print(f"An unexpected error occurred during audio extraction: {str(e)}")
-            print(traceback.format_exc())
-            if self.logger:
-                self.logger.error(f"Unexpected error: {str(e)}")
-                self.logger.error(traceback.format_exc())
+            print(f"Error: {str(e)}")
             return False
 
     def _extract_audio_subprocess(self, input_file, output_file, video_id, ai_user_id) -> bool:
