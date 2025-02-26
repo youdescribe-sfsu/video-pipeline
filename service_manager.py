@@ -8,9 +8,6 @@ from typing import Dict, List, Optional, Any
 import aiohttp
 import psutil
 
-from web_server import logger
-
-
 # Configuration class for service endpoints
 @dataclass
 class ServiceConfig:
@@ -112,9 +109,9 @@ class ServiceBalancer:
                 for service in self.configs:
                     service.current_load = 0
                 self.active_services.clear()
-                logger.info(f"Released all services for {self.endpoint}")
+                print(f"Released all services for {self.endpoint}")
         except Exception as e:
-            logger.error(f"Error releasing services for {self.endpoint}: {str(e)}")
+            print(f"Error releasing services for {self.endpoint}: {str(e)}")
 
     async def initialize(self):
         """Initialize session asynchronously"""
@@ -265,16 +262,16 @@ class ServiceManager:
     async def release_all_services(self):
         """Release all services in all balancers"""
         try:
-            logger.info("Releasing all services")
+            print("Releasing all services")
             await self.caption_balancer.release_all()
             await self.rating_balancer.release_all()
             await self.yolo_balancer.release_all()
 
             # Clear active services tracking
             self.active_services = {}
-            logger.info("All services released successfully")
+            print("All services released successfully")
         except Exception as e:
-            logger.error(f"Error releasing services: {str(e)}")
+            print(f"Error releasing services: {str(e)}")
 
     async def get_services(self, task_id: str) -> Dict[str, str]:
         """Get service URLs for a task"""
