@@ -76,36 +76,74 @@ class TextSummarization:
             return []
 
     def create_fallback_scene(self) -> List[Dict[str, Any]]:
-        """
-        Create a fallback scene when no valid scenes are found.
-        Uses video metadata for duration.
-        """
+        """Create fallback scenes based on available captions."""
+        try:
+            # Get video duration from metadata
+            video_duration = self._get_video_duration_from_metadata()
+
+            # Try to use captions if available
+            captions_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "captions.csv"
+            )
+
+            if os.path.exists(captions_file):
+                with open(captions_file, 'r', newline='') as f:
+                    reader = csv.DictReader(f)
+                    captions = list(reader)
+
+                # If we have captions, create time-based scenes with them
+                if captions:
+                    scenes = []
+
+                    # For short videos, create 3-5 scenes maximum
+                    num_scenes = min(4, len(captions))
+                    scene_duration = video_duration / num_scenes
+
+                    # Select highest-rated captions
+                    selected_captions = captions[:num_scenes]
+
+                    # Create scenes
+                    for i, caption in enumerate(selected_captions):
+                        start_time = i * scene_duration
+                        end_time = min((i + 1) * scene_duration, video_duration)
+                        scenes.append({
+                            'start_time': start_time,
+                            'end_time': end_time,
+                            'text': caption['Caption']
+                        })
+                    return scenes
+
+            # Only use the generic fallback if no captions available
+            return [{
+                'start_time': 0,
+                'end_time': video_duration,
+                'text': "Complete video segment"
+            }]
+        except Exception as e:
+            self.logger.error(f"Error creating fallback scene: {str(e)}")
+            # Original generic fallback
+            return [{
+                'start_time': 0,
+                'end_time': 60,
+                'text': "Video segment"
+            }]
+
+    def _get_video_duration_from_metadata(self) -> float:
+        """Get the video duration from metadata.json."""
         try:
             metadata_file = os.path.join(
                 return_video_folder_name(self.video_runner_obj),
                 "metadata.json"
             )
-
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
-                duration = float(metadata.get('duration', 0))
-
-                if duration <= 0:
-                    raise ValueError(f"Invalid video duration: {duration}")
-
-                return [{
-                    'start_time': 0,
-                    'end_time': duration,
-                    'text': "Complete video segment"
-                }]
-
+            if os.path.exists(metadata_file):
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                    return float(metadata.get("duration", 60))  # Default to 60 seconds if not found
+            return 60.0  # Default duration if metadata file not found
         except Exception as e:
-            self.logger.error(f"Error creating fallback scene: {str(e)}")
-            return [{
-                'start_time': 0,
-                'end_time': 60,  # Default 1-minute duration
-                'text': "Video segment"
-            }]
+            self.logger.error(f"Error getting video duration: {str(e)}")
+            return 60.0  # Default duration on error
 
     def calculate_bleu_score(self, reference_sentences: List[str],
                              candidate_sentence: str) -> float:
