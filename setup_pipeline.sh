@@ -1,12 +1,10 @@
 #!/bin/bash
 
-# Update for start_pipeline.sh
-
-# Set the number of workers for the pipeline
-export MAX_PIPELINE_WORKERS=1
-
 # Define the tmux session name
 TMUX_SESSION_NAME="pipeline_server"
+
+# Kill any existing tmux session with the same name
+tmux kill-session -t "$TMUX_SESSION_NAME" 2>/dev/null
 
 # Activate the virtual environment
 source venv/bin/activate
