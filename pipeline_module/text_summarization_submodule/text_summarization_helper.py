@@ -76,56 +76,129 @@ class TextSummarization:
             return []
 
     def create_fallback_scene(self) -> List[Dict[str, Any]]:
-        """Create fallback scenes based on available captions."""
+        """Create meaningful fallback scenes based on available captions when scene segmentation fails."""
         try:
             # Get video duration from metadata
             video_duration = self._get_video_duration_from_metadata()
 
-            # Try to use captions if available
+            # Try to use rated captions from caption_score.csv
+            caption_score_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "caption_score.csv"
+            )
+
+            if os.path.exists(caption_score_file):
+                # Load and sort captions by rating
+                rated_captions = []
+                with open(caption_score_file, 'r', newline='') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            rated_captions.append({
+                                'frame_index': int(row['frame_index']),
+                                'caption': row['caption'],
+                                'rating': float(row['rating'])
+                            })
+                        except (ValueError, KeyError) as e:
+                            self.logger.warning(f"Skipping invalid caption row: {e}")
+                            continue
+
+                # Sort by rating (highest first)
+                rated_captions.sort(key=lambda x: x['rating'], reverse=True)
+
+                if rated_captions:
+                    # For short videos, create 4 scenes maximum
+                    num_scenes = min(4, len(rated_captions))
+                    scene_duration = video_duration / num_scenes
+
+                    # Use highest-rated captions
+                    best_captions = rated_captions[:num_scenes]
+
+                    # Create scenes with evenly distributed timestamps
+                    scenes = []
+                    for i in range(num_scenes):
+                        start_time = i * scene_duration
+                        end_time = min((i + 1) * scene_duration, video_duration)
+
+                        scenes.append({
+                            'start_time': start_time,
+                            'end_time': end_time,
+                            'text': best_captions[i]['caption']
+                        })
+
+                    # Add dialogue from transcript if available
+                    self._integrate_dialogue_into_scenes(scenes)
+
+                    return scenes
+
+            # Fall back to regular captions.csv if caption_score.csv not available
             captions_file = os.path.join(
                 return_video_folder_name(self.video_runner_obj),
                 "captions.csv"
             )
 
             if os.path.exists(captions_file):
+                captions = []
                 with open(captions_file, 'r', newline='') as f:
                     reader = csv.DictReader(f)
-                    captions = list(reader)
+                    for row in reader:
+                        # Handle different column naming conventions
+                        caption_text = row.get('Caption', row.get('caption', ''))
+                        if caption_text:
+                            captions.append({
+                                'caption': caption_text
+                            })
 
-                # If we have captions, create time-based scenes with them
                 if captions:
-                    scenes = []
-
-                    # For short videos, create 3-5 scenes maximum
+                    # For short videos, create 4 scenes maximum
                     num_scenes = min(4, len(captions))
                     scene_duration = video_duration / num_scenes
 
-                    # Select highest-rated captions
-                    selected_captions = captions[:num_scenes]
+                    # Select evenly distributed captions
+                    indices = [int(i * len(captions) / num_scenes) for i in range(num_scenes)]
+                    selected_captions = [captions[i] for i in indices]
 
                     # Create scenes
-                    for i, caption in enumerate(selected_captions):
+                    scenes = []
+                    for i in range(num_scenes):
                         start_time = i * scene_duration
                         end_time = min((i + 1) * scene_duration, video_duration)
+
                         scenes.append({
                             'start_time': start_time,
                             'end_time': end_time,
-                            'text': caption['Caption']
+                            'text': selected_captions[i]['caption']
                         })
+
+                    # Add dialogue from transcript if available
+                    self._integrate_dialogue_into_scenes(scenes)
+
                     return scenes
 
-            # Only use the generic fallback if no captions available
+            # Last resort: Use metadata and watermarks
+            description = self._create_description_from_metadata()
+
+            # If we have a meaningful description, use it
+            if description:
+                return [{
+                    'start_time': 0,
+                    'end_time': video_duration,
+                    'text': description
+                }]
+
+            # Absolute last resort - generic fallback
             return [{
                 'start_time': 0,
                 'end_time': video_duration,
                 'text': "Complete video segment"
             }]
+
         except Exception as e:
             self.logger.error(f"Error creating fallback scene: {str(e)}")
             # Original generic fallback
             return [{
                 'start_time': 0,
-                'end_time': 60,
+                'end_time': video_duration if video_duration else 60,
                 'text': "Video segment"
             }]
 
@@ -139,11 +212,89 @@ class TextSummarization:
             if os.path.exists(metadata_file):
                 with open(metadata_file, 'r') as f:
                     metadata = json.load(f)
-                    return float(metadata.get("duration", 60))  # Default to 60 seconds if not found
-            return 60.0  # Default duration if metadata file not found
+                    return float(metadata.get("duration", 60))
+            return 60.0  # Default if metadata file not found
         except Exception as e:
             self.logger.error(f"Error getting video duration: {str(e)}")
-            return 60.0  # Default duration on error
+            return 60.0  # Default on error
+
+    def _integrate_dialogue_into_scenes(self, scenes: List[Dict[str, Any]]) -> None:
+        """Add dialogue from transcript to relevant scenes."""
+        try:
+            transcript_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "transcripts.json"
+            )
+
+            if not os.path.exists(transcript_file):
+                return
+
+            with open(transcript_file, 'r') as f:
+                transcript_data = json.load(f)
+
+            # Extract dialogue with timestamps
+            for result in transcript_data.get('results', []):
+                alternatives = result.get('alternatives', [])
+                if alternatives and alternatives[0].get('transcript'):
+                    words = alternatives[0].get('words', [])
+                    if words:
+                        # Get dialogue timing
+                        start_time = float(words[0].get('start_time', 0))
+                        end_time = float(words[-1].get('end_time', 0))
+                        transcript_text = alternatives[0].get('transcript', '')
+
+                        # Find matching scene and add dialogue
+                        for scene in scenes:
+                            scene_start = float(scene['start_time'])
+                            scene_end = float(scene['end_time'])
+
+                            if (start_time >= scene_start and start_time < scene_end) or \
+                                    (end_time > scene_start and end_time <= scene_end):
+                                scene['text'] = f"{scene['text']}. Dialogue: \"{transcript_text}\""
+                                break
+        except Exception as e:
+            self.logger.error(f"Error integrating dialogue: {str(e)}")
+
+    def _create_description_from_metadata(self) -> str:
+        """Create a description using video metadata and watermarks."""
+        try:
+            # Get video title
+            metadata_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "metadata.json"
+            )
+            video_title = ""
+
+            if os.path.exists(metadata_file):
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                    video_title = metadata.get("title", "")
+
+            # Get watermarks
+            watermarks_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "count_vertice.json"
+            )
+            watermarks = []
+
+            if os.path.exists(watermarks_file):
+                with open(watermarks_file, 'r') as f:
+                    watermarks_data = json.load(f)
+                    watermarks = watermarks_data.get("watermarks", [])
+
+            # Create description
+            description = []
+
+            if video_title:
+                description.append(f"Video titled: {video_title}")
+
+            if watermarks:
+                description.append(f"Contains: {', '.join(watermarks)}")
+
+            return ". ".join(description)
+        except Exception as e:
+            self.logger.error(f"Error creating description from metadata: {str(e)}")
+            return ""
 
     def calculate_bleu_score(self, reference_sentences: List[str],
                              candidate_sentence: str) -> float:
