@@ -271,7 +271,6 @@ async def task_processor():
                                               data["ydx_app_host"])
 
             finally:
-                await service_manager.release_all_services()
                 active_tasks.discard(task_key)
                 task_queue.task_done()
 
