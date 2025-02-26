@@ -27,10 +27,175 @@ class TextSummarization:
             model="facebook/bart-large-cnn",
             tokenizer=self.tokenizer
         )
-        # Define minimum scene length and text requirements
+
+        # Initialize with default values that will be adjusted
         self.MIN_SCENE_DURATION = 5.0  # seconds
         self.MIN_TEXT_LENGTH = 50  # characters
         self.DEFAULT_SUMMARY_LENGTH = 130
+
+        # Calculate adaptive parameters based on video characteristics
+        self._calculate_adaptive_parameters()
+
+    def select_quality_captions(self, rated_captions, video_duration):
+        """
+        Select high-quality captions based on ratings and video characteristics.
+
+        Arguments:
+            rated_captions: List of captions with rating information
+            video_duration: Duration of the video in seconds
+
+        Returns:
+            List of selected high-quality captions
+        """
+        if not rated_captions:
+            return []
+
+        try:
+            # Set quality threshold based on video length
+            # Short videos need higher quality captions since there are fewer of them
+            if video_duration < 60:  # Short videos (<1 min)
+                quality_threshold = 0.65
+            elif video_duration < 300:  # Medium videos (1-5 min)
+                quality_threshold = 0.55
+            else:  # Longer videos
+                quality_threshold = 0.45
+
+            self.logger.info(f"Using caption quality threshold: {quality_threshold} for {video_duration}s video")
+
+            # Filter by threshold first
+            quality_captions = [cap for cap in rated_captions
+                                if float(cap.get('rating', 0)) > quality_threshold]
+
+            # Calculate minimum number of captions needed based on video duration
+            min_captions_needed = max(3, int(video_duration / 15))
+
+            # Fallback if too few captions meet threshold
+            if len(quality_captions) < min_captions_needed:
+                self.logger.info(
+                    f"Too few captions ({len(quality_captions)}) meet quality threshold. Falling back to top {min_captions_needed} captions.")
+                # Sort by rating and take top needed captions
+                sorted_captions = sorted(rated_captions,
+                                         key=lambda x: float(x.get('rating', 0)),
+                                         reverse=True)
+                quality_captions = sorted_captions[:min_captions_needed]
+
+            # Remove near-duplicate captions (those with very similar text)
+            unique_captions = self._remove_duplicate_captions(quality_captions)
+
+            self.logger.info(f"Selected {len(unique_captions)} quality captions from {len(rated_captions)} available")
+            return unique_captions
+
+        except Exception as e:
+            self.logger.error(f"Error selecting quality captions: {str(e)}")
+            # Fall back to simple sorting by rating
+            sorted_captions = sorted(rated_captions,
+                                     key=lambda x: float(x.get('rating', 0)),
+                                     reverse=True)
+            # Take at least 3 captions or 25% of available ones, whichever is greater
+            return sorted_captions[:max(3, len(sorted_captions) // 4)]
+
+    def _remove_duplicate_captions(self, captions):
+        """
+        Remove near-duplicate captions that convey the same information.
+        Uses a simple similarity heuristic based on word overlap.
+
+        Arguments:
+            captions: List of caption dictionaries
+
+        Returns:
+            List of captions with duplicates removed
+        """
+        if not captions:
+            return []
+
+        try:
+            unique_captions = []
+            seen_texts = set()
+
+            for cap in captions:
+                # Normalize text for comparison (lowercase, remove extra spaces)
+                caption_text = cap.get('caption', '')
+                if not caption_text:
+                    continue
+
+                normalized_text = ' '.join(caption_text.lower().split())
+
+                # Simple duplicate detection based on character overlap
+                is_duplicate = False
+                for seen_text in seen_texts:
+                    # If 80% of words overlap, consider it a duplicate
+                    words1 = set(normalized_text.split())
+                    words2 = set(seen_text.split())
+
+                    if len(words1) == 0 or len(words2) == 0:
+                        continue
+
+                    overlap = len(words1.intersection(words2))
+                    similarity = overlap / min(len(words1), len(words2))
+
+                    if similarity > 0.8:
+                        is_duplicate = True
+                        break
+
+                if not is_duplicate:
+                    seen_texts.add(normalized_text)
+                    unique_captions.append(cap)
+
+            return unique_captions
+
+        except Exception as e:
+            self.logger.error(f"Error removing duplicate captions: {str(e)}")
+            return captions  # Return original captions if error occurs
+
+    def _calculate_adaptive_parameters(self):
+        """Calculate adaptive parameters based on video characteristics."""
+        try:
+            # Get video duration
+            video_duration = self._get_video_duration_from_metadata()
+
+            # Determine number of frames if available
+            frames_folder = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "frames"
+            )
+            num_frames = 0
+            if os.path.exists(frames_folder):
+                frames = [f for f in os.listdir(frames_folder)
+                          if os.path.isfile(os.path.join(frames_folder, f))
+                          and f.endswith(('.jpg', '.png'))]
+                num_frames = len(frames)
+
+            # Adaptive MIN_SCENE_DURATION: shorter for shorter videos
+            if video_duration < 60:  # <1 minute
+                self.MIN_SCENE_DURATION = 2.0
+            elif video_duration < 300:  # 1-5 minutes
+                self.MIN_SCENE_DURATION = 5.0
+            else:  # >5 minutes
+                self.MIN_SCENE_DURATION = 10.0
+
+            # Adaptive MIN_TEXT_LENGTH: stricter for longer videos
+            if video_duration < 60:
+                self.MIN_TEXT_LENGTH = 30
+            elif video_duration < 300:
+                self.MIN_TEXT_LENGTH = 50
+            else:
+                self.MIN_TEXT_LENGTH = 80
+
+            # Adaptive DEFAULT_SUMMARY_LENGTH: longer for longer videos
+            if video_duration < 60:
+                self.DEFAULT_SUMMARY_LENGTH = 100
+            elif video_duration < 300:
+                self.DEFAULT_SUMMARY_LENGTH = 130
+            else:
+                self.DEFAULT_SUMMARY_LENGTH = 180
+
+            self.logger.info(f"Adaptive parameters set: MIN_SCENE_DURATION={self.MIN_SCENE_DURATION}, " +
+                             f"MIN_TEXT_LENGTH={self.MIN_TEXT_LENGTH}, " +
+                             f"DEFAULT_SUMMARY_LENGTH={self.DEFAULT_SUMMARY_LENGTH}")
+        except Exception as e:
+            self.logger.error(f"Error setting adaptive parameters: {str(e)}")
+            # Keep default values if calculation fails
+            self.logger.info("Using default parameters due to calculation error")
 
     def load_scene_data(self) -> List[Dict[str, Any]]:
         """
@@ -88,7 +253,7 @@ class TextSummarization:
             )
 
             if os.path.exists(caption_score_file):
-                # Load and sort captions by rating
+                # Load captions with ratings
                 rated_captions = []
                 with open(caption_score_file, 'r', newline='') as f:
                     reader = csv.DictReader(f)
@@ -103,33 +268,39 @@ class TextSummarization:
                             self.logger.warning(f"Skipping invalid caption row: {e}")
                             continue
 
-                # Sort by rating (highest first)
-                rated_captions.sort(key=lambda x: x['rating'], reverse=True)
-
                 if rated_captions:
-                    # For short videos, create 4 scenes maximum
-                    num_scenes = min(4, len(rated_captions))
-                    scene_duration = video_duration / num_scenes
+                    # Use enhanced quality filtering to select the best captions
+                    quality_captions = self.select_quality_captions(rated_captions, video_duration)
 
-                    # Use highest-rated captions
-                    best_captions = rated_captions[:num_scenes]
+                    if quality_captions:
+                        # Determine appropriate number of scenes based on video duration
+                        num_scenes = min(
+                            len(quality_captions),
+                            max(2, int(video_duration / 15))  # At least 2 scenes, approx 1 per 15s
+                        )
 
-                    # Create scenes with evenly distributed timestamps
-                    scenes = []
-                    for i in range(num_scenes):
-                        start_time = i * scene_duration
-                        end_time = min((i + 1) * scene_duration, video_duration)
+                        # Create evenly spaced time segments
+                        scene_duration = video_duration / num_scenes
 
-                        scenes.append({
-                            'start_time': start_time,
-                            'end_time': end_time,
-                            'text': best_captions[i]['caption']
-                        })
+                        # Create scenes with the best captions
+                        scenes = []
+                        for i in range(num_scenes):
+                            start_time = i * scene_duration
+                            end_time = min((i + 1) * scene_duration, video_duration)
 
-                    # Add dialogue from transcript if available
-                    self._integrate_dialogue_into_scenes(scenes)
+                            # Use the appropriate caption for this time segment
+                            caption_index = min(i, len(quality_captions) - 1)
 
-                    return scenes
+                            scenes.append({
+                                'start_time': start_time,
+                                'end_time': end_time,
+                                'text': quality_captions[caption_index]['caption']
+                            })
+
+                        # Add dialogue from transcript
+                        self._integrate_dialogue_into_scenes(scenes)
+
+                        return scenes
 
             # Fall back to regular captions.csv if caption_score.csv not available
             captions_file = os.path.join(
