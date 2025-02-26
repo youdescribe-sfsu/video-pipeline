@@ -15,7 +15,7 @@ tmux new-session -d -s "$TMUX_SESSION_NAME" bash -c "\
         --host 0.0.0.0 \\
         --port 8086 \\
         --workers 1 \\
-        --log-level info\
+        --log-level info; exec bash\
 "
 
 echo "Pipeline started in tmux session: $TMUX_SESSION_NAME"
