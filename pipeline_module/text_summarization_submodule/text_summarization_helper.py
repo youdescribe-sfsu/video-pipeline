@@ -18,15 +18,6 @@ class TextSummarization:
     def __init__(self, video_runner_obj: Dict[str, Any]):
         self.video_runner_obj = video_runner_obj
         self.logger = video_runner_obj.get("logger")
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            "facebook/bart-large-cnn",
-            clean_up_tokenization_spaces=True
-        )
-        self.summarizer = pipeline(
-            "summarization",
-            model="facebook/bart-large-cnn",
-            tokenizer=self.tokenizer
-        )
 
         # Initialize with default values that will be adjusted
         self.MIN_SCENE_DURATION = 5.0  # seconds
@@ -35,6 +26,53 @@ class TextSummarization:
 
         # Calculate adaptive parameters based on video characteristics
         self._calculate_adaptive_parameters()
+
+        # Initialize the best available summarization model
+        self._initialize_summarization_model()
+
+    def _initialize_summarization_model(self):
+        """Initialize the best available summarization model with fallbacks."""
+        try:
+            # First attempt to load FLAN-T5, which handles descriptive text better
+            self.logger.info("Attempting to load FLAN-T5 model for improved summarization")
+            self.tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+            self.summarizer = pipeline(
+                "summarization",
+                model="google/flan-t5-base",
+                tokenizer=self.tokenizer
+            )
+            self.model_type = "t5"
+            self.logger.info("Successfully loaded FLAN-T5 model for summarization")
+
+        except Exception as e:
+            # If T5 fails, try BART-large-xsum which is better than CNN variant
+            self.logger.warning(f"Failed to load FLAN-T5 model: {str(e)}. Trying BART-XSUM...")
+
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-xsum")
+                self.summarizer = pipeline(
+                    "summarization",
+                    model="facebook/bart-large-xsum",
+                    tokenizer=self.tokenizer
+                )
+                self.model_type = "bart-xsum"
+                self.logger.info("Successfully loaded BART-XSUM model for summarization")
+
+            except Exception as e2:
+                # Final fallback to the original BART-CNN
+                self.logger.warning(f"Failed to load BART-XSUM model: {str(e2)}. Falling back to BART-CNN...")
+
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    "facebook/bart-large-cnn",
+                    clean_up_tokenization_spaces=True
+                )
+                self.summarizer = pipeline(
+                    "summarization",
+                    model="facebook/bart-large-cnn",
+                    tokenizer=self.tokenizer
+                )
+                self.model_type = "bart-cnn"
+                self.logger.info("Using original BART-CNN model for summarization")
 
     def select_quality_captions(self, rated_captions, video_duration):
         """
@@ -498,40 +536,188 @@ class TextSummarization:
 
     def summarize_scene(self, scene: Dict[str, Any]) -> Optional[str]:
         """
-        Summarize a single scene with error handling and validation.
+        Summarize a single scene using the appropriate model and techniques.
+        Adapts to the type of model being used for best results.
         """
         try:
-            if not scene.get('description'):
+            # Extract text to summarize
+            text_key = 'description' if 'description' in scene else 'text'
+            if text_key not in scene or not scene[text_key]:
                 return None
 
             # Clean and preprocess the text
-            text = scene['description'].strip()
+            text = scene[text_key].strip()
             if len(text) < self.MIN_TEXT_LENGTH:
                 return text  # Return original if too short
 
-            # Generate summary
-            summary = self.summarizer(
-                text,
-                max_length=self.DEFAULT_SUMMARY_LENGTH,
-                min_length=30,
-                do_sample=False
-            )
+            # Determine if this is a commercial video
+            is_commercial = self._is_commercial_video()
 
-            if summary and summary[0]['summary_text']:
-                return summary[0]['summary_text'].strip()
-            return None
+            # Get video information for context
+            video_info = self._get_video_info_for_context()
+
+            # Apply different summarization approaches based on model type
+            if self.model_type == "t5":
+                return self._summarize_with_t5(text, is_commercial, video_info)
+            elif self.model_type == "bart-xsum":
+                return self._summarize_with_bart_xsum(text, is_commercial, video_info)
+            else:
+                # Original BART-CNN approach
+                return self._summarize_with_bart_cnn(text)
 
         except Exception as e:
             self.logger.error(f"Error summarizing scene: {str(e)}")
-            return None
+            # Return the original text if summarization fails
+            text_key = 'description' if 'description' in scene else 'text'
+            return scene.get(text_key, "Scene description unavailable")
+
+    def _is_commercial_video(self) -> bool:
+        """Determine if the current video is likely a commercial."""
+        try:
+            # Check video title from metadata
+            metadata_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "metadata.json"
+            )
+
+            if os.path.exists(metadata_file):
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                    title = metadata.get("title", "").lower()
+
+                    # Check for commercial indicators in title
+                    commercial_keywords = [
+                        "commercial", "ad ", "advert", "promotion",
+                        "official", "campaign", "tv spot", "product"
+                    ]
+
+                    if any(keyword in title for keyword in commercial_keywords):
+                        return True
+
+            # Check video duration (commercials are typically short)
+            duration = self._get_video_duration_from_metadata()
+            if 0 < duration <= 90:  # Most commercials are under 90 seconds
+                return True
+
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error determining if commercial video: {str(e)}")
+            return False
+
+    def _get_video_info_for_context(self) -> Dict[str, Any]:
+        """Get relevant video information to provide context for summarization."""
+        info = {}
+
+        try:
+            # Get video title and duration
+            metadata_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "metadata.json"
+            )
+
+            if os.path.exists(metadata_file):
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                    info['title'] = metadata.get("title", "")
+                    info['duration'] = float(metadata.get("duration", 0))
+
+            # Get watermarks for brand information
+            watermarks_file = os.path.join(
+                return_video_folder_name(self.video_runner_obj),
+                "count_vertice.json"
+            )
+
+            if os.path.exists(watermarks_file):
+                with open(watermarks_file, 'r') as f:
+                    data = json.load(f)
+                    info['watermarks'] = data.get("watermarks", [])
+
+            return info
+
+        except Exception as e:
+            self.logger.error(f"Error getting video context info: {str(e)}")
+            return {}
+
+    def _summarize_with_t5(self, text: str, is_commercial: bool, video_info: Dict[str, Any]) -> str:
+        """
+        Summarize text using T5 model with appropriate prompting.
+        T5 works best with task-specific prompts.
+        """
+        # Craft an appropriate prompt based on video type
+        if is_commercial:
+            prompt = f"Summarize this commercial description: {text}"
+        else:
+            prompt = f"Summarize this video scene: {text}"
+
+        # Calculate appropriate length based on input
+        input_length = len(text.split())
+        target_length = min(self.DEFAULT_SUMMARY_LENGTH, max(30, input_length // 2))
+
+        # Generate summary
+        summary = self.summarizer(
+            prompt,
+            max_length=target_length,
+            min_length=min(30, target_length - 10),
+            do_sample=False
+        )
+
+        if summary and summary[0]['summary_text']:
+            result = summary[0]['summary_text'].strip()
+
+            # Clean up T5 outputs which sometimes repeat the prompt
+            if result.startswith("Summarize this"):
+                result = result.split(":", 1)[1].strip()
+
+            return result
+        return text
+
+    def _summarize_with_bart_xsum(self, text: str, is_commercial: bool, video_info: Dict[str, Any]) -> str:
+        """
+        Summarize text using BART-XSUM model.
+        BART-XSUM is trained for more concise summaries than BART-CNN.
+        """
+        # For BART-XSUM, we need to keep the input shorter to get good results
+        if len(text) > 512:
+            text = text[:512]
+
+        # Generate summary
+        summary = self.summarizer(
+            text,
+            max_length=self.DEFAULT_SUMMARY_LENGTH,
+            min_length=30,
+            do_sample=False
+        )
+
+        if summary and summary[0]['summary_text']:
+            return summary[0]['summary_text'].strip()
+        return text
+
+    def _summarize_with_bart_cnn(self, text: str) -> str:
+        """
+        Summarize text using the original BART-CNN model.
+        This provides backward compatibility.
+        """
+        # Generate summary
+        summary = self.summarizer(
+            text,
+            max_length=self.DEFAULT_SUMMARY_LENGTH,
+            min_length=30,
+            do_sample=False
+        )
+
+        if summary and summary[0]['summary_text']:
+            return summary[0]['summary_text'].strip()
+        return text
 
     @timeit
     def generate_text_summary(self) -> bool:
         """
         Main entry point for text summarization with comprehensive error handling.
+        Uses model-appropriate summarization techniques.
         """
         try:
-            self.logger.info("Starting text summarization")
+            self.logger.info("Starting text summarization with enhanced models")
 
             # Check if already processed
             if get_status_for_youtube_id(
@@ -546,12 +732,19 @@ class TextSummarization:
 
             # Create fallback if no scenes found
             if not scenes:
-                self.logger.warning("No valid scenes found, creating fallback")
+                self.logger.warning("No valid scenes found, creating fallback scenes")
                 scenes = self.create_fallback_scene()
+
+            # Record which model is being used
+            self.logger.info(f"Using {self.model_type} model for summarization")
 
             # Process scenes
             summarized_scenes = []
             for scene in scenes:
+                # Convert to consistent key names
+                if 'description' in scene and 'text' not in scene:
+                    scene['text'] = scene['description']
+
                 summary = self.summarize_scene(scene)
                 if summary:
                     summarized_scenes.append({
@@ -562,7 +755,7 @@ class TextSummarization:
 
             # Ensure we have at least one summary
             if not summarized_scenes:
-                self.logger.warning("No summaries generated, using fallback")
+                self.logger.warning("No summaries generated, using fallback scenes")
                 summarized_scenes = self.create_fallback_scene()
 
             # Save results
@@ -574,7 +767,8 @@ class TextSummarization:
             with open(output_file, 'w') as f:
                 json.dump(summarized_scenes, f, indent=2)
 
-            self.logger.info(f"Text summarization completed: {len(summarized_scenes)} scenes")
+            self.logger.info(
+                f"Text summarization completed: {len(summarized_scenes)} scenes using {self.model_type} model")
 
             # Update database
             update_module_output(
@@ -583,7 +777,8 @@ class TextSummarization:
                 'text_summarization',
                 {
                     "summarized_scenes": summarized_scenes,
-                    "total_scenes": len(summarized_scenes)
+                    "total_scenes": len(summarized_scenes),
+                    "model_used": self.model_type
                 }
             )
 
