@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Any
 import aiohttp
 import psutil
 
+from web_server import logger
+
 
 # Configuration class for service endpoints
 @dataclass
@@ -105,10 +107,14 @@ class ServiceBalancer:
 
     async def release_all(self):
         """Release all services in this balancer"""
-        async with self.lock:
-            for service in self.configs:
-                service.current_load = 0
-            self.active_services.clear()
+        try:
+            async with self.lock:
+                for service in self.configs:
+                    service.current_load = 0
+                self.active_services.clear()
+                logger.info(f"Released all services for {self.endpoint}")
+        except Exception as e:
+            logger.error(f"Error releasing services for {self.endpoint}: {str(e)}")
 
     async def initialize(self):
         """Initialize session asynchronously"""
@@ -257,13 +263,18 @@ class ServiceManager:
         await self.yolo_balancer.initialize()
 
     async def release_all_services(self):
-        """
-        Releases any held services across all balancers.
-        Used during cleanup and error scenarios.
-        """
-        await self.caption_balancer.release_all()
-        await self.rating_balancer.release_all()
-        await self.yolo_balancer.release_all()
+        """Release all services in all balancers"""
+        try:
+            logger.info("Releasing all services")
+            await self.caption_balancer.release_all()
+            await self.rating_balancer.release_all()
+            await self.yolo_balancer.release_all()
+
+            # Clear active services tracking
+            self.active_services = {}
+            logger.info("All services released successfully")
+        except Exception as e:
+            logger.error(f"Error releasing services: {str(e)}")
 
     async def get_services(self, task_id: str) -> Dict[str, str]:
         """Get service URLs for a task"""

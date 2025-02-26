@@ -47,7 +47,7 @@ active_tasks = set()
 task_queue = asyncio.Queue()
 event_loop = None
 thread_pool = ThreadPoolExecutor(max_workers=MAX_WORKERS)
-service_manager = None
+# service_manager = None
 
 
 async def handle_pipeline_failure(youtube_id: str, ai_user_id: str, ydx_server: str, ydx_app_host: str):
@@ -168,22 +168,22 @@ app.add_middleware(
 
 @app.post("/generate_ai_caption")
 async def generate_ai_caption(post_data: WebServerRequest):
-    """Handle incoming AI caption generation requests"""
     try:
+        # Basic validation
         if not post_data.youtube_id or not post_data.AI_USER_ID:
             raise HTTPException(status_code=400, detail="Missing required fields")
 
         task_key = (post_data.youtube_id, post_data.AI_USER_ID)
         status = get_status_for_youtube_id(post_data.youtube_id, post_data.AI_USER_ID)
 
-        # Return status if task exists and is completed
+        # If already done, return completed status
         if status == "done":
             return {
                 "status": "completed",
                 "message": "Task already processed"
             }
 
-        # Process incoming data
+        # Save the request data to database
         data_json = json.loads(post_data.model_dump_json())
         process_incoming_data(
             data_json['user_id'],
@@ -193,7 +193,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
             data_json['youtube_id']
         )
 
-        # If task is already queued, return position
+        # If already queued, return position
         if task_key in active_tasks:
             return {
                 "status": "in_progress",
@@ -201,7 +201,7 @@ async def generate_ai_caption(post_data: WebServerRequest):
                 "position": task_queue.qsize()
             }
 
-        # Add to tracking and queue
+        # Queue the task without service availability check
         active_tasks.add(task_key)
         await task_queue.put({
             "youtube_id": post_data.youtube_id,
@@ -219,13 +219,13 @@ async def generate_ai_caption(post_data: WebServerRequest):
     except Exception as e:
         logger.error(f"Error in generate_ai_caption: {str(e)}")
         logger.error(traceback.format_exc())
-        if task_key:
-            active_tasks.discard(task_key)  # Ensure cleanup on error
+        if 'task_key' in locals():
+            active_tasks.discard(task_key)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 async def task_processor():
-    """Task processor with error handling and queue management"""
+    """Task processor with improved service management"""
     while True:
         try:
             data = await task_queue.get()
@@ -234,6 +234,12 @@ async def task_processor():
             task_key = (youtube_id, ai_user_id)
 
             try:
+                # Release any held services before starting a new task
+                await service_manager.release_all_services()
+
+                # Re-initialize services for this task
+                await service_manager.ensure_initialized()
+
                 # Check current status
                 status = get_status_for_youtube_id(youtube_id, ai_user_id)
                 if status == "done":
@@ -265,6 +271,7 @@ async def task_processor():
                                               data["ydx_app_host"])
 
             finally:
+                await service_manager.release_all_services()
                 active_tasks.discard(task_key)
                 task_queue.task_done()
 
@@ -274,7 +281,6 @@ async def task_processor():
             logger.error(f"Task processor error: {str(e)}")
             logger.error(traceback.format_exc())
             await asyncio.sleep(1)  # Prevent tight loop on errors
-
 
 @app.get("/health_check")
 async def health_check():
@@ -286,7 +292,6 @@ async def health_check():
                 detail="Service manager not initialized"
             )
 
-        service_health = await service_manager.check_all_services_health()
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
@@ -294,7 +299,6 @@ async def health_check():
             "queue_size": task_queue.qsize(),
             "worker_id": os.getpid(),
             "memory_usage": psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024,
-            "services": service_health
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
