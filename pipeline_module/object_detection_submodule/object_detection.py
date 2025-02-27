@@ -1,9 +1,9 @@
 import os
 import csv
-import json
+import re
 import time
 import traceback
-from typing import Dict, List, Any, Optional, re
+from typing import Dict, List, Any
 import requests
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, OBJECTS_CSV
