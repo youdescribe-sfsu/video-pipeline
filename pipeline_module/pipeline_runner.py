@@ -180,7 +180,7 @@ class PipelineRunner:
             try:
                 object_detection = ObjectDetection(
                     self.video_runner_obj,
-                    service_url=service.get_url(endpoint="/detect_batch_folder")
+                    service_url=service.get_url(endpoint="/detect_multiple_files")
                 )
                 success = object_detection.run_object_detection()
                 if not success:

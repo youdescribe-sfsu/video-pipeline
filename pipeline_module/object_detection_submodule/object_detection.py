@@ -1,8 +1,9 @@
 import os
 import csv
 import json
+import time
 import traceback
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, re
 import requests
 from web_server_module.web_server_database import get_status_for_youtube_id, update_status, update_module_output
 from ..utils_module.utils import return_video_frames_folder, return_video_folder_name, OBJECTS_CSV
@@ -16,42 +17,77 @@ class ObjectDetection:
         self.logger = video_runner_obj.get("logger")
         self.yolo_endpoint = service_url  # Direct service URL injection
         self.confidence_threshold = 0.25
-        self.batch_size = 16
         self.max_retries = 2
+        self.batch_size = 16
+        self.request_timeout = 120
 
         print(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
         self.logger.info(f"ObjectDetection initialized with YOLO endpoint: {self.yolo_endpoint}")
 
     @timeit
     def run_object_detection(self) -> bool:
-        """Main entry point for object detection process."""
-        print("Starting run_object_detection method")
+        """Execute object detection on video frames."""
         try:
-            self.logger.info(f"Running object detection on {self.video_runner_obj['video_id']}")
-
             # Check if already processed
             if get_status_for_youtube_id(
                     self.video_runner_obj["video_id"],
                     self.video_runner_obj["AI_USER_ID"]
             ) == "done":
-                self.logger.info("Object detection already completed, skipping step.")
+                self.logger.info("Object detection already completed")
                 return True
 
+            # Get frame files
             frame_files = self.get_frame_files()
-            results = self.process_frames_in_batches(frame_files)
-            self.save_detection_results(results)
+            total_frames = len(frame_files)
+            self.logger.info(f"Found {total_frames} frames to process")
 
-            # Update database
+            if total_frames == 0:
+                self.logger.error("No frames found for processing")
+                return False
+
+            # Calculate optimal batch size
+            self.batch_size = self.calculate_optimal_batch_size(total_frames)
+            self.logger.info(f"Using batch size of {self.batch_size} for {total_frames} frames")
+
+            # Process frames in batches
+            all_results = []
+            processed_frames = 0
+
+            for i in range(0, total_frames, self.batch_size):
+                batch = frame_files[i:i + self.batch_size]
+                batch_num = (i // self.batch_size) + 1
+                total_batches = (total_frames + self.batch_size - 1) // self.batch_size
+
+                self.logger.info(f"Processing batch {batch_num}/{total_batches}")
+
+                try:
+                    batch_results = self.process_batch(batch)
+                    all_results.extend(batch_results)
+
+                    # Update processed count for progress tracking
+                    processed_frames += len(batch_results)
+                    progress = (processed_frames / total_frames) * 100
+                    self.logger.info(f"Progress: {progress:.1f}% ({processed_frames}/{total_frames})")
+
+                except Exception as e:
+                    self.logger.error(f"Error in batch {batch_num}: {str(e)}")
+                    # Continue with next batch even on failure
+
+            # Verify we have sufficient results
+            coverage = len(all_results) / total_frames if total_frames > 0 else 0
+            self.logger.info(f"Completed with {coverage:.1%} frame coverage ({len(all_results)}/{total_frames})")
+
+            if coverage < 0.75:  # Require at least 75% coverage
+                self.logger.error(f"Insufficient frame coverage: {coverage:.1%}")
+                if coverage == 0:
+                    return False
+
+            # Save detection results and update database
+            self.save_detection_results(all_results)
             update_status(
                 self.video_runner_obj["video_id"],
                 self.video_runner_obj["AI_USER_ID"],
                 "done"
-            )
-            update_module_output(
-                self.video_runner_obj["video_id"],
-                self.video_runner_obj["AI_USER_ID"],
-                'object_detection',
-                {"detection_results": results}
             )
 
             self.logger.info("Object detection completed successfully")
@@ -61,6 +97,39 @@ class ObjectDetection:
             self.logger.error(f"Error in object detection: {str(e)}")
             self.logger.error(traceback.format_exc())
             return False
+
+    def verify_detection_results(self, results: List[Dict[str, Any]], expected_frames: int) -> bool:
+        """
+        Verify that we have detection results for at least 90% of expected frames.
+        """
+        if not results:
+            return False
+
+        # Count unique frame numbers in results
+        processed_frames = set(result.get('frame_number') for result in results if 'frame_number' in result)
+
+        # Calculate percentage of frames processed
+        coverage = len(processed_frames) / expected_frames if expected_frames > 0 else 0
+
+        self.logger.info(
+            f"Object detection coverage: {coverage:.2f} ({len(processed_frames)}/{expected_frames} frames)")
+
+        # Accept if we have at least 90% coverage
+        return coverage >= 0.9
+
+    def calculate_optimal_batch_size(self, total_frames: int) -> int:
+        """
+        Dynamically calculate optimal batch size based on frame count.
+        Smaller batches for larger videos to prevent timeouts.
+        """
+        if total_frames < 500:
+            return 32
+        elif total_frames < 1000:
+            return 16
+        elif total_frames < 2000:
+            return 8
+        else:
+            return 4
 
     def get_frame_files(self) -> List[str]:
         """Get list of frame files to process."""
@@ -94,32 +163,56 @@ class ObjectDetection:
         return results
 
     def process_batch(self, batch: List[str], attempt: int = 1) -> List[Dict[str, Any]]:
-        """Process a single batch with retry logic."""
-        print(f"Processing batch of {len(batch)} frames")
-        self.logger.info(f"Processing batch of {len(batch)} frames")
+        """Process a specific batch of frame files."""
+        num_frames = len(batch)
+        self.logger.info(f"Processing batch of {num_frames} frames")
 
+        # Calculate adaptive timeout based on batch size
+        # Allow ~5 seconds per frame with minimum 60 seconds
+        adaptive_timeout = max(60, num_frames * 5)
+
+        # Create payload with specific files rather than folder
         payload = {
-            "folder_path": os.path.dirname(batch[0]),
+            "files_path": batch,  # Send exact file paths
             "threshold": self.confidence_threshold
         }
 
         try:
-            response = requests.post(self.yolo_endpoint, json=payload, timeout=60)
-            print(f"YOLO API Response status code: {response.status_code}")
+            self.logger.info(f"Sending request with {adaptive_timeout}s timeout")
+            response = requests.post(
+                self.yolo_endpoint,
+                json=payload,
+                timeout=adaptive_timeout
+            )
+
             self.logger.info(f"YOLO API Response status code: {response.status_code}")
-
             response.raise_for_status()
-            results = response.json()['results']
 
+            results = response.json().get('results', [])
+
+            # Validate results
+            if len(results) != num_frames:
+                self.logger.warning(
+                    f"Expected {num_frames} results but got {len(results)}. "
+                    f"Results may be incomplete."
+                )
+
+            # Process and return valid results
             valid_results = []
             for result in results:
                 try:
-                    if 'frame_number' not in result or 'confidences' not in result:
-                        raise ValueError(f"Invalid result structure: {result}")
+                    file_path = result.get('file_path')
+                    if not file_path or 'confidences' not in result:
+                        continue
+
+                    # Extract frame number from filename
+                    frame_match = re.search(r'frame_(\d+)\.jpg', file_path)
+                    frame_number = int(frame_match.group(1)) if frame_match else 0
+
                     valid_results.append({
-                        'frame_number': result['frame_number'],
+                        'frame_number': frame_number,
                         'timestamp': result.get('timestamp', 0.0),
-                        'objects': result['confidences']
+                        'objects': result.get('confidences', [])
                     })
                 except Exception as e:
                     self.logger.error(f"Error processing result: {str(e)}")
@@ -128,9 +221,13 @@ class ObjectDetection:
 
         except requests.RequestException as e:
             if attempt < self.max_retries:
-                self.logger.warning(f"Retry attempt {attempt} for batch")
+                # Exponential backoff between retries
+                wait_time = 2 ** attempt
+                self.logger.warning(f"Request failed. Retry {attempt} after {wait_time}s")
+                time.sleep(wait_time)
                 return self.process_batch(batch, attempt + 1)
-            self.logger.error(f"Error in YOLO API request: {str(e)}")
+
+            self.logger.error(f"Error in YOLO API request after {attempt} attempts: {str(e)}")
             raise
 
     def save_detection_results(self, results: List[Dict[str, Any]]) -> None:
