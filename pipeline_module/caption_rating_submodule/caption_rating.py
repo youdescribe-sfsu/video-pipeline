@@ -223,15 +223,30 @@ class CaptionRating:
         try:
             # Get filtered captions
             filtered_captions = self.filter_rated_captions()
+
+            # If no captions passed the threshold, use all captions with a warning
             if not filtered_captions:
-                self.logger.error("No captions passed rating threshold")
-                return False
+                self.logger.warning("No captions passed rating threshold. Using all captions with original ratings.")
+
+                # Load all captions instead
+                caption_file = os.path.join(
+                    return_video_folder_name(self.video_runner_obj),
+                    CAPTION_SCORE
+                )
+
+                all_captions = []
+                with open(caption_file, 'r', newline='') as f:
+                    reader = csv.DictReader(f)
+                    all_captions = list(reader)
+
+                if not all_captions:
+                    self.logger.error("No caption data available at all")
+                    return False
+
+                filtered_captions = all_captions
 
             # Get object detection data
             obj_header, obj_rows = self.load_object_detection_data()
-            if not obj_header or not obj_rows:
-                self.logger.error("No object detection data available")
-                return False
 
             # Prepare output file
             output_file = os.path.join(
@@ -239,27 +254,60 @@ class CaptionRating:
                 CAPTIONS_AND_OBJECTS_CSV
             )
 
-            with open(output_file, 'w', newline='') as f:
-                writer = csv.writer(f)
+            # If we have proper object data, use it
+            if obj_header and obj_rows:
+                with open(output_file, 'w', newline='') as f:
+                    writer = csv.writer(f)
 
-                # Combine headers (skip frame_index from objects as it's in captions)
-                combined_header = ['frame_index', 'frame_url', 'caption', 'rating'] + obj_header[1:]
-                writer.writerow(combined_header)
+                    # Combine headers (skip frame_index from objects as it's in captions)
+                    combined_header = ['frame_index', 'frame_url', 'caption', 'rating'] + obj_header[1:]
+                    writer.writerow(combined_header)
 
-                # Match and combine data
-                for caption in filtered_captions:
-                    frame_idx = caption['frame_index']
-                    # Find matching object data
-                    obj_row = next((row for row in obj_rows if row[0] == frame_idx), None)
-                    if obj_row:
-                        combined_row = [
-                                           frame_idx,
-                                           caption['frame_url'],
-                                           caption['caption'],
-                                           caption['rating']
-                                       ] + obj_row[1:]
-                        writer.writerow(combined_row)
+                    # Match and combine data
+                    for caption in filtered_captions:
+                        frame_idx = caption['frame_index']
+                        # Find matching object data
+                        obj_row = next((row for row in obj_rows if row[0] == frame_idx), None)
+                        if obj_row:
+                            combined_row = [
+                                               frame_idx,
+                                               caption['frame_url'],
+                                               caption['caption'],
+                                               caption['rating']
+                                           ] + obj_row[1:]
+                            writer.writerow(combined_row)
+                        else:
+                            # No matching object data, use zeros for object values
+                            combined_row = [
+                                               frame_idx,
+                                               caption['frame_url'],
+                                               caption['caption'],
+                                               caption['rating']
+                                           ] + ['0'] * (len(obj_header) - 1)
+                            writer.writerow(combined_row)
+            else:
+                # No object data at all, create file with just the captions
+                # but match structure needed for next module
+                self.logger.warning("No object detection data available. Creating backup file.")
 
+                # Create the output file with just captions
+                with open(output_file, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    # Add timestamp column that's required for scene segmentation
+                    writer.writerow(['frame_index', 'frame_url', 'caption', 'rating', 'timestamp'])
+
+                    for caption in filtered_captions:
+                        # Estimate timestamp from frame_index (assuming 30fps)
+                        estimated_timestamp = float(caption['frame_index']) / 30.0
+                        writer.writerow([
+                            caption['frame_index'],
+                            caption['frame_url'],
+                            caption['caption'],
+                            caption['rating'],
+                            str(estimated_timestamp)
+                        ])
+
+            self.logger.info(f"Generated captions and objects file: {output_file}")
             return True
 
         except Exception as e:
