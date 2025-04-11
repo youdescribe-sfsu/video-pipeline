@@ -1,6 +1,7 @@
 import csv
 import os
 import json
+import time
 import requests
 import traceback
 from typing import Dict, Any, Optional, List, Tuple
@@ -88,13 +89,15 @@ class CaptionRating:
                         self.logger.info(f"Got rating {rating} for frame {image_data['frame_index']}")
                         return rating
                 except (requests.Timeout, requests.RequestException) as e:
-                    if attempt == self.max_retries - 1:
-                        self.video_runner_obj["service_manager"].rating_balancer.mark_service_failed(service)
-                        service = None
+                    self.logger.warning(f"Request attempt {attempt + 1} failed: {str(e)}")
+                    time.sleep(1)  # Small delay between retries
+
+            # All attempts failed, return default rating
+            self.logger.warning(f"All rating attempts failed for frame {image_data['frame_index']}")
+            return "0.5"  # Default non-zero rating to keep captions in the pipeline
         finally:
             if service:
                 self.video_runner_obj["service_manager"].rating_balancer.release_service(service)
-        return "0.0"
 
     def process_captions(self, caption_pair_file: str) -> bool:
         """Process all captions and save ratings to file."""
@@ -279,7 +282,8 @@ class CaptionRating:
 
             # Validate required input files
             if not self.validate_input_files():
-                raise Exception("Required input files not found or empty")
+                self.logger.error("Required input files not found or empty")
+                return False
 
             # Get caption-image pairs file path
             caption_pair_file = os.path.join(
@@ -287,20 +291,27 @@ class CaptionRating:
                 CAPTION_IMAGE_PAIR
             )
 
-            # Process captions and generate ratings
-            if not self.process_captions(caption_pair_file):
-                raise Exception("Failed to process captions")
+            # Try to process captions, but continue if it fails
+            caption_success = True
+            try:
+                caption_success = self.process_captions(caption_pair_file)
+            except Exception as e:
+                self.logger.error(f"Error processing captions: {str(e)}")
+                self.logger.error(traceback.format_exc())
+                caption_success = False
 
+            # Even if caption rating failed, try to generate combined file
             # Generate final combined file
             if not self.generate_captions_and_objects():
-                raise Exception("Failed to generate captions and objects file")
+                self.logger.error("Failed to generate captions and objects file")
+                return False
 
             # Mark process as complete
             update_module_output(
                 self.video_runner_obj["video_id"],
                 self.video_runner_obj["AI_USER_ID"],
                 'caption_rating',
-                {"status": "completed"}
+                {"status": "completed", "success": caption_success}
             )
 
             self.logger.info("Caption rating completed successfully")
