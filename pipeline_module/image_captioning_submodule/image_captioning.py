@@ -300,39 +300,46 @@ class ImageCaptioning:
         self.request_timeout = 10
 
     def get_caption(self, filename: str) -> str:
-        service = None
-        try:
-            service = self.video_runner_obj["service_manager"].caption_balancer.get_next_service()
-            service_url = service.get_url(endpoint="/upload")
+        """Get image caption by trying all available captioning services."""
+        all_services = self.video_runner_obj["service_manager"].caption_balancer.configs
+        self.logger.info(f"Found {len(all_services)} captioning services to try")
 
-            for attempt in range(self.max_retries):
-                try:
-                    with open(filename, 'rb') as fileBuffer:
-                        multipart_form_data = {
-                            'token': ('', self.token),
-                            'image': (os.path.basename(filename), fileBuffer),
-                            'min_length': ('', str(self.min_length)),
-                            'max_length': ('', str(self.max_length))
-                        }
-                        self.logger.info(f"Sending request to {service_url}")
-                        response = requests.post(
-                            service_url,
-                            files=multipart_form_data,
-                            timeout=self.request_timeout
-                        )
-                        if response.status_code == 200:
-                            caption = response.json()['caption']
-                            self.logger.info(f"Got caption: {caption}")
-                            time.sleep(4)
-                            return caption.strip()
-                except (requests.Timeout, requests.RequestException) as e:
-                    if attempt == self.max_retries - 1:
-                        self.video_runner_obj["service_manager"].caption_balancer.mark_service_failed(service)
-                        service = None
-        finally:
-            if service:
-                self.video_runner_obj["service_manager"].caption_balancer.release_service(service)
-        return ""
+        # Try each service until one succeeds
+        for service in all_services:
+            if not service.is_healthy:
+                self.logger.info(f"Skipping unhealthy captioning service on port {service.port}")
+                continue
+
+            service_url = service.get_url(endpoint="/upload")
+            self.logger.info(f"Trying captioning service on port {service.port}")
+
+            try:
+                with open(filename, 'rb') as fileBuffer:
+                    multipart_form_data = {
+                        'token': ('', self.token),
+                        'image': (os.path.basename(filename), fileBuffer),
+                        'min_length': ('', str(self.min_length)),
+                        'max_length': ('', str(self.max_length))
+                    }
+
+                    response = requests.post(
+                        service_url,
+                        files=multipart_form_data,
+                        timeout=self.request_timeout
+                    )
+
+                    if response.status_code == 200:
+                        caption = response.json()['caption']
+                        self.logger.info(f"Got caption: {caption}")
+                        time.sleep(4)
+                        return caption.strip()
+
+            except (requests.Timeout, requests.RequestException) as e:
+                self.logger.warning(f"Captioning service on port {service.port} failed: {str(e)}")
+
+        error_msg = "All captioning services failed. Unable to generate caption."
+        self.logger.error(error_msg)
+        raise Exception(error_msg)
 
     def get_frame_files(self) -> List[str]:
         """Get sorted list of frame files to process."""

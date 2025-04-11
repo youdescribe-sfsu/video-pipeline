@@ -67,13 +67,10 @@ class CaptionRating:
         Get caption rating with improved service fallback.
         Tries all available rating services before falling back to default value.
         """
-        # Get all available services once
         try:
-            # Access the list of configured services
             all_services = self.video_runner_obj["service_manager"].rating_balancer.configs
             self.logger.info(f"Found {len(all_services)} rating services to try")
 
-            # Try each service until one succeeds
             for service in all_services:
                 if not service.is_healthy:
                     self.logger.info(f"Skipping unhealthy service on port {service.port}")
@@ -88,7 +85,6 @@ class CaptionRating:
                     'caption': image_data['caption']
                 }
 
-                # Try each service with retries
                 for attempt in range(self.max_retries):
                     try:
                         response = requests.post(
@@ -99,22 +95,20 @@ class CaptionRating:
                         if response.status_code == 200:
                             rating = response.text.lstrip("['").rstrip("']")
                             self.logger.info(f"Got rating {rating} for frame {image_data['frame_index']}")
+                            time.sleep(4)
                             return rating
                     except (requests.Timeout, requests.RequestException) as e:
                         self.logger.warning(f"Service {service.port} attempt {attempt + 1} failed: {str(e)}")
-                        # Just log and continue to next attempt
-                        time.sleep(1)  # Small delay between retries
+                        time.sleep(2)
 
-                # All retries failed for this service
                 self.logger.warning(f"All attempts failed for service on port {service.port}")
 
-            # If we get here, all services have failed
             self.logger.warning(f"All rating services failed for frame {image_data['frame_index']}")
-            return "0.5"  # Default non-zero rating to keep captions in the pipeline
+            return "0.5"
 
         except Exception as e:
             self.logger.error(f"Error in caption rating service selection: {str(e)}")
-            return "0.5"  # Default rating on unexpected errors
+            return "0.5"
 
     def process_captions(self, caption_pair_file: str) -> bool:
         """Process all captions and save ratings to file."""
