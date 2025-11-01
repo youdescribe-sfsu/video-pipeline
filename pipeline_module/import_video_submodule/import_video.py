@@ -8,7 +8,8 @@ from ..utils_module.utils import return_video_download_location, return_video_fo
 from ..utils_module.timeit_decorator import timeit
 from datetime import timedelta
 import ffmpeg
-import traceback
+import time
+import random
 
 class ImportVideo:
     def __init__(self, video_runner_obj: Dict[str, Any]):
@@ -35,6 +36,8 @@ class ImportVideo:
                 print("Video already downloaded, skipping step.")
                 return True
 
+            time.sleep(random.uniform(2, 4))
+
             ydl_opts = {
                 'outtmpl': return_video_download_location(self.video_runner_obj),
                 "format": "bv*+ba/b",
@@ -42,13 +45,15 @@ class ImportVideo:
                 'progress_hooks': [self.progress_hook],
                 'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'tv', 'mweb'],
-                    'player_skip': ['webpage'],
+                    'player_client': ['android', 'ios'],
+                    'skip': ['hls', 'dash'],  # Use progressive formats when possible
                     }
                 },
-                'http_headers': {
-                    'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
-                },
+                # Rate limiting to avoid bot detection
+                'sleep_interval': 2,
+                'max_sleep_interval': 5,
+                'fragment_retries': 10,
+                'retries': 5,
             }
             print(f"ydl_opts: {ydl_opts}")
 
