@@ -37,7 +37,8 @@ class ImportVideo:
 
             ydl_opts = {
                 'outtmpl': return_video_download_location(self.video_runner_obj),
-                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "format": "bv*+ba/b",
+                "merge_output_format": "mp4",
                 'progress_hooks': [self.progress_hook],
             }
             print(f"ydl_opts: {ydl_opts}")
