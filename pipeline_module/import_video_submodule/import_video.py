@@ -45,18 +45,17 @@ class ImportVideo:
                 f"Cookies file not found at {cookies_file}. YouTube may block requests.")
                 print(f"WARNING: No cookies file found at {cookies_file}")
 
-
-
             ydl_opts = {
                 'outtmpl': return_video_download_location(self.video_runner_obj),
-                "format": "bv*+ba/b",
-                "merge_output_format": "mp4",
+                'format': 'bv*+ba/b',
+                'merge_output_format': 'mp4',
                 'cookiefile': cookies_file if os.path.exists(cookies_file) else None,
                 'progress_hooks': [self.progress_hook],
                 'extractor_args': {
-                'youtube': {
-                        'player_client': ['web'],
-                        'player_skip': ['configs'],
+                    'youtube': {
+                        # Don't force 'web'; use tv_embedded to avoid PO tokens
+                        'player_client': ['tv_embedded']
+                        # IMPORTANT: remove 'player_skip': ['configs'] entirely
                     }
                 },
                 'sleep_interval': 2,
