@@ -40,6 +40,15 @@ class ImportVideo:
                 "format": "bv*+ba/b",
                 "merge_output_format": "mp4",
                 'progress_hooks': [self.progress_hook],
+                'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'tv', 'mweb'],
+                    'player_skip': ['webpage'],
+                    }
+                },
+                'http_headers': {
+                    'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+                },
             }
             print(f"ydl_opts: {ydl_opts}")
 
