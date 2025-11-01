@@ -38,18 +38,27 @@ class ImportVideo:
 
             time.sleep(random.uniform(2, 4))
 
+            cookies_file = os.path.expanduser("~/.yt-dlp-cookies.txt")
+
+            if not os.path.exists(cookies_file):
+                self.logger.warning(
+                f"Cookies file not found at {cookies_file}. YouTube may block requests.")
+                print(f"WARNING: No cookies file found at {cookies_file}")
+
+
+
             ydl_opts = {
                 'outtmpl': return_video_download_location(self.video_runner_obj),
                 "format": "bv*+ba/b",
                 "merge_output_format": "mp4",
+                'cookiefile': cookies_file if os.path.exists(cookies_file) else None,
                 'progress_hooks': [self.progress_hook],
                 'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'ios'],
-                    'skip': ['hls', 'dash'],  # Use progressive formats when possible
+                        'player_client': ['web'],
+                        'player_skip': ['configs'],
                     }
                 },
-                # Rate limiting to avoid bot detection
                 'sleep_interval': 2,
                 'max_sleep_interval': 5,
                 'fragment_retries': 10,
